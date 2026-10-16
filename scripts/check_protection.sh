@@ -20,24 +20,16 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 ci_load
 
-# required <branch> - the rules <branch> needs, each a rule or a list of rules
-# any one of which will do
-required() {
-  case $1 in
-  main) echo '["non_fast_forward","deletion","pull_request"]' ;;
-  dev) echo '["non_fast_forward","deletion",["pull_request","required_signatures"]]' ;;
-  *) return 1 ;;
-  esac
-}
-
-# check_branch <slug> <branch> - prints why <branch> fails and fails; every
-# command is checked, since a caller's `if` turns off `set -e` in here
+# check_branch <slug> <main|dev> - prints why the branch fails and fails;
+# every command is checked, since a caller's `if` turns off `set -e` in here
 check_branch() {
-  local slug=$1 branch=$2 want refs rules ids id ruleset held='[]' bypassed='' missing
-  want="$(required "$branch")" || {
-    echo "no required rules for $branch"
-    return 1
-  }
+  local slug=$1 branch=$2 want='' refs rules ids id ruleset held='[]' bypassed='' missing
+  # the rules each branch needs, each a rule or a list of rules any one of
+  # which will do
+  case $branch in
+  main) want='["non_fast_forward","deletion","pull_request"]' ;;
+  dev) want='["non_fast_forward","deletion",["pull_request","required_signatures"]]' ;;
+  esac
   refs="$(gh api "repos/$slug/git/matching-refs/heads/$branch")" || {
     echo "cannot list its refs"
     return 1

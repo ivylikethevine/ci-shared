@@ -61,13 +61,17 @@ normalize() {
 }
 
 diff_repo() {
-  local slug=$1 name=${1#*/} kind want id differs=0
+  local slug=$1 name=${1#*/} kind want live title id differs=0
+  live="$(gh api "repos/$slug/rulesets?includes_parents=false")" || {
+    echo "$name: cannot list its rulesets"
+    return 1
+  }
   for kind in main dev; do
     want="$(render "$name" "$kind" | normalize)"
-    id="$(gh api "repos/$slug/rulesets?includes_parents=false" |
-      jq -r --arg n "$(jq -r .name <<<"$want")" '.[] | select(.name == $n) | .id')"
+    title="$(jq -r .name <<<"$want")"
+    id="$(jq -r --arg n "$title" '.[] | select(.name == $n) | .id' <<<"$live")"
     if [ -z "$id" ]; then
-      echo "$name: no $(jq -r .name <<<"$want") ruleset"
+      echo "$name: no $title ruleset"
       differs=$((differs + 1))
       continue
     fi
@@ -91,19 +95,17 @@ diff)
   shift
   failed=0
   while read -r slug _; do
-    name="${slug#*/}"
-    if [ $# -gt 0 ]; then
-      wanted=0
-      for n in "$@"; do [ "$n" = "$name" ] && wanted=1; done
-      [ "$wanted" = 1 ] || continue
-    fi
-    # a subshell outside any `if`, so `set -e` stops this repository alone
+    # set -e turned back on inside a subshell outside any `if` or `||` (it
+    # inherits the +e), so a failure stops this repository alone
     set +e
-    (diff_repo "$slug")
+    (
+      set -e
+      diff_repo "$slug"
+    )
     rc=$?
     set -e
     failed=$((failed + rc))
-  done < <(ci_repos)
+  done < <(ci_repos "$@")
   exit "$failed"
   ;;
 *)

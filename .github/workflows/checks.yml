@@ -57,3 +57,50 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: scripts/check.sh
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      # block: the checkout, the cache service, shfmt's release download,
+      # kcov's source tarball, and the Ubuntu archive for kcov's libraries
+      # and build deps.
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            github.com:443
+            codeload.github.com:443
+            results-receiver.actions.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            objects.githubusercontent.com:443
+            azure.archive.ubuntu.com:80
+            archive.ubuntu.com:80
+            security.ubuntu.com:80
+            esm.ubuntu.com:443
+            motd.ubuntu.com:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # kcov's runtime libraries, which a cached kcov needs as much as a
+      # fresh build
+      - name: Install kcov's libraries
+        run: |
+          set -euo pipefail
+          source .github/actions/apt/lib.sh
+          _ci_apt_drop_vendor_lists
+          _ci_apt_update
+          sudo apt-get install -y --no-install-recommends libdw1 libelf1 libcurl4 zlib1g
+
+      # built from source on a cache miss (tools.txt's cmake kind)
+      - uses: ./.github/actions/setup-tools
+        with:
+          tools: shfmt kcov
+
+      - name: Run the tests under kcov, failing below 100%
+        run: tests/coverage.sh

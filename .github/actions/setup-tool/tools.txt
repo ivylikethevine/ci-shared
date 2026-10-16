@@ -90,3 +90,10 @@ shfmt|3.14.1|raw|https://github.com/mvdan/sh/releases/download/v%v/shfmt_v%v_lin
 # Installed rather than taken from the runner image, and several distros ship
 # an unrelated jq-wrapper also called `yq`.
 yq|4.54.1|raw|https://github.com/mikefarah/yq/releases/download/v%v/yq_linux_amd64|--version|github:mikefarah/yq||8e34fc298390875de416e6a4afcb8cabeceb25d9aa8506c1a2f9353cf702ea5f
+# kcov publishes no binary asset, so this builds its source tarball. The
+# runtime libs (libdw1, libelf1, libcurl4, zlib1g) are the caller's to keep:
+# checks.yml's coverage job installs them. libssl-dev is not redundant:
+# kcov's CMakeLists does find_package(OpenSSL REQUIRED), and
+# libcurl4-openssl-dev only recommends the headers, which
+# --no-install-recommends drops.
+kcov|43|cmake:libcurl4-openssl-dev,libdw-dev,libelf-dev,libssl-dev,python3,zlib1g-dev|https://github.com/SimonKagstrom/kcov/archive/refs/tags/v%v.tar.gz|--version|github:SimonKagstrom/kcov||4cbba86af11f72de0c7514e09d59c7927ed25df7cebdad087f6d3623213b95bf

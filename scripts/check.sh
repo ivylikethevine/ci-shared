@@ -13,7 +13,9 @@
 # of checks that failed.
 set -uo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
+# shellcheck source=./lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+cd "$CI_SHARED_DIR" || exit 1
 
 failed=0
 run() {
@@ -30,7 +32,7 @@ run() {
 
 scripts=()
 while IFS= read -r f; do scripts+=("$f"); done < <(
-  find scripts .github/scripts files -name '*.sh' -type f | LC_ALL=C sort
+  find scripts tests .github/scripts files -name '*.sh' -type f | LC_ALL=C sort
 )
 workflows=(.github/workflows/*.yml files/.github/workflows/*.yml)
 bin=.github/node_modules/.bin
@@ -45,12 +47,10 @@ run lint-workflows .github/scripts/lint_workflows.sh "${workflows[@]}" files/.gi
 run zizmor zizmor --config .github/zizmor.yml ${offline[@]+"${offline[@]}"} .github/workflows files/.github
 run prettier "$bin/prettier" --check .
 run markdownlint "$bin/markdownlint-cli2" '**/*.md' '#**/node_modules'
-run usage scripts/usage.sh --check
+run usage "$CI_SCRIPTS_DIR/usage.sh" --check
 
 # Each template rendered for every target that receives it, so a placeholder or
 # block that breaks only one repository's copy still fails here.
-# shellcheck source=./lib.sh
-source scripts/lib.sh
 run config ci_load
 rendered="$(mktemp -d "${TMPDIR:-/tmp}/ci-render.XXXXXX")"
 trap 'case "$rendered" in */ci-render.??????) rm -r "$rendered" ;; esac' EXIT

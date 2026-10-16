@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Reads and validates every repos/<name>.toml, and prints them as one JSON list.
 
-    python3 -I scripts/config.py
+    python3 -I scripts/config.py [ROOT]
 
-Each entry is the file's table with `name` (the file's stem) added and every
+ROOT is the tree holding repos/ and files/ (default: this checkout). Each entry is the file's table with `name` (the file's stem) added and every
 optional key filled in, sorted by name. Any problem in any file, an unknown key
 included, prints one line per problem to stderr and exits 1 with nothing on
 stdout, so no caller acts on a partial or misread config. Needs Python 3.11+.
@@ -19,7 +19,7 @@ if sys.version_info < (3, 11):
 
 import tomllib
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent
 SLUG = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")
 TEMPLATE_KEY = re.compile(r"[A-Za-z_]+")
 # ci_render splits a target's values on spaces

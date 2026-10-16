@@ -1,13 +1,16 @@
 # shellcheck shell=bash
 # Helpers shared by the scripts in this directory; sourced, not run.
 
-CI_SHARED_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+CI_SCRIPTS_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# the tree whose repos/, files/ and rulesets/ the scripts read: this checkout,
+# or the one CI_SHARED_DIR names (the tests' fixtures)
+CI_SHARED_DIR="${CI_SHARED_DIR:-$(dirname "$CI_SCRIPTS_DIR")}"
 
 # ci_load - reads every repos/<name>.toml into CI_CONFIGS as one JSON list
 # (scripts/config.py), or fails when any of them is invalid. Each script runs it
 # once before the helpers below, which read CI_CONFIGS.
 ci_load() {
-  CI_CONFIGS="$(python3 -I "$CI_SHARED_DIR/scripts/config.py")"
+  CI_CONFIGS="$(python3 -I "$CI_SCRIPTS_DIR/config.py" "$CI_SHARED_DIR")"
 }
 
 ci_configs() {
@@ -18,10 +21,12 @@ ci_configs() {
   printf '%s\n' "$CI_CONFIGS"
 }
 
-# Prints "owner/name branch" for each target, branch being where its sync pull
-# requests go.
+# ci_repos [NAME...] - prints "owner/name branch" for each target, or for those
+# NAMEs alone, branch being where its sync pull requests go.
+# shellcheck disable=SC2120 # NAMEs are optional
 ci_repos() {
-  ci_configs | jq -r '.[] | "\(.repository) \(.sync_branch)"'
+  ci_configs | jq -r '.[] | select($ARGS.positional == [] or (.name | IN($ARGS.positional[])))
+    | "\(.repository) \(.sync_branch)"' --args "$@"
 }
 
 # Prints a row per path target <name> receives: the path in files/, then any

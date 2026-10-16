@@ -22,6 +22,7 @@ Scorecard and zizmor see ordinary files; nothing in a target refers back here.
 | `scripts/check_protection.sh` | fails unless each target's `main` and `dev` are protected from the token     |
 | `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets      |
 | `rulesets/`                   | the `main` and `dev` rulesets every target shares, in GitHub's import format |
+| `tests/`                      | a suite per script in `scripts/`, run against fixtures and a fake `gh`       |
 | `.github/workflows/`          | `sync.yml`, `checks.yml` and `tool-versions.yml`                             |
 
 A file belongs here once two targets hold it byte-identical. Per-repository
@@ -87,6 +88,12 @@ Markdown tools' manifest and adds a second run over `files/`.
   `npm ci --prefix .github` once.
 - `.github/scripts/check_tool_versions.sh` reports every pin behind the newest
   release past the cooldown; `tool-versions.yml` runs it weekly.
+- `tests/run.sh [SUITE...]` runs the suites (`T_ONLY=<regex>` picks tests
+  within one); each builds its own fixture tree and points the scripts at it
+  through `CI_SHARED_DIR`. `tests/coverage.sh` runs them under kcov and fails
+  unless every statement of `scripts/*.sh` ran; `checks.yml`'s coverage job
+  runs it. It needs the `kcov` and `shfmt` pins; `tests/coverage.py` explains
+  how kcov's line counts are mapped to statements.
 
 ## The sync token
 

@@ -35,11 +35,6 @@ while read -r slug _; do
   while read -r path vars; do
     src="$CI_SHARED_DIR/files/$path"
     dst="$dir/$path"
-    if [ ! -f "$src" ]; then
-      echo "$name: $path is listed but files/$path does not exist" >&2
-      problems=$((problems + 1))
-      continue
-    fi
     if [ -f "$dst" ] && ci_render "$path" $vars | cmp -s - "$dst" &&
       [ "$(ci_mode "$src")" = "$(ci_mode "$dst")" ]; then
       continue

@@ -28,7 +28,8 @@ while read -r slug _; do
   name="${slug#*/}"
   [ -d "$root/$name/.git" ] || continue
   # the working tree's copies, uncommitted edits included, not the index's
-  git -C "$root/$name" ls-files | grep -E "$CI_CENSUS_PATTERN" |
+  # `|| true`: a checkout with no CI file is not an error
+  git -C "$root/$name" ls-files | { grep -E "$CI_CENSUS_PATTERN" || true; } |
     while read -r path; do
       [ -f "$root/$name/$path" ] || continue
       blob="$(git hash-object "$root/$name/$path")"

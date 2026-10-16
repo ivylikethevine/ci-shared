@@ -30,7 +30,7 @@ fi
 source_sha="${SOURCE_SHA:-$(git -C "$CI_SHARED_DIR" rev-parse HEAD 2>/dev/null || echo unknown)}"
 
 # every target, whatever NAME limits the run to: the token reaches all
-if [ "$dry" = 0 ] && ! "$CI_SHARED_DIR/scripts/check_protection.sh"; then
+if [ "$dry" = 0 ] && ! "$CI_SCRIPTS_DIR/check_protection.sh"; then
   echo "::error title=sync::a target's branch protection failed the check; nothing was written"
   exit 1
 fi
@@ -38,11 +38,8 @@ fi
 # Uploads one file as a blob and checks GitHub stored the bytes git hashes.
 upload_blob() {
   local slug=$1 src=$2 sha
-  sha="$({
-    printf '{"encoding":"base64","content":"'
-    base64 <"$src" | tr -d '\n'
-    printf '"}'
-  } | gh api "repos/$slug/git/blobs" --input - --jq .sha)"
+  sha="$(base64 <"$src" | tr -d '\n' | jq -Rs '{encoding: "base64", content: .}' |
+    gh api "repos/$slug/git/blobs" --input - --jq .sha)"
   [ "$sha" = "$(git hash-object "$src")" ] || {
     echo "blob for $src came back as $sha" >&2
     return 1
@@ -51,7 +48,7 @@ upload_blob() {
 
 sync_repo() {
   local slug=$1 base=$2 name=${1#*/}
-  local head tree listing path vars src rendered mode want have entries='[]' files=''
+  local head tree listing path vars src rendered mode want have entries='' files=''
   head="$(gh api "repos/$slug/git/ref/heads/$base" --jq .object.sha)"
   tree="$(gh api "repos/$slug/git/commits/$head" --jq .tree.sha)"
   listing="$(gh api "repos/$slug/git/trees/$tree?recursive=1")"
@@ -67,10 +64,6 @@ sync_repo() {
   # shellcheck disable=SC2086 # $vars is key=value words, split on purpose
   while read -r path vars; do
     src="$CI_SHARED_DIR/files/$path"
-    if [ ! -f "$src" ]; then
-      echo "$name: $path is listed but files/$path does not exist" >&2
-      return 1
-    fi
     ci_render "$path" $vars >"$rendered"
     mode="$(ci_mode "$src")"
     want="$(git hash-object "$rendered") $mode"
@@ -78,8 +71,7 @@ sync_repo() {
     [ "$want" != "$have" ] || continue
     echo "$name: $path differs"
     files="$files- \`$path\`"$'\n'
-    entries="$(jq -c --arg p "$path" --arg m "$mode" --arg s "${want%% *}" \
-      '. + [{path: $p, mode: $m, type: "blob", sha: $s}]' <<<"$entries")"
+    entries="$entries$path"$'\t'"$mode"$'\t'"${want%% *}"$'\n'
     [ "$dry" = 1 ] || upload_blob "$slug" "$rendered"
   done < <(ci_targets "$name")
 
@@ -90,7 +82,9 @@ sync_repo() {
   [ "$dry" = 0 ] || return 0
 
   local new_tree commit pr body
-  new_tree="$(jq -n --arg b "$tree" --argjson t "$entries" '{base_tree: $b, tree: $t}' |
+  # one `path<TAB>mode<TAB>sha` line per entry
+  new_tree="$(printf '%s' "$entries" | jq -Rn --arg b "$tree" \
+    '{base_tree: $b, tree: [inputs | split("\t") | {path: .[0], mode: .[1], type: "blob", sha: .[2]}]}' |
     gh api "repos/$slug/git/trees" --input - --jq .sha)"
   commit="$(jq -n --arg m "$TITLE"$'\n\n'"Source: $source_sha" --arg t "$new_tree" --arg p "$head" \
     '{message: $m, tree: $t, parents: [$p]}' |
@@ -115,20 +109,19 @@ sync_repo() {
 failed=0
 while read -r slug base; do
   name="${slug#*/}"
-  if [ $# -gt 0 ]; then
-    wanted=0
-    for n in "$@"; do [ "$n" = "$name" ] && wanted=1; done
-    [ "$wanted" = 1 ] || continue
-  fi
-  # a subshell outside any `if`, so `set -e` stops this repository alone
+  # set -e turned back on inside a subshell outside any `if` or `||` (it
+  # inherits the +e), so a failure stops this repository alone
   set +e
-  (sync_repo "$slug" "$base")
+  (
+    set -e
+    sync_repo "$slug" "$base"
+  )
   rc=$?
   set -e
   if [ "$rc" != 0 ]; then
     echo "::error title=sync $name::sync failed, see the lines above"
     failed=$((failed + 1))
   fi
-done < <(ci_repos)
+done < <(ci_repos "$@")
 
 exit "$failed"
