@@ -4,8 +4,9 @@ name: Sync
 # Opens or updates a pull request in each repos/ repository whose copies of
 # the shared files differ from files/. Each target has its own repository
 # secret, SYNC_TOKEN_<NAME>: a fine-grained token scoped to that repository
-# alone with Contents, Pull requests and Workflows read/write. This workflow's
-# own token only reads this repository. A target gets nothing unless its main
+# alone with Contents, Pull requests and Workflows read/write. The commits are
+# signed with SYNC_SIGNING_KEY. This workflow's own token only reads this
+# repository. A target gets nothing unless its main
 # and dev pass scripts/check_protection.sh. The weekly run writes nothing: it
 # fails once a token is within two weeks of expiry, or a target's protection
 # has slipped.
@@ -85,6 +86,11 @@ jobs:
         # template-injection)
         env:
           SOURCE_SHA: ${{ github.sha }}
+          # the targets require signed commits; the key's public half is a
+          # signing key of the account that owns this email
+          SYNC_SIGNING_KEY: ${{ secrets.SYNC_SIGNING_KEY }}
+          SYNC_COMMITTER_NAME: Ivy Duggan
+          SYNC_COMMITTER_EMAIL: ivylikethevine@gmail.com
           REPOS: ${{ inputs.repos }}
           DRY_RUN: ${{ inputs.dry-run }}
         run: |

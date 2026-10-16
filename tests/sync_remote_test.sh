@@ -9,11 +9,15 @@
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 # A fake gh answering what check_protection.sh and sync_remote.sh read and
-# write. $T/listing.json is the base branch's tree; SCENARIO bends one answer:
-# unprotected, unprotected-a (owner/a alone), truncated, bad-blob, tree-error,
+# write, and the signing key and identity it verifies. $T/listing.json is the
+# base branch's tree; SCENARIO bends one answer: unprotected, unprotected-a
+# (owner/a alone), truncated, bad-blob, tree-error, bad-commit, unverified,
 # branch-exists, pr-open. $T/tokens.log gets "token METHOD endpoint" per call.
 fake_github() {
   echo '[]' >"$T/listing.json"
+  ssh-keygen -q -t ed25519 -N '' -C sync -f "$T/key"
+  SYNC_SIGNING_KEY="$(cat "$T/key")"
+  export SYNC_SIGNING_KEY SYNC_COMMITTER_NAME=Sync SYNC_COMMITTER_EMAIL=sync@example.invalid
   t_fake_gh <<'EOF'
 s=${SCENARIO:-}
 echo "${GH_TOKEN:-} $method $ep" >>"$T/tokens.log"
@@ -45,7 +49,16 @@ case "$method $ep" in
   ;;
 "POST "*/git/commits)
   printf '%s\n' "$input" >"$T/commit.json"
-  reply '{"sha":"commit2"}'
+  # the object GitHub stores: the signature as a gpgsig header
+  sha="$(jq -j '
+    def who: "\(.name) <\(.email)> \(.date | fromdate) +0000";
+    "tree \(.tree)\nparent \(.parents[0])\nauthor \(.author | who)\ncommitter \(.committer | who)\n"
+    + "gpgsig \(.signature | gsub("\n"; "\n "))\n\n\(.message)"' <<<"$input" |
+    git hash-object -t commit --stdin)"
+  [ "$s" != bad-commit ] || sha=1111111111111111111111111111111111111111
+  echo "$sha" >"$T/commit.sha"
+  [ "$s" = unverified ] && v='false,"reason":"no_user"' || v='true,"reason":"valid"'
+  reply "{\"sha\":\"$sha\",\"verification\":{\"verified\":$v}}"
   ;;
 "PATCH "*/git/refs/heads/ci-sync | "POST "*/git/refs) printf '%s\n' "${fields[@]}" >"$T/ref.txt" ;;
 "GET "*/pulls\?*) [ "$s" = pr-open ] && reply '[{"number":7}]' || reply '[]' ;;
@@ -81,8 +94,19 @@ test_opens_a_pull_request_for_what_differs() {
   t_eq "$(jq -r .base_tree "$T/tree.json")" tree1 "the base tree"
   t_eq "$(jq -c '[.message, .tree, .parents]' "$T/commit.json")" \
     '["ci: sync shared CI files\n\nSource: abc123","tree2",["head1"]]' "the commit"
+  t_eq "$(jq -c '[.author, .committer] | map([.name, .email]) | unique' "$T/commit.json")" \
+    '[["Sync","sync@example.invalid"]]' "the commit's author and committer"
+  # the signature covers the commit object as it is without one
+  jq -j '
+    def who: "\(.name) <\(.email)> \(.date | fromdate) +0000";
+    "tree \(.tree)\nparent \(.parents[0])\nauthor \(.author | who)\ncommitter \(.committer | who)\n\n\(.message)"' \
+    "$T/commit.json" >"$T/payload"
+  jq -r .signature "$T/commit.json" >"$T/sig"
+  printf 'sync@example.invalid namespaces="git" %s\n' "$(cat "$T/key.pub")" >"$T/allowed"
+  ssh-keygen -Y verify -f "$T/allowed" -I sync@example.invalid -n git -s "$T/sig" <"$T/payload" >/dev/null 2>&1 ||
+    t_fail "the signature does not verify against the unsigned commit"
   t_logged '^POST repos/owner/a/git/refs$'
-  t_file "$T/ref.txt" "$(printf 'ref=refs/heads/ci-sync\nsha=commit2')"
+  t_file "$T/ref.txt" "$(printf 'ref=refs/heads/ci-sync\nsha=%s' "$(cat "$T/commit.sha")")"
   grep -qF 'head=ci-sync' "$T/pr.txt" || t_fail "no head in $(cat "$T/pr.txt")"
   grep -qF 'base=dev' "$T/pr.txt" || t_fail "no base in $(cat "$T/pr.txt")"
   # shellcheck disable=SC2016 # literal text
@@ -159,6 +183,40 @@ test_a_failed_call_stops_that_target_alone() {
   t_rc 1
   t_out "::error title=sync a::sync failed, see the lines above" "b: in line with files/"
   t_not_logged 'git/commits$|git/refs|pulls'
+}
+
+test_a_commit_github_stored_differently_fails_the_target() {
+  fake_github
+  fixture
+  t_run env GH_TOKEN=t SCENARIO=bad-commit "$SCRIPTS/sync_remote.sh" a
+  t_rc 1
+  t_out "the commit came back as 1111111111111111111111111111111111111111, not the"
+  t_not_logged 'git/refs|pulls'
+}
+
+test_an_unverified_signature_fails_the_target() {
+  fake_github
+  fixture
+  t_run env GH_TOKEN=t SCENARIO=unverified "$SCRIPTS/sync_remote.sh" a
+  t_rc 1
+  t_out "GitHub did not verify the commit's signature: no_user"
+  t_not_logged 'git/refs|pulls'
+}
+
+test_writes_nothing_without_a_signing_key_and_identity() {
+  fake_github
+  fixture
+  local var
+  for var in SYNC_SIGNING_KEY SYNC_COMMITTER_NAME SYNC_COMMITTER_EMAIL; do
+    t_run env -u "$var" GH_TOKEN=t "$SCRIPTS/sync_remote.sh"
+    t_rc 1
+    t_out "$var is not set; the sync commits are signed"
+  done
+  ssh-keygen -q -t ed25519 -N secret -f "$T/locked"
+  t_run env GH_TOKEN=t SYNC_SIGNING_KEY="$(cat "$T/locked")" "$SCRIPTS/sync_remote.sh"
+  t_rc 1
+  t_out "SYNC_SIGNING_KEY is not an unencrypted OpenSSH private key"
+  t_not_logged .
 }
 
 test_a_blob_github_stored_differently_fails_the_target() {

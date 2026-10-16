@@ -125,11 +125,28 @@ requests, provided the token's user can bypass them only through a pull
 request: the token acts as that user. `scripts/check_protection.sh` checks
 this and fails closed on any error; `scripts/sync_remote.sh` runs it on each
 target before writing to it, and a target that fails gets nothing while the
-others still sync. The bot's commits are unsigned, which keeps it off `dev`
-too; a target takes its pull request as a squash merge, which GitHub signs.
+others still sync.
 
 For a local run, `GH_TOKEN` stands in for any target whose `SYNC_TOKEN_<NAME>`
 is unset; `check_tokens.sh` reads only the `SYNC_TOKEN_<NAME>` variables.
+
+## The signing key
+
+Both rulesets require signed commits, and GitHub blocks every merge method
+while a pull request holds an unsigned one, so `sync_remote.sh` signs each
+sync commit. The key is an SSH key used for nothing else:
+
+- **Private half:** the repository secret `SYNC_SIGNING_KEY`, the whole
+  OpenSSH key file, without a passphrase.
+- **Public half:** a signing key (_Settings → SSH and GPG keys → New SSH key →
+  Key type: Signing Key_) of the account whose verified email `sync.yml` sets
+  as `SYNC_COMMITTER_EMAIL`. It stays out of `.github/allowed_signers`, which
+  gates release tags.
+
+The script recomputes the commit object it signed and fails a target, before
+moving its branch, when GitHub's copy hashes differently or GitHub does not
+verify it. A local run sets `SYNC_SIGNING_KEY`, `SYNC_COMMITTER_NAME` and
+`SYNC_COMMITTER_EMAIL` itself; `--dry-run` needs none of them.
 
 ## The rulesets
 

@@ -4,7 +4,9 @@
 # paths it lists in line with files/, templates rendered with the values it
 # gives them.
 #
-#   SYNC_TOKEN_<NAME>=<token>... scripts/sync_remote.sh [--dry-run] [NAME...]
+#   SYNC_TOKEN_<NAME>=<token>... SYNC_SIGNING_KEY=<private key> \
+#   SYNC_COMMITTER_NAME=<name> SYNC_COMMITTER_EMAIL=<email> \
+#     scripts/sync_remote.sh [--dry-run] [NAME...]
 #
 # Works through the Git data API, so nothing is cloned: one commit on the base
 # branch's head, on branch `ci-sync` (force-moved each run), and one pull
@@ -15,6 +17,12 @@
 # Pull requests and Workflows read/write on that target alone. Before writing
 # to a target, check_protection.sh runs on it, and a target that fails gets
 # nothing. Exits with the number of repositories that failed.
+#
+# The targets require signed commits, so each commit is signed here with
+# SYNC_SIGNING_KEY, an unencrypted OpenSSH private key registered as a signing
+# key on the GitHub account whose verified email is SYNC_COMMITTER_EMAIL. A
+# commit GitHub stores with other bytes than were signed, or does not verify,
+# fails its target before the branch moves.
 set -euo pipefail
 
 # shellcheck source=./lib.sh
@@ -31,6 +39,25 @@ if [ "${1:-}" = --dry-run ]; then
 fi
 source_sha="${SOURCE_SHA:-$(git -C "$CI_SHARED_DIR" rev-parse HEAD 2>/dev/null || echo unknown)}"
 
+keyfile=''
+if [ "$dry" = 0 ]; then
+  for var in SYNC_SIGNING_KEY SYNC_COMMITTER_NAME SYNC_COMMITTER_EMAIL; do
+    if [ -z "${!var:-}" ]; then
+      echo "$var is not set; the sync commits are signed" >&2
+      exit 1
+    fi
+  done
+  keyfile="$(mktemp "${TMPDIR:-/tmp}/ci-sync-key.XXXXXX")"
+  trap 'rm -f "$keyfile"' EXIT
+  printf '%s\n' "$SYNC_SIGNING_KEY" >"$keyfile"
+  # the key reaches ssh-keygen through the file alone, never gh's environment
+  unset SYNC_SIGNING_KEY
+  if ! ssh-keygen -y -P '' -f "$keyfile" >/dev/null 2>&1; then
+    echo "SYNC_SIGNING_KEY is not an unencrypted OpenSSH private key" >&2
+    exit 1
+  fi
+fi
+
 # Uploads one file as a blob and checks GitHub stored the bytes git hashes.
 upload_blob() {
   local slug=$1 src=$2 sha
@@ -40,6 +67,34 @@ upload_blob() {
     echo "blob for $src came back as $sha" >&2
     return 1
   }
+}
+
+# create_commit <slug> <tree> <parent> <message> - creates the commit, signed
+# with the sync key, and prints its sha. Fails unless GitHub stored the bytes
+# that were signed and verified the signature.
+create_commit() {
+  local slug=$1 tree=$2 parent=$3 msg=$4 now ident headers sig want got
+  now="$(date +%s)"
+  ident="$SYNC_COMMITTER_NAME <$SYNC_COMMITTER_EMAIL> $now +0000"
+  headers="tree $tree"$'\n'"parent $parent"$'\n'"author $ident"$'\n'"committer $ident"$'\n'
+  # git signs the commit object without its gpgsig header
+  sig="$(printf '%s\n%s' "$headers" "$msg" | ssh-keygen -q -Y sign -f "$keyfile" -n git)"
+  # the stored object: the signature as a header, continuation lines indented
+  want="$(printf '%sgpgsig %s\n\n%s' "$headers" "${sig//$'\n'/$'\n' }" "$msg" | git hash-object -t commit --stdin)"
+  got="$(jq -n --arg m "$msg" --arg t "$tree" --arg p "$parent" --arg s "$sig" \
+    --arg n "$SYNC_COMMITTER_NAME" --arg e "$SYNC_COMMITTER_EMAIL" --argjson d "$now" '
+      {name: $n, email: $e, date: ($d | todate)} as $who
+      | {message: $m, tree: $t, parents: [$p], author: $who, committer: $who, signature: $s}' |
+    gh api "repos/$slug/git/commits" --input - --jq '"\(.sha) \(.verification.verified) \(.verification.reason)"')"
+  if [ "${got%% *}" != "$want" ]; then
+    echo "the commit came back as ${got%% *}, not the $want that was signed" >&2
+    return 1
+  fi
+  if [ "$(cut -d' ' -f2 <<<"$got")" != true ]; then
+    echo "GitHub did not verify the commit's signature: ${got##* }" >&2
+    return 1
+  fi
+  printf '%s\n' "$want"
 }
 
 sync_repo() {
@@ -82,9 +137,7 @@ sync_repo() {
   new_tree="$(printf '%s' "$entries" | jq -Rn --arg b "$tree" \
     '{base_tree: $b, tree: [inputs | split("\t") | {path: .[0], mode: .[1], type: "blob", sha: .[2]}]}' |
     gh api "repos/$slug/git/trees" --input - --jq .sha)"
-  commit="$(jq -n --arg m "$TITLE"$'\n\n'"Source: $source_sha" --arg t "$new_tree" --arg p "$head" \
-    '{message: $m, tree: $t, parents: [$p]}' |
-    gh api "repos/$slug/git/commits" --input - --jq .sha)"
+  commit="$(create_commit "$slug" "$new_tree" "$head" "$TITLE"$'\n\n'"Source: $source_sha")"
   if gh api "repos/$slug/git/ref/heads/$BRANCH" >/dev/null 2>&1; then
     gh api -X PATCH "repos/$slug/git/refs/heads/$BRANCH" -f sha="$commit" -F force=true >/dev/null
   else

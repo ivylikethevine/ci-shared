@@ -24,7 +24,7 @@ t_setup() {
   mkdir -p "$T/bin" "$T/tree/repos" "$T/tree/files"
   cp -R "$REPO_DIR/rulesets" "$T/tree/"
   export T PATH="$T/bin:$_T_PATH" CI_SHARED_DIR="$T/tree" GH_LOG="$T/gh.log"
-  unset GH_TOKEN SOURCE_SHA CI_CONFIGS
+  unset GH_TOKEN SOURCE_SHA CI_CONFIGS SYNC_SIGNING_KEY SYNC_COMMITTER_NAME SYNC_COMMITTER_EMAIL
   : >"$GH_LOG"
 }
 
