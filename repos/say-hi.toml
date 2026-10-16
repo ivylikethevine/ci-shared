@@ -38,6 +38,7 @@ files = [
   ".markdownlint.yaml",
   ".prettierrc.yaml",
   ".shellcheckrc",
+  "docs/CODE_OF_CONDUCT.md",
   "lychee.toml",
 ]
 

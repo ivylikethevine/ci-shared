@@ -42,8 +42,9 @@ Which repositories receive each shared file, written by
 | `.markdownlint.yaml`                               |              | x          |                    | x      | x          | 3     |
 | `.prettierrc.yaml`                                 |              | x          |                    | x      | x          | 3     |
 | `.shellcheckrc`                                    |              | x          |                    | x      | x          | 3     |
+| `docs/CODE_OF_CONDUCT.md`                          | x            | x          | x                  | x      | x          | 5     |
 | `lychee.toml`                                      |              | x          | x                  | x      | x          | 4     |
-| **Files per repository**                           | 6            | 34         | 15                 | 33     | 36         | 36    |
+| **Files per repository**                           | 7            | 35         | 16                 | 34     | 37         | 37    |
 
 ## Template values
 

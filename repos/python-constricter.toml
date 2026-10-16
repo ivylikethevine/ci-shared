@@ -20,6 +20,7 @@ files = [
   ".github/workflows/scorecard.yml",
   ".github/workflows/tool-versions.yml",
   ".github/zizmor.yml",
+  "docs/CODE_OF_CONDUCT.md",
   "lychee.toml",
 ]
 
