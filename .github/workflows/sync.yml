@@ -11,16 +11,13 @@ name: Sync
 # fails once a token is within two weeks of expiry, or a target's protection
 # has slipped.
 on:
+  # only a push that changes what a target receives; a change to the scripts
+  # alone (ci_render's included) reaches the targets on the next dispatch
   push:
     branches: [main]
     paths:
       - files/**
       - repos/**
-      - scripts/config.py
-      - scripts/lib.sh
-      - scripts/check_protection.sh
-      - scripts/check_tokens.sh
-      - scripts/sync_remote.sh
   schedule:
     - cron: "41 14 * * 1"
   workflow_dispatch:

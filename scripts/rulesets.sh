@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
-# Renders the shared branch rulesets for a target, or compares them with the
-# ones live on GitHub. rulesets/main.json and rulesets/dev.json hold what every
-# target shares; the [rulesets.main] table of repos/<name>.toml holds the values
-# that are its own on main: the required status checks, the code scanning
-# tools, the coverage floor and whether code quality is gated.
+# Renders the shared rulesets for a target, or compares them with the ones live
+# on GitHub. rulesets/main.json, dev.json and stable.json (the v* and *-rc tags)
+# hold what every target shares; the [rulesets.main] table of repos/<name>.toml
+# holds the values that are its own on main: the required status checks, the
+# code scanning tools, the coverage floor and whether code quality is gated.
 #
-#   scripts/rulesets.sh render NAME main|dev
+#   scripts/rulesets.sh render NAME main|dev|stable
 #   GH_TOKEN=<token> scripts/rulesets.sh diff [NAME...]
 #
 # `render` prints JSON that GitHub's ruleset import takes (Settings → Rules →
@@ -24,7 +24,7 @@ DIR="$CI_SHARED_DIR/rulesets"
 render() {
   local name=$1 kind=$2 values
   case $kind in
-  dev) cat "$DIR/dev.json" ;;
+  dev | stable) cat "$DIR/$kind.json" ;;
   main)
     values="$(ci_ruleset_values "$name")" || return 1
     jq --argjson m "$values" '
@@ -42,7 +42,7 @@ render() {
       ' "$DIR/main.json"
     ;;
   *)
-    echo "unknown ruleset $kind: main or dev" >&2
+    echo "unknown ruleset $kind: main, dev or stable" >&2
     return 2
     ;;
   esac
@@ -55,6 +55,7 @@ normalize() {
     del(.id, .node_id, .source, .source_type, ._links, .created_at, .updated_at,
       .current_user_can_bypass)
     | .bypass_actors |= sort_by(.actor_type, .actor_id)
+    | .conditions.ref_name |= with_entries(.value |= sort)
     | .rules |= (sort_by(.type) | map(
         if .parameters.required_status_checks then .parameters.required_status_checks |= sort_by(.context) else . end
         | if .parameters.code_scanning_tools then .parameters.code_scanning_tools |= sort_by(.tool) else . end
@@ -67,7 +68,7 @@ diff_repo() {
     echo "$name: cannot list its rulesets"
     return 1
   }
-  for kind in main dev; do
+  for kind in main dev stable; do
     want="$(render "$name" "$kind" | normalize)"
     title="$(jq -r .name <<<"$want")"
     id="$(jq -r --arg n "$title" '.[] | select(.name == $n) | .id' <<<"$live")"
@@ -87,7 +88,7 @@ diff_repo() {
 case ${1:-} in
 render)
   [ $# = 3 ] || {
-    echo "usage: $0 render NAME main|dev" >&2
+    echo "usage: $0 render NAME main|dev|stable" >&2
     exit 2
   }
   render "$2" "$3"
@@ -110,7 +111,7 @@ diff)
   exit "$failed"
   ;;
 *)
-  echo "usage: $0 render NAME main|dev | diff [NAME...]" >&2
+  echo "usage: $0 render NAME main|dev|stable | diff [NAME...]" >&2
   exit 2
   ;;
 esac

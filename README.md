@@ -10,24 +10,24 @@ Scorecard and zizmor see ordinary files; nothing in a target refers back here.
 
 ## Layout
 
-| Path                          | Holds                                                                        |
-| ----------------------------- | ---------------------------------------------------------------------------- |
-| `files/`                      | the master copies, at the path they have in a target                         |
-| `repos/<name>.toml`           | one target: its repository, sync branch, files, template and ruleset values  |
-| `USAGE.md`                    | each file against the repositories receiving it, written from `repos/`       |
-| `scripts/check.sh`            | the shipped checks, run over this repository and `files/`                    |
-| `scripts/config.py`           | validates `repos/` and prints it as JSON, for the scripts to read            |
-| `scripts/usage.sh`            | writes `USAGE.md`; `--check` fails when it is stale                          |
-| `scripts/spdx.sh`             | adds the SPDX license comment; `--check` fails when a file lacks it          |
-| `scripts/census.sh`           | groups the CI files local checkouts share by content, to find drift          |
-| `scripts/sync_local.sh`       | copies `files/` into the checkouts beside this one                           |
-| `scripts/sync_remote.sh`      | opens or updates a pull request per target through the GitHub API            |
-| `scripts/check_protection.sh` | fails unless each target's `main` and `dev` are protected from its token     |
-| `scripts/check_tokens.sh`     | prints when each target's sync token expires, failing within two weeks       |
-| `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets      |
-| `rulesets/`                   | the `main` and `dev` rulesets every target shares, in GitHub's import format |
-| `tests/`                      | a suite per script in `scripts/`, run against fixtures and a fake `gh`       |
-| `.github/workflows/`          | `sync.yml`, `checks.yml` and `tool-versions.yml`                             |
+| Path                          | Holds                                                                       |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| `files/`                      | the master copies, at the path they have in a target                        |
+| `repos/<name>.toml`           | one target: its repository, sync branch, files, template and ruleset values |
+| `USAGE.md`                    | each file against the repositories receiving it, written from `repos/`      |
+| `scripts/check.sh`            | the shipped checks, run over this repository and `files/`                   |
+| `scripts/config.py`           | validates `repos/` and prints it as JSON, for the scripts to read           |
+| `scripts/usage.sh`            | writes `USAGE.md`; `--check` fails when it is stale                         |
+| `scripts/spdx.sh`             | adds the SPDX license comment; `--check` fails when a file lacks it         |
+| `scripts/census.sh`           | groups the CI files local checkouts share by content, to find drift         |
+| `scripts/sync_local.sh`       | copies `files/` into the checkouts beside this one                          |
+| `scripts/sync_remote.sh`      | opens or updates a pull request per target through the GitHub API           |
+| `scripts/check_protection.sh` | fails unless each target's `main` and `dev` are protected from its token    |
+| `scripts/check_tokens.sh`     | prints when each target's sync token expires, failing within two weeks      |
+| `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets     |
+| `rulesets/`                   | the rulesets every target shares, in GitHub's import format                 |
+| `tests/`                      | a suite per script in `scripts/`, run against fixtures and a fake `gh`      |
+| `.github/workflows/`          | `sync.yml`, `checks.yml` and `tool-versions.yml`                            |
 
 A file belongs here once two targets hold it byte-identical. Per-repository
 files stay in their repository: `setup-tool/tools.txt`,
@@ -43,8 +43,10 @@ and every workflow that differs.
 3. `scripts/sync_local.sh --check` lists the checkouts that differ;
    `scripts/sync_local.sh` copies the change into them, leaving any path with
    uncommitted changes alone.
-4. Once this repository is on GitHub, a push to `main` opens one pull request
-   per target on branch `ci-sync`, and re-pushes update it.
+4. Once this repository is on GitHub, a push to `main` that changes `files/`
+   or `repos/` opens one pull request per target on branch `ci-sync`, and
+   re-pushes update it. A change to the scripts alone, `ci_render` included,
+   syncs on the next manual run of `sync.yml`.
 
 `scripts/census.sh --drift` lists every CI path whose copies disagree across
 the checkouts, shared here or not.
@@ -150,22 +152,24 @@ verify it. A local run sets `SYNC_SIGNING_KEY`, `SYNC_COMMITTER_NAME` and
 
 ## The rulesets
 
-`rulesets/main.json` and `rulesets/dev.json` are the rulesets every target
-shares; the `[rulesets.main]` table of `repos/<name>.toml` holds what is a
-target's own on `main`: the
-required status checks, the code scanning tools, the coverage floor and whether
-code quality is gated.
+`rulesets/main.json`, `rulesets/dev.json` and `rulesets/stable.json` are the
+rulesets every target shares; the `[rulesets.main]` table of
+`repos/<name>.toml` holds what is a target's own on `main`: the required status
+checks, the code scanning tools, the coverage floor and whether code quality is
+gated.
 
 - **`main`:** no force push or deletion, signed commits, a pull request with
   checks passing on an up-to-date branch, merge or squash. Repository admins
   bypass it only through a pull request.
 - **`dev`:** no force push or deletion, signed commits, no bypass. Direct
   pushes stay open to signed commits.
+- **`stable`** (`protect-stable`, the `v*` and `*-rc` tags): no move or
+  deletion, signed commits, no bypass.
 
 No review approval is required, so the repository owner merges their own pull
 requests; Scorecard's Branch-Protection check scores that 3/10, and a required
 approval would lift it to 8/10.
 
-`scripts/rulesets.sh render <name> main|dev` prints a ruleset to import
+`scripts/rulesets.sh render <name> main|dev|stable` prints a ruleset to import
 (_Settings → Rules → Rulesets → New ruleset → Import a ruleset_);
 `scripts/rulesets.sh diff [NAME...]` shows where the live ones differ.
