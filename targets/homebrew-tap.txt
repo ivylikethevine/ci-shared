@@ -1,0 +1,7 @@
+# Paths copied from files/ into this repository, one per line, each followed by any template values (key=value).
+.editorconfig
+.github/CODEOWNERS
+.github/actions/upsert-tracking-issue/action.yml
+.github/scripts/check_tool_versions.sh
+.github/scripts/lib.sh
+.github/workflows/tool-versions.yml

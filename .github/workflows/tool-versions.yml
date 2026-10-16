@@ -1,0 +1,40 @@
+name: Tool versions
+
+# Every pin here and in files/ against the newest upstream release past the
+# cooldown: .github/scripts/check_tool_versions.sh, whose local hook adds the
+# run over files/. Fails on drift; the fix is an edit under files/ (or this
+# repository's tools.txt), which the sync then carries to every target.
+on:
+  schedule:
+    - cron: "17 14 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  versions:
+    name: Tool versions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # job-scoped, not workflow-level, for Scorecard's Token-Permissions check
+    permissions:
+      contents: read
+    steps:
+      # block: the checkout, the releases and tags APIs, and the npm registry.
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: block
+          disable-sudo: true
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            registry.npmjs.org:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check every pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/check_tool_versions.sh

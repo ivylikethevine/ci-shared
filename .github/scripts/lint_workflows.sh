@@ -1,0 +1,1 @@
+../../files/.github/scripts/lint_workflows.sh

@@ -1,0 +1,16 @@
+# Paths copied from files/ into this repository, one per line, each followed by any template values (key=value).
+.editorconfig
+.github/CODEOWNERS
+.github/actions/upsert-tracking-issue/action.yml
+.github/osv-scanner.toml
+.github/package-lock.json
+.github/package.json
+.github/scripts/check_tool_versions.sh
+.github/scripts/lib.sh
+.github/scripts/release_notes.sh
+.github/workflows/cancel-closed-pr.yml
+.github/workflows/release-note.yml
+.github/workflows/scorecard.yml
+.github/workflows/tool-versions.yml
+.github/zizmor.yml
+lychee.toml

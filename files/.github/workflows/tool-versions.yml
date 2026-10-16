@@ -1,0 +1,127 @@
+name: Tool versions
+
+# Drift check over every pin: the CI tools in
+# .github/actions/setup-tool/tools.txt where a repo has one, the inline pins
+# and local checks in .github/scripts/check_tool_versions.local.sh, the action
+# SHAs, any image digests, and the dependency manifests. Dependabot opens no version-update
+# pull request (.github/dependabot.yml), so this is the one report of an
+# upstream release, held to the same 7-day cooldown. The signal is one
+# tracking issue, kept current: opened when something is behind, rewritten on
+# every later run, closed when all is current. Runs after every green CI run
+# on a push to main and weekly, since upstream releases land without a push
+# here.
+on: # zizmor: ignore[dangerous-triggers]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "23 7 * * 1"
+  workflow_dispatch:
+
+# pushes to main can stack, but queue rather than cancel: a run cancelled
+# mid-upsert can leave its tracking issue half-written (or a duplicate opened)
+concurrency:
+  group: tool-versions
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: pinned CI tools vs upstream
+    # only a green push to main gets a fresh report; the schedule and a manual
+    # dispatch pass the first clause
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # the one write this job does: upsert (and close) its own tracking issue
+      issues: write
+    steps:
+      # block, not audit: check_tool_versions.sh asks the GitHub API, Docker
+      # Hub, the registry of each manifest in CI_MANIFESTS, and any gitlab:
+      # host a roster row names - nothing else. The list is the union of what
+      # every repo carrying this file needs, so a repo may allow a registry it
+      # never calls. Every host is HTTPS on 443, every request a GET, and the
+      # token goes to api.github.com alone; the job's only write is its own
+      # tracking issue, and checkout keeps no credential.
+      #
+      #   github.com          actions/checkout fetching this repository
+      #   api.github.com      releases, tags and commits for github: rows and
+      #                       action SHAs, and the tracking-issue upsert; the
+      #                       one host that gets the token
+      #   hub.docker.com      tag digests for digest-pinned images; read-only
+      #                       public API, sent no credential
+      #   registry.npmjs.org  npm manifests' versions; anonymous GET
+      #   crates.io           cargo manifests' versions; anonymous GET with a
+      #                       User-Agent, as crates.io asks
+      #   pypi.org            pip and uv manifests' versions; anonymous GET of
+      #                       the JSON API
+      #   salsa.debian.org    the gitlab: row for checkbashisms; anonymous GET
+      #                       of the tags API
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: block
+          disable-sudo: true
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            hub.docker.com:443
+            registry.npmjs.org:443
+            crates.io:443
+            pypi.org:443
+            salsa.debian.org:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The script exits with the number of problems, captured as an output
+      # rather than failing the step, so the issue closes on zero and opens on
+      # the rest. An unreadable upstream counts as current, unless no lookup on
+      # its host answered: that host is missing from allowed-endpoints above.
+      - id: check
+        name: Compare pins to upstream releases
+        env:
+          # raises the GitHub API rate limit (60/hour unauthenticated, shared
+          # across the runner pool) above the roster size
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          rc=0
+          .github/scripts/check_tool_versions.sh | tee "$RUNNER_TEMP/tool-versions.txt" || rc=$?
+          echo "problems=$rc" >>"$GITHUB_OUTPUT"
+
+      - name: Compose the tracking issue body
+        if: steps.check.outputs.problems != '0'
+        env:
+          PROBLEMS: ${{ steps.check.outputs.problems }}
+        run: |
+          set -euo pipefail
+          {
+            echo "$PROBLEMS problem(s) with the pins below. Fix each OUTDATED, MISMATCH or ERROR row"
+            echo "where it points: tools.txt (pin and sha256 together) where a repo has one, the file"
+            echo "an inline, dependency or local row names, or every use of an action SHA or image"
+            echo "digest - the \`->\` line under such a row is what to pin."
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/tool-versions.txt"
+            echo '```'
+          } >"$RUNNER_TEMP/issue.md"
+
+      - uses: ./.github/actions/upsert-tracking-issue
+        with:
+          label: tool-versions
+          label-color: 0E8A16
+          label-description: A pin is behind its upstream release
+          title: Pinned tools and dependencies are behind upstream
+          resolved: ${{ steps.check.outputs.problems == '0' }}
+          close-comment: Every pin is current again.
+          resolved-when: every pin is current
+          body-file: ${{ runner.temp }}/issue.md

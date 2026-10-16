@@ -1,0 +1,107 @@
+name: CodeQL
+
+# shared:if Language
+# CodeQL over the languages here it can read: __Language__ and GitHub Actions.
+# shared:endif
+# shared:unless Language
+# CodeQL over the one language here it can read: GitHub Actions; it has no
+# analyser for the rest.
+# shared:endif
+# The actions half overlaps zizmor on purpose: zizmor is the fast gate in
+# ci.yml, CodeQL the slower dataflow pass whose findings land in the Security
+# tab with a trace, and Scorecard's SAST check counts only this one.
+# build-mode none throughout: nothing needs compiling.
+#
+# Runs on every push to main (not after green CI: Scorecard counts analysed
+# commits), every non-draft PR, weekly for the default-branch baseline code
+# scanning diffs a PR against, and on dispatch. No `paths:` filter: a skipped
+# category leaves code scanning waiting on a result.
+on:
+  push:
+    branches: [main]
+  # drafts analyse nothing (the jobs' `if`) until ready_for_review
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  schedule:
+    - cron: "17 6 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A PR's superseded run is cancelled. Outside a PR the group is per commit, so
+# a quick second merge can't replace the first commit's queued analysis.
+concurrency:
+  group: codeql-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # shared:if language
+  # One job per language rather than a matrix, so one failing can't hide the
+  # other's result.
+  analyze-__language__:
+    name: CodeQL (__language__)
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write # the SARIF upload
+    steps:
+      # audit: extraction may resolve dependencies from the package index
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: __language__
+          build-mode: none
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          category: "/language:__language__"
+
+  # shared:endif
+  analyze-actions:
+    name: CodeQL (actions)
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write # the SARIF upload
+      actions: read # the workflow definitions being analysed
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: block
+          disable-sudo: true
+          # the checkout, the API, the CodeQL bundle, and the cache
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            release-assets.githubusercontent.com:443
+            objects.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: actions
+          build-mode: none
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          category: "/language:actions"

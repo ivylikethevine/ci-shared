@@ -1,0 +1,74 @@
+name: Sync
+
+# Opens or updates a pull request in each repos.txt repository whose copies of
+# the shared files differ from files/. SYNC_TOKEN, a repository secret, is a
+# fine-grained token scoped to those repositories alone with Contents and Pull
+# requests read/write; this workflow's own token only reads this repository.
+on:
+  push:
+    branches: [main]
+    paths:
+      - files/**
+      - targets/**
+      - repos.txt
+      - scripts/lib.sh
+      - scripts/sync_remote.sh
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: Repository names to sync, space-separated (empty syncs all)
+        required: false
+        default: ""
+      dry-run:
+        description: Report what differs and write nothing
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # job-scoped, not workflow-level, for Scorecard's Token-Permissions check
+    permissions:
+      contents: read
+    steps:
+      # block, not audit: the checkout and the GitHub API are all this job
+      # reaches.
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: block
+          disable-sudo: true
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Open or update the sync pull requests
+        # via env, never inline ${{ }} in the run block (zizmor:
+        # template-injection)
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          SOURCE_SHA: ${{ github.sha }}
+          REPOS: ${{ inputs.repos }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error title=SYNC_TOKEN::the SYNC_TOKEN repository secret is not set"
+            exit 1
+          fi
+          args=()
+          [ "$DRY_RUN" != true ] || args+=(--dry-run)
+          # one repository name per word
+          read -r -a names <<<"$REPOS"
+          scripts/sync_remote.sh ${args[@]+"${args[@]}"} ${names[@]+"${names[@]}"}
