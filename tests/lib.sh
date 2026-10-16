@@ -93,8 +93,9 @@ t_fake() {
 
 # t_fake_gh - writes a fake `gh api` whose answers stdin's bash decides. The
 # prologue parses the call into $method, $ep, $fields (-f/-F values), $input
-# (an --input - body) and $jqf (--jq), and logs "METHOD endpoint"; the body
-# answers with `reply <json>` (filtered through --jq, as gh does) or `fail`.
+# (an --input - body), $jqf (--jq) and $include (--include: 1 or 0), and logs
+# "METHOD endpoint"; the body answers with `reply <json>` (filtered through
+# --jq, as gh does) or `fail`.
 t_fake_gh() {
   {
     cat <<'EOF'
@@ -102,13 +103,14 @@ t_fake_gh() {
 set -u
 [ "$1" = api ] || exit 2
 shift
-method="" ep="" jqf="" input="" fields=()
+method="" ep="" jqf="" input="" include=0 fields=()
 while [ $# -gt 0 ]; do
   case $1 in
   -X) method=$2 && shift 2 ;;
   --jq) jqf=$2 && shift 2 ;;
   --input) input="$(cat)" && shift 2 ;;
   -f | -F) fields+=("$2") && shift 2 ;;
+  -i | --include) include=1 && shift ;;
   *) ep=$1 && shift ;;
   esac
 done

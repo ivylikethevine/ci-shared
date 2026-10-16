@@ -2,16 +2,18 @@
 # scripts/check_protection.sh against a fake GitHub: it passes only targets
 # whose main and dev are fully protected from the token, and fails closed on
 # every API error, odd response, unknown bypass level, missing branch, missing
-# token, invalid config and failed command.
+# token, invalid config and failed command, reading each target with its own
+# token.
 # shellcheck disable=SC2329 # t_main calls the test_* functions by name
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 # Ruleset 1 holds main, ruleset 2 holds dev; SCENARIO bends one answer at a
-# time.
+# time. $T/tokens.log gets "token endpoint" per call.
 fake_github() {
   t_fake_gh <<'EOF'
 s=${SCENARIO:-pass}
+echo "${GH_TOKEN:-} $ep" >>"$T/tokens.log"
 ruleset() {
   local id=$1 bypass=${2-never} enf=${3-active}
   [ "$s" != ruleset-id ] || id=99
@@ -104,8 +106,27 @@ test_fails_without_a_token() {
   t_target repo dev
   t_run "$SCRIPTS/check_protection.sh"
   t_rc 1
-  t_out "GH_TOKEN is not set"
+  t_out "::error title=protection owner/repo::no token: SYNC_TOKEN_REPO is not set"
   t_not_logged .
+}
+
+test_reads_each_target_with_its_own_token() {
+  fake_github
+  t_target repo dev
+  t_target other-repo dev
+  t_run env GH_TOKEN=shared SYNC_TOKEN_REPO=own "$SCRIPTS/check_protection.sh"
+  t_rc 0
+  t_eq "$(cut -d' ' -f1 "$T/tokens.log" | sort -u | tr '\n' ' ')" "own shared " "the tokens used"
+  grep -q '^own repos/owner/repo/' "$T/tokens.log" || t_fail "owner/repo not read with its own token"
+  if grep -q '^own repos/owner/other-repo/' "$T/tokens.log"; then t_fail "owner/other-repo read with owner/repo's token"; fi
+  : >"$T/tokens.log"
+  t_run env SYNC_TOKEN_OTHER_REPO=o "$SCRIPTS/check_protection.sh" other-repo
+  t_rc 0
+  t_out "owner/other-repo dev: protected"
+  t_no_out "owner/repo "
+  t_run env GH_TOKEN=t "$SCRIPTS/check_protection.sh" nope
+  t_rc 1
+  t_out "repos/ lists no targets named nope"
 }
 
 test_fails_on_an_invalid_config() {
@@ -128,6 +149,11 @@ files = ["nope"]'; do
   t_target repo dev
   t_target repo2 release
   check 1
+  rm "$T/tree/repos/repo2.toml"
+  t_target repo-2 dev
+  t_target repo_2 dev
+  check 1
+  t_out "repos/repo_2.toml: its token secret SYNC_TOKEN_REPO_2 is also repos/repo-2.toml's"
   t_not_logged .
 }
 
@@ -142,7 +168,7 @@ EOF
   echo '[]' >"$T/config.json"
   check 1
   t_out "repos/ lists no targets"
-  jq -n '[{repository: "owner/repo", sync_branch: "dev"},
+  jq -n '[{name: "repo", token_secret: "SYNC_TOKEN_REPO", repository: "owner/repo", sync_branch: "dev"},
     {repository: "not a slug", sync_branch: "dev"},
     {repository: "owner/x", sync_branch: "dev extra"},
     {repository: "owner/y", sync_branch: "release"}]' >"$T/config.json"

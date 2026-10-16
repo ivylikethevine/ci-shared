@@ -10,6 +10,8 @@ CI_SHARED_DIR="${CI_SHARED_DIR:-$(dirname "$CI_SCRIPTS_DIR")}"
 # (scripts/config.py), or fails when any of them is invalid. Each script runs it
 # once before the helpers below, which read CI_CONFIGS.
 ci_load() {
+  # ci_token's fallback, kept before a script sets GH_TOKEN per target
+  CI_GH_TOKEN="${GH_TOKEN:-}"
   CI_CONFIGS="$(python3 -I "$CI_SCRIPTS_DIR/config.py" "$CI_SHARED_DIR")"
 }
 
@@ -38,6 +40,28 @@ ci_targets() {
     | .files[]
     | [., (($t[.] // {}) | to_entries[] | "\(.key)=\(.value)")]
     | join(" ")'
+}
+
+# ci_token_secret <name> - prints the name of the secret holding target
+# <name>'s sync token, SYNC_TOKEN_<NAME>.
+ci_token_secret() {
+  ci_configs | jq -er --arg n "$1" 'first(.[] | select(.name == $n)).token_secret // error("no target \($n)")'
+}
+
+# ci_token <name> - prints target <name>'s sync token: its SYNC_TOKEN_<NAME>,
+# else the GH_TOKEN the script started with (a local run with one token for
+# every target). Fails, naming the secret, when neither is set.
+ci_token() {
+  local var
+  var="$(ci_token_secret "$1")" || return 1
+  if [ -n "${!var:-}" ]; then
+    printf '%s\n' "${!var}"
+  elif [ -n "${CI_GH_TOKEN:-}" ]; then
+    printf '%s\n' "$CI_GH_TOKEN"
+  else
+    echo "no token: $var is not set" >&2
+    return 1
+  fi
 }
 
 # ci_ruleset_values <name> - prints the JSON values target <name> gives the

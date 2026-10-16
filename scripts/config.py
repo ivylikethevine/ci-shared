@@ -3,7 +3,8 @@
 
     python3 -I scripts/config.py [ROOT]
 
-ROOT is the tree holding repos/ and files/ (default: this checkout). Each entry is the file's table with `name` (the file's stem) added and every
+ROOT is the tree holding repos/ and files/ (default: this checkout). Each entry is the file's table with `name` (the file's stem) and `token_secret`
+(SYNC_TOKEN_<NAME>, the secret holding its sync token) added and every
 optional key filled in, sorted by name. Any problem in any file, an unknown key
 included, prints one line per problem to stderr and exits 1 with nothing on
 stdout, so no caller acts on a partial or misread config. Needs Python 3.11+.
@@ -119,7 +120,11 @@ def read(path, errors):
     ):
         errors.append(f"{where}: rulesets.main.code_coverage must set minimum_coverage and max_coverage_drop")
 
-    return {"name": name, **data}
+    return {"name": name, "token_secret": token_secret(name), **data}
+
+
+def token_secret(name):
+    return "SYNC_TOKEN_" + re.sub(r"[^A-Za-z0-9]", "_", name).upper()
 
 
 def main():
@@ -128,8 +133,11 @@ def main():
     if not paths:
         errors.append("repos/ holds no <name>.toml")
     configs = [c for c in (read(p, errors) for p in paths) if c is not None]
-    seen = {}
+    seen, secrets = {}, {}
     for c in configs:
+        if c["token_secret"] in secrets:
+            errors.append(f"repos/{c['name']}.toml: its token secret {c['token_secret']} is also repos/{secrets[c['token_secret']]}.toml's")
+        secrets.setdefault(c["token_secret"], c["name"])
         if c.get("repository") in seen:
             errors.append(f"repos/{c['name']}.toml: {c['repository']} is also in repos/{seen[c['repository']]}.toml")
         seen.setdefault(c.get("repository"), c["name"])

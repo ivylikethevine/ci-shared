@@ -19,7 +19,8 @@ Scorecard and zizmor see ordinary files; nothing in a target refers back here.
 | `scripts/census.sh`           | groups the CI files local checkouts share by content, to find drift          |
 | `scripts/sync_local.sh`       | copies `files/` into the checkouts beside this one                           |
 | `scripts/sync_remote.sh`      | opens or updates a pull request per target through the GitHub API            |
-| `scripts/check_protection.sh` | fails unless each target's `main` and `dev` are protected from the token     |
+| `scripts/check_protection.sh` | fails unless each target's `main` and `dev` are protected from its token     |
+| `scripts/check_tokens.sh`     | prints when each target's sync token expires, failing within two weeks       |
 | `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets      |
 | `rulesets/`                   | the `main` and `dev` rulesets every target shares, in GitHub's import format |
 | `tests/`                      | a suite per script in `scripts/`, run against fixtures and a fake `gh`       |
@@ -95,26 +96,37 @@ Markdown tools' manifest and adds a second run over `files/`.
   runs it. It needs the `kcov` and `shfmt` pins; `tests/coverage.py` explains
   how kcov's line counts are mapped to statements.
 
-## The sync token
+## The sync tokens
 
-`sync.yml` reads `SYNC_TOKEN`, a repository secret (_Settings → Secrets and
-variables → Actions → New repository secret_), holding a fine-grained personal
-access token:
+Each target has its own token, in a repository secret of this repository
+named for it: `SYNC_TOKEN_<NAME>`, the target's name in capitals with `-` as
+`_` (`SYNC_TOKEN_SAY_HI`). _Settings → Secrets and variables → Actions → New
+repository secret_ holds each one, a fine-grained personal access token:
 
-- **Repository access:** only the repositories in `repos/`.
+- **Repository access:** that target alone.
 - **Permissions:** Contents read and write (a pull request needs its branch
   pushed), Pull requests read and write, Workflows read and write (the synced
   files include `.github/workflows/`); Metadata read is added automatically.
-- **Expiry:** the shortest you will renew; an expired token fails the run with
-  a 401.
+- **Expiry:** the shortest you will renew. `scripts/check_tokens.sh` reads each
+  token's expiry from GitHub and fails once one is within two weeks of it;
+  `sync.yml` runs it on every run and weekly, so the weekly run fails in time
+  to renew.
 
-Contents write lets the token push any branch, not just `ci-sync`. The rulesets
-on each target's `main` and `dev` keep it to pull requests, provided the
-token's user can bypass them only through a pull request: the token acts as
-that user. `scripts/check_protection.sh` checks this and fails closed on any error;
-`scripts/sync_remote.sh` runs it before writing and stops if it fails. The bot's commits are unsigned, which keeps it off
-`dev` too; a target takes its pull request as a squash merge, which GitHub
-signs.
+A new target needs its secret and its line in `sync.yml`'s job `env`, which
+passes each secret by name; until then `check_tokens.sh` reports it unset and
+the sync skips it.
+
+Contents write lets a token push any branch of its target, not just
+`ci-sync`. The rulesets on each target's `main` and `dev` keep it to pull
+requests, provided the token's user can bypass them only through a pull
+request: the token acts as that user. `scripts/check_protection.sh` checks
+this and fails closed on any error; `scripts/sync_remote.sh` runs it on each
+target before writing to it, and a target that fails gets nothing while the
+others still sync. The bot's commits are unsigned, which keeps it off `dev`
+too; a target takes its pull request as a squash merge, which GitHub signs.
+
+For a local run, `GH_TOKEN` stands in for any target whose `SYNC_TOKEN_<NAME>`
+is unset; `check_tokens.sh` reads only the `SYNC_TOKEN_<NAME>` variables.
 
 ## The rulesets
 

@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
-# Fails unless each repos/<name>.toml repository has a `main` and a `dev` that the sync
-# token cannot change except through a pull request: both block force pushes
-# and deletion, `main` requires a pull request, and `dev` requires a pull
-# request or signed commits (the token's commits are unsigned, so it reaches
-# `dev` only through a pull request GitHub merges). A rule counts only from an
-# active ruleset the token's own user cannot bypass outside a pull request; the
-# token acts as that user. rulesets/ holds the shared rulesets that pass.
+# Fails unless each repos/<name>.toml repository has a `main` and a `dev` that
+# its sync token cannot change except through a pull request: both block force
+# pushes and deletion, `main` requires a pull request, and `dev` requires a
+# pull request or signed commits (the token's commits are unsigned, so it
+# reaches `dev` only through a pull request GitHub merges). A rule counts only
+# from an active ruleset the token's own user cannot bypass outside a pull
+# request; the token acts as that user. rulesets/ holds the shared rulesets
+# that pass.
 #
-#   GH_TOKEN=<token> scripts/check_protection.sh
+#   SYNC_TOKEN_<NAME>=<token>... scripts/check_protection.sh [NAME...]
+#   GH_TOKEN=<token> scripts/check_protection.sh [NAME...]
 #
-# Fails closed: a missing token, an invalid repos/ config, an API error, a response
-# of the wrong shape or a bypass level it does not know each fail the branch.
-# Prints one line per branch and exits 1 if any fails. The token needs Metadata
-# read on each target, and must be the one the sync writes with: the bypass is
-# read for its user.
+# Each target is read with its own SYNC_TOKEN_<NAME>, else with GH_TOKEN; NAME
+# limits the check to those targets. Fails closed: a missing token, an invalid
+# repos/ config, an API error, a response of the wrong shape or a bypass level
+# it does not know each fail the branch. Prints one line per branch and exits 1
+# if any fails. Each token needs Metadata read on its target, and must be the
+# one the sync writes with: the bypass is read for its user.
 set -euo pipefail
 
 # shellcheck source=./lib.sh
@@ -77,13 +80,9 @@ check_branch() {
   fi
 }
 
-if [ -z "${GH_TOKEN:-}" ]; then
-  echo "::error title=protection::GH_TOKEN is not set; run this as the token the sync writes with"
-  exit 1
-fi
-repos="$(ci_repos)"
+repos="$(ci_repos "$@")"
 if [ -z "$repos" ]; then
-  echo "::error title=protection::repos/ lists no targets"
+  echo "::error title=protection::repos/ lists no targets${*:+ named $*}"
   exit 1
 fi
 
@@ -96,6 +95,12 @@ while read -r slug base extra; do
     failed=1
     continue
   fi
+  if ! token="$(ci_token "${slug#*/}" 2>&1)"; then
+    echo "::error title=protection $slug::$token"
+    failed=1
+    continue
+  fi
+  export GH_TOKEN="$token"
   for branch in main dev; do
     if out="$(check_branch "$slug" "$branch" 2>&1)"; then
       echo "$slug $branch: protected"

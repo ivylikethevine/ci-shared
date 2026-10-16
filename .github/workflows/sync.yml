@@ -1,11 +1,13 @@
 name: Sync
 
 # Opens or updates a pull request in each repos/ repository whose copies of
-# the shared files differ from files/. SYNC_TOKEN, a repository secret, is a
-# fine-grained token scoped to those repositories alone with Contents, Pull
-# requests and Workflows read/write; this workflow's own token only reads this
-# repository. Nothing is written unless every target's main and dev pass
-# scripts/check_protection.sh.
+# the shared files differ from files/. Each target has its own repository
+# secret, SYNC_TOKEN_<NAME>: a fine-grained token scoped to that repository
+# alone with Contents, Pull requests and Workflows read/write. This workflow's
+# own token only reads this repository. A target gets nothing unless its main
+# and dev pass scripts/check_protection.sh. The weekly run writes nothing: it
+# fails once a token is within two weeks of expiry, or a target's protection
+# has slipped.
 on:
   push:
     branches: [main]
@@ -15,7 +17,10 @@ on:
       - scripts/config.py
       - scripts/lib.sh
       - scripts/check_protection.sh
+      - scripts/check_tokens.sh
       - scripts/sync_remote.sh
+  schedule:
+    - cron: "41 14 * * 1"
   workflow_dispatch:
     inputs:
       repos:
@@ -41,6 +46,13 @@ jobs:
     # job-scoped, not workflow-level, for Scorecard's Token-Permissions check
     permissions:
       contents: read
+    # one per repos/<name>.toml, each read by the scripts for its own target
+    env:
+      SYNC_TOKEN_HOMEBREW_TAP: ${{ secrets.SYNC_TOKEN_HOMEBREW_TAP }}
+      SYNC_TOKEN_INSTADROID: ${{ secrets.SYNC_TOKEN_INSTADROID }}
+      SYNC_TOKEN_PYTHON_CONSTRICTER: ${{ secrets.SYNC_TOKEN_PYTHON_CONSTRICTER }}
+      SYNC_TOKEN_SAY_HI: ${{ secrets.SYNC_TOKEN_SAY_HI }}
+      SYNC_TOKEN_SHARERR_RS: ${{ secrets.SYNC_TOKEN_SHARERR_RS }}
     steps:
       # block, not audit: the checkout and the GitHub API are all this job
       # reaches.
@@ -56,23 +68,21 @@ jobs:
         with:
           persist-credentials: false
 
-      # every target, whatever the repos input names: the token reaches all
+      # every target, whatever the repos input names. The steps after run
+      # whatever this one finds: an expiring token still syncs.
+      - name: Check the sync tokens' expiry
+        run: scripts/check_tokens.sh
+
+      # every target again; the sync below checks each one it writes to itself
       - name: Check the targets' branch protection
-        env:
-          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -z "$GH_TOKEN" ]; then
-            echo "::error title=SYNC_TOKEN::the SYNC_TOKEN repository secret is not set"
-            exit 1
-          fi
-          scripts/check_protection.sh
+        if: ${{ !cancelled() }}
+        run: scripts/check_protection.sh
 
       - name: Open or update the sync pull requests
+        if: ${{ !cancelled() && github.event_name != 'schedule' }}
         # via env, never inline ${{ }} in the run block (zizmor:
         # template-injection)
         env:
-          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
           SOURCE_SHA: ${{ github.sha }}
           REPOS: ${{ inputs.repos }}
           DRY_RUN: ${{ inputs.dry-run }}

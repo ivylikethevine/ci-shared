@@ -3,16 +3,17 @@
 # paths it lists in line with files/, templates rendered with the values it
 # gives them.
 #
-#   GH_TOKEN=<token> scripts/sync_remote.sh [--dry-run] [NAME...]
+#   SYNC_TOKEN_<NAME>=<token>... scripts/sync_remote.sh [--dry-run] [NAME...]
 #
 # Works through the Git data API, so nothing is cloned: one commit on the base
 # branch's head, on branch `ci-sync` (force-moved each run), and one pull
 # request from it, updated in place while open. A repository already in line
 # gets nothing. NAME limits the run to those repositories; --dry-run reports
-# what differs and writes nothing. A run that writes first runs
-# check_protection.sh and stops if it fails. The token needs Contents, Pull
-# requests and Workflows read/write on each target. Exits with the number of
-# repositories that failed.
+# what differs and writes nothing. Each target is written with its own token,
+# SYNC_TOKEN_<NAME> (else GH_TOKEN, for a local run), which needs Contents,
+# Pull requests and Workflows read/write on that target alone. Before writing
+# to a target, check_protection.sh runs on it, and a target that fails gets
+# nothing. Exits with the number of repositories that failed.
 set -euo pipefail
 
 # shellcheck source=./lib.sh
@@ -28,12 +29,6 @@ if [ "${1:-}" = --dry-run ]; then
   shift
 fi
 source_sha="${SOURCE_SHA:-$(git -C "$CI_SHARED_DIR" rev-parse HEAD 2>/dev/null || echo unknown)}"
-
-# every target, whatever NAME limits the run to: the token reaches all
-if [ "$dry" = 0 ] && ! "$CI_SCRIPTS_DIR/check_protection.sh"; then
-  echo "::error title=sync::a target's branch protection failed the check; nothing was written"
-  exit 1
-fi
 
 # Uploads one file as a blob and checks GitHub stored the bytes git hashes.
 upload_blob() {
@@ -114,6 +109,14 @@ while read -r slug base; do
   set +e
   (
     set -e
+    GH_TOKEN="$(ci_token "$name")"
+    export GH_TOKEN
+    # each token reaches its own target alone, so a target that fails the
+    # check stops only its own writes
+    if [ "$dry" = 0 ] && ! "$CI_SCRIPTS_DIR/check_protection.sh" "$name"; then
+      echo "$name: branch protection failed the check; nothing was written"
+      exit 1
+    fi
     sync_repo "$slug" "$base"
   )
   rc=$?

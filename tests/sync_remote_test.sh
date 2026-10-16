@@ -1,23 +1,28 @@
 #!/usr/bin/env bash
 # scripts/sync_remote.sh against a fake GitHub: one commit and one pull request
-# per target that differs, nothing written on a dry run, a failed protection
-# check or a failed call.
+# per target that differs, each written with its own token, nothing written on
+# a dry run, and nothing to a target that fails its protection check or a
+# call.
 # shellcheck disable=SC2329 # t_main calls the test_* functions by name
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 # A fake gh answering what check_protection.sh and sync_remote.sh read and
 # write. $T/listing.json is the base branch's tree; SCENARIO bends one answer:
-# unprotected, truncated, bad-blob, tree-error, branch-exists, pr-open.
+# unprotected, unprotected-a (owner/a alone), truncated, bad-blob, tree-error,
+# branch-exists, pr-open. $T/tokens.log gets "token METHOD endpoint" per call.
 fake_github() {
   echo '[]' >"$T/listing.json"
   t_fake_gh <<'EOF'
 s=${SCENARIO:-}
+echo "${GH_TOKEN:-} $method $ep" >>"$T/tokens.log"
 case "$method $ep" in
 "GET "*/git/matching-refs/heads/*) reply "[{\"ref\":\"refs/heads/${ep##*/}\"}]" ;;
 "GET "*/rules/branches/*)
-  [ "$s" != unprotected ] || reply '[]'
-  [ "$s" = unprotected ] || reply '[{"type":"pull_request","ruleset_id":1},{"type":"non_fast_forward","ruleset_id":1},{"type":"deletion","ruleset_id":1}]'
+  case "$s $ep" in
+  "unprotected "* | "unprotected-a repos/owner/a/"*) reply '[]' ;;
+  *) reply '[{"type":"pull_request","ruleset_id":1},{"type":"non_fast_forward","ruleset_id":1},{"type":"deletion","ruleset_id":1}]' ;;
+  esac
   ;;
 "GET "*/rulesets/1) reply '{"id":1,"name":"r","enforcement":"active","current_user_can_bypass":"never"}' ;;
 "GET "*/git/ref/heads/ci-sync) [ "$s" = branch-exists ] && reply '{}' || fail "HTTP 404" ;;
@@ -116,20 +121,34 @@ test_source_sha_defaults_to_this_tree_head() {
 test_dry_run_reports_and_writes_nothing() {
   fake_github
   fixture
-  t_run env SCENARIO=unprotected "$SCRIPTS/sync_remote.sh" --dry-run
+  t_run env GH_TOKEN=t SCENARIO=unprotected "$SCRIPTS/sync_remote.sh" --dry-run
   t_rc 0
   t_out "a: new.sh differs" "b: in line with files/"
   t_not_logged '^(POST|PATCH) '
   t_not_logged 'rules/branches'
 }
 
-test_an_unprotected_target_stops_every_write() {
+test_an_unprotected_target_gets_nothing_and_the_others_sync() {
   fake_github
   fixture
-  t_run env GH_TOKEN=t SCENARIO=unprotected "$SCRIPTS/sync_remote.sh" a
+  echo '[]' >"$T/listing.json"
+  t_run env GH_TOKEN=t SCENARIO=unprotected-a "$SCRIPTS/sync_remote.sh"
   t_rc 1
-  t_out "::error title=sync::a target's branch protection failed the check; nothing was written"
-  t_not_logged '^(POST|PATCH) '
+  t_out "a: branch protection failed the check; nothing was written" \
+    "::error title=sync a::sync failed" "b: opened pull request #8"
+  t_not_logged '^(POST|PATCH) repos/owner/a/'
+  t_logged '^POST repos/owner/b/pulls$'
+}
+
+test_writes_each_target_with_its_own_token() {
+  fake_github
+  fixture
+  echo '[]' >"$T/listing.json"
+  t_run env SYNC_TOKEN_B=tb "$SCRIPTS/sync_remote.sh"
+  t_rc 1
+  t_out "no token: SYNC_TOKEN_A is not set" "::error title=sync a::sync failed" "b: opened pull request #8"
+  t_eq "$(cut -d' ' -f1 "$T/tokens.log" | sort -u)" tb "the tokens used"
+  t_not_logged 'repos/owner/a/'
 }
 
 test_a_failed_call_stops_that_target_alone() {
