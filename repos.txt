@@ -1,7 +1,0 @@
-# One target repository per line: owner/name and the branch sync pull requests
-# go to. The files each one receives are listed in targets/<name>.txt.
-ivylikethevine/say-hi dev
-ivylikethevine/sharerr-rs dev
-ivylikethevine/instadroid dev
-ivylikethevine/python-constricter dev
-ivylikethevine/homebrew-tap main

@@ -1,0 +1,22 @@
+# What ci-shared syncs into homebrew-tap, and its own values in the shared rulesets.
+repository = "ivylikethevine/homebrew-tap"
+# the branch sync pull requests go to: main or dev
+sync_branch = "dev"
+
+# paths from files/, each at the path it has in this repository
+files = [
+  ".editorconfig",
+  ".github/CODEOWNERS",
+  ".github/actions/upsert-tracking-issue/action.yml",
+  ".github/scripts/check_tool_versions.sh",
+  ".github/scripts/lib.sh",
+  ".github/workflows/tool-versions.yml",
+]
+
+# this repository's values in rulesets/main.json
+[rulesets.main]
+required_status_checks = [
+  { context = "tests", integration_id = 15368 },
+]
+code_scanning_tools = []
+code_quality = false

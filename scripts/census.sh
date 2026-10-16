@@ -4,7 +4,7 @@
 #
 #   scripts/census.sh [--drift] [ROOT]
 #
-# ROOT holds one checkout per repos.txt row, named after the repository
+# ROOT holds one checkout per repos/<name>.toml, named after the repository
 # (default: this checkout's parent directory). Each path prints once, then one
 # line per distinct copy: blob, mode, the repositories holding it, and
 # "= files/" when it matches the copy here, rendered with the repository's
@@ -13,6 +13,7 @@ set -euo pipefail
 
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+ci_load
 
 drift=0
 if [ "${1:-}" = --drift ]; then

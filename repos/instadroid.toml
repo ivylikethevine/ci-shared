@@ -1,0 +1,59 @@
+# What ci-shared syncs into instadroid, and its own values in the shared rulesets.
+repository = "ivylikethevine/instadroid"
+# the branch sync pull requests go to: main or dev
+sync_branch = "dev"
+
+# paths from files/, each at the path it has in this repository
+files = [
+  ".editorconfig",
+  ".github/CODEOWNERS",
+  ".github/actions/advisory-note/action.yml",
+  ".github/actions/apt/lib.sh",
+  ".github/actions/fetch-latest-artifact/action.yml",
+  ".github/actions/setup-tool/action.yml",
+  ".github/actions/setup-tool/install.sh",
+  ".github/actions/setup-tool/lib.sh",
+  ".github/actions/setup-tools/action.yml",
+  ".github/actions/setup-tools/install-missing.sh",
+  ".github/actions/setup-tools/resolve.sh",
+  ".github/actions/upsert-tracking-issue/action.yml",
+  ".github/allowed_signers",
+  ".github/osv-scanner.toml",
+  ".github/package-lock.json",
+  ".github/package.json",
+  ".github/scripts/check_tool_versions.sh",
+  ".github/scripts/lib.sh",
+  ".github/scripts/lint_workflows.sh",
+  ".github/scripts/release_notes.sh",
+  ".github/scripts/scan_pinned_images.sh",
+  ".github/scripts/trivy_scan.sh",
+  ".github/workflows/cancel-closed-pr.yml",
+  ".github/workflows/codeql.yml",
+  ".github/workflows/link-check.yml",
+  ".github/workflows/pages.yml",
+  ".github/workflows/release-note.yml",
+  ".github/workflows/scorecard.yml",
+  ".github/workflows/tool-versions.yml",
+  ".github/zizmor.yml",
+  ".markdownlint.yaml",
+  ".prettierrc.yaml",
+  ".shellcheckrc",
+  "lychee.toml",
+]
+
+# the values a template takes, by path
+[templates.".github/workflows/codeql.yml"]
+language = "python"
+Language = "Python"
+
+# this repository's values in rulesets/main.json
+[rulesets.main]
+required_status_checks = [
+  { context = "CI result", integration_id = 15368 },
+  { context = "CodeQL (actions)", integration_id = 15368 },
+  { context = "CodeQL (python)", integration_id = 15368 },
+  { context = "release note (pr body)", integration_id = 15368 },
+]
+code_scanning_tools = ["CodeQL", "Scorecard", "Trivy"]
+code_quality = false
+code_coverage = { minimum_coverage = 90, max_coverage_drop = 2 }

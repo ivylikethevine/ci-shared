@@ -10,6 +10,7 @@ set -euo pipefail
 
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+ci_load
 
 out="$CI_SHARED_DIR/USAGE.md"
 
@@ -20,7 +21,7 @@ render() {
   printf '# Usage\n\n'
   printf 'Which repositories receive each shared file, written by\n'
   # shellcheck disable=SC2016 # the backticks are Markdown
-  printf '`scripts/usage.sh` from `targets/`; run it after changing a target list.\n\n'
+  printf '`scripts/usage.sh` from `repos/`; run it after changing a file list there.\n\n'
 
   (
     cd "$CI_SHARED_DIR/files"

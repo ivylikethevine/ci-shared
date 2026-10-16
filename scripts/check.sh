@@ -51,6 +51,7 @@ run usage scripts/usage.sh --check
 # block that breaks only one repository's copy still fails here.
 # shellcheck source=./lib.sh
 source scripts/lib.sh
+run config ci_load
 rendered="$(mktemp -d "${TMPDIR:-/tmp}/ci-render.XXXXXX")"
 trap 'case "$rendered" in */ci-render.??????) rm -r "$rendered" ;; esac' EXIT
 templates=()

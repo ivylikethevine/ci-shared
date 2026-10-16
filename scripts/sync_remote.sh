@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Opens or updates one pull request per repos.txt row that brings the paths
-# its targets/<name>.txt lists in line with files/, templates rendered with
-# that row's values.
+# Opens or updates one pull request per repos/<name>.toml that brings the
+# paths it lists in line with files/, templates rendered with the values it
+# gives them.
 #
 #   GH_TOKEN=<token> scripts/sync_remote.sh [--dry-run] [NAME...]
 #
@@ -9,12 +9,15 @@
 # branch's head, on branch `ci-sync` (force-moved each run), and one pull
 # request from it, updated in place while open. A repository already in line
 # gets nothing. NAME limits the run to those repositories; --dry-run reports
-# what differs and writes nothing. The token needs Contents and Pull requests
-# read/write on each target. Exits with the number of repositories that failed.
+# what differs and writes nothing. A run that writes first runs
+# check_protection.sh and stops if it fails. The token needs Contents, Pull
+# requests and Workflows read/write on each target. Exits with the number of
+# repositories that failed.
 set -euo pipefail
 
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+ci_load
 
 BRANCH=ci-sync
 TITLE='ci: sync shared CI files'
@@ -25,6 +28,12 @@ if [ "${1:-}" = --dry-run ]; then
   shift
 fi
 source_sha="${SOURCE_SHA:-$(git -C "$CI_SHARED_DIR" rev-parse HEAD 2>/dev/null || echo unknown)}"
+
+# every target, whatever NAME limits the run to: the token reaches all
+if [ "$dry" = 0 ] && ! "$CI_SHARED_DIR/scripts/check_protection.sh"; then
+  echo "::error title=sync::a target's branch protection failed the check; nothing was written"
+  exit 1
+fi
 
 # Uploads one file as a blob and checks GitHub stored the bytes git hashes.
 upload_blob() {
@@ -53,7 +62,8 @@ sync_repo() {
 
   rendered="$(mktemp "${TMPDIR:-/tmp}/ci-sync.XXXXXX")"
   # sync_repo runs in its own subshell, so this fires as each repository ends
-  trap 'rm -f "$rendered"' EXIT
+  # shellcheck disable=SC2064 # expanded now: the local is gone by exit time
+  trap "rm -f '$rendered'" EXIT
   # shellcheck disable=SC2086 # $vars is key=value words, split on purpose
   while read -r path vars; do
     src="$CI_SHARED_DIR/files/$path"

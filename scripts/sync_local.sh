@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Copies files/ into the local checkouts, each receiving the paths its
-# targets/<name>.txt lists, templates rendered with that row's values.
+# repos/<name>.toml lists, templates rendered with the values it gives them.
 #
 #   scripts/sync_local.sh [--check] [ROOT]
 #
-# ROOT holds one checkout per repos.txt row, named after the repository
+# ROOT holds one checkout per repos/<name>.toml, named after the repository
 # (default: this checkout's parent directory); a missing checkout is skipped.
 # A path with uncommitted changes in the checkout is left alone and reported.
 # --check writes nothing and reports each copy that differs. Exits with the
@@ -13,6 +13,7 @@ set -euo pipefail
 
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+ci_load
 
 check=0
 if [ "${1:-}" = --check ]; then

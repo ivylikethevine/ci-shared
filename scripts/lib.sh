@@ -3,17 +3,42 @@
 
 CI_SHARED_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 
-# Prints "owner/name branch" for each repos.txt row.
-ci_repos() {
-  sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$CI_SHARED_DIR/repos.txt"
+# ci_load - reads every repos/<name>.toml into CI_CONFIGS as one JSON list
+# (scripts/config.py), or fails when any of them is invalid. Each script runs it
+# once before the helpers below, which read CI_CONFIGS.
+ci_load() {
+  CI_CONFIGS="$(python3 -I "$CI_SHARED_DIR/scripts/config.py")"
 }
 
-# Prints each targets/<name>.txt row for repository <name>: a path from files/,
-# then any key=value pairs its template takes.
+ci_configs() {
+  if [ -z "${CI_CONFIGS:-}" ]; then
+    echo "ci_load has not run" >&2
+    return 1
+  fi
+  printf '%s\n' "$CI_CONFIGS"
+}
+
+# Prints "owner/name branch" for each target, branch being where its sync pull
+# requests go.
+ci_repos() {
+  ci_configs | jq -r '.[] | "\(.repository) \(.sync_branch)"'
+}
+
+# Prints a row per path target <name> receives: the path in files/, then any
+# key=value pairs its template takes. Fails when there is no target <name>.
 ci_targets() {
-  local list="$CI_SHARED_DIR/targets/$1.txt"
-  [ -f "$list" ] || return 0
-  sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^$/d' "$list"
+  ci_configs | jq -r --arg n "$1" '
+    first(.[] | select(.name == $n)) // error("no target \($n)")
+    | .templates as $t
+    | .files[]
+    | [., (($t[.] // {}) | to_entries[] | "\(.key)=\(.value)")]
+    | join(" ")'
+}
+
+# ci_ruleset_values <name> - prints the JSON values target <name> gives the
+# shared main ruleset.
+ci_ruleset_values() {
+  ci_configs | jq -ec --arg n "$1" 'first(.[] | select(.name == $n)).rulesets.main'
 }
 
 # ci_target_row <name> <path> - prints the key=value pairs <name>'s targets

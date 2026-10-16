@@ -8,18 +8,21 @@ Scorecard and zizmor see ordinary files; nothing in a target refers back here.
 
 ## Layout
 
-| Path                     | Holds                                                                    |
-| ------------------------ | ------------------------------------------------------------------------ |
-| `files/`                 | the master copies, at the path they have in a target                     |
-| `repos.txt`              | each target, `owner/name` and the branch sync pull requests go to        |
-| `targets/<name>.txt`     | the paths from `files/` that target receives                             |
-| `USAGE.md`               | each file against the repositories receiving it, written from `targets/` |
-| `scripts/check.sh`       | the shipped checks, run over this repository and `files/`                |
-| `scripts/usage.sh`       | writes `USAGE.md`; `--check` fails when it is stale                      |
-| `scripts/census.sh`      | groups the CI files local checkouts share by content, to find drift      |
-| `scripts/sync_local.sh`  | copies `files/` into the checkouts beside this one                       |
-| `scripts/sync_remote.sh` | opens or updates a pull request per target through the GitHub API        |
-| `.github/workflows/`     | `sync.yml`, `checks.yml` and `tool-versions.yml`                         |
+| Path                          | Holds                                                                        |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| `files/`                      | the master copies, at the path they have in a target                         |
+| `repos/<name>.toml`           | one target: its repository, sync branch, files, template and ruleset values  |
+| `USAGE.md`                    | each file against the repositories receiving it, written from `repos/`       |
+| `scripts/check.sh`            | the shipped checks, run over this repository and `files/`                    |
+| `scripts/config.py`           | validates `repos/` and prints it as JSON, for the scripts to read            |
+| `scripts/usage.sh`            | writes `USAGE.md`; `--check` fails when it is stale                          |
+| `scripts/census.sh`           | groups the CI files local checkouts share by content, to find drift          |
+| `scripts/sync_local.sh`       | copies `files/` into the checkouts beside this one                           |
+| `scripts/sync_remote.sh`      | opens or updates a pull request per target through the GitHub API            |
+| `scripts/check_protection.sh` | fails unless each target's `main` and `dev` are protected from the token     |
+| `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets      |
+| `rulesets/`                   | the `main` and `dev` rulesets every target shares, in GitHub's import format |
+| `.github/workflows/`          | `sync.yml`, `checks.yml` and `tool-versions.yml`                             |
 
 A file belongs here once two targets hold it byte-identical. Per-repository
 files stay in their repository: `setup-tool/tools.txt`,
@@ -29,7 +32,7 @@ and every workflow that differs.
 ## Changing a shared file
 
 1. Edit it under `files/`. To share a new file, copy it in, add its path to
-   each `targets/<name>.txt` that should receive it, and run
+   the `files` list of each `repos/<name>.toml` that should receive it, and run
    `scripts/usage.sh`.
 2. Run `scripts/check.sh`.
 3. `scripts/sync_local.sh --check` lists the checkouts that differ;
@@ -91,13 +94,39 @@ Markdown tools' manifest and adds a second run over `files/`.
 variables → Actions → New repository secret_), holding a fine-grained personal
 access token:
 
-- **Repository access:** only the repositories in `repos.txt`.
+- **Repository access:** only the repositories in `repos/`.
 - **Permissions:** Contents read and write (a pull request needs its branch
-  pushed), Pull requests read and write; Metadata read is added automatically.
+  pushed), Pull requests read and write, Workflows read and write (the synced
+  files include `.github/workflows/`); Metadata read is added automatically.
 - **Expiry:** the shortest you will renew; an expired token fails the run with
   a 401.
 
-Contents write lets the token push any branch, not just `ci-sync`. A ruleset on
-each target's `main` and `dev` that requires a pull request keeps it off the
-branches that matter. The bot's commits are unsigned; a target that requires
-signed commits takes the pull request as a squash merge, which GitHub signs.
+Contents write lets the token push any branch, not just `ci-sync`. The rulesets
+on each target's `main` and `dev` keep it to pull requests, provided the
+token's user can bypass them only through a pull request: the token acts as
+that user. `scripts/check_protection.sh` checks this and fails closed on any error;
+`scripts/sync_remote.sh` runs it before writing and stops if it fails. The bot's commits are unsigned, which keeps it off
+`dev` too; a target takes its pull request as a squash merge, which GitHub
+signs.
+
+## The rulesets
+
+`rulesets/main.json` and `rulesets/dev.json` are the rulesets every target
+shares; the `[rulesets.main]` table of `repos/<name>.toml` holds what is a
+target's own on `main`: the
+required status checks, the code scanning tools, the coverage floor and whether
+code quality is gated.
+
+- **`main`:** no force push or deletion, signed commits, a pull request with
+  checks passing on an up-to-date branch, merge or squash. Repository admins
+  bypass it only through a pull request.
+- **`dev`:** no force push or deletion, signed commits, no bypass. Direct
+  pushes stay open to signed commits.
+
+No review approval is required, so the repository owner merges their own pull
+requests; Scorecard's Branch-Protection check scores that 3/10, and a required
+approval would lift it to 8/10.
+
+`scripts/rulesets.sh render <name> main|dev` prints a ruleset to import
+(_Settings → Rules → Rulesets → New ruleset → Import a ruleset_);
+`scripts/rulesets.sh diff [NAME...]` shows where the live ones differ.
