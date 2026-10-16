@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Renders the shared branch rulesets for a target, or compares them with the
 # ones live on GitHub. rulesets/main.json and rulesets/dev.json hold what every
 # target shares; the [rulesets.main] table of repos/<name>.toml holds the values

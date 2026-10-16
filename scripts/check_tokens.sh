@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Prints when each target's sync token expires, and fails unless every one is
 # set, can read its repository, and has more than WARN_DAYS left. A token
 # GitHub reports no expiry for fails too.

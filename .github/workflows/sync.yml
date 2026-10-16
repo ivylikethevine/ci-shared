@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 name: Sync
 
 # Opens or updates a pull request in each repos/ repository whose copies of

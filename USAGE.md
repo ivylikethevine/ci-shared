@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: MIT -->
+
 # Usage
 
 Which repositories receive each shared file, written by

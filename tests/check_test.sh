@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # scripts/check.sh over a fixture tree with every tool faked: each check runs
 # on the right paths, a failure is counted and annotated, and each workflow
 # template is linted as every target receives it.
@@ -50,13 +51,15 @@ Language = "Rust"
 EOF
   t_target b dev .github/workflows/marked.yml
   "$SCRIPTS/usage.sh"
+  # nothing tracked, so spdx.sh passes
+  t_git "$T/tree" init -q
 }
 
 test_runs_every_check_over_the_tree() {
   fixture
   t_run "$SCRIPTS/check.sh"
   t_rc 0
-  t_out "== shellcheck" "== markdownlint" "== usage" "== config" "== lint-workflows-rendered"
+  t_out "== shellcheck" "== markdownlint" "== usage" "== spdx" "== config" "== lint-workflows-rendered"
   t_no_out "::error"
   grep -qxF 'shellcheck -x files/.github/scripts/shared.sh scripts/s.sh tests/t_test.sh' "$T/tools.log" ||
     t_fail "shellcheck's paths: $(grep '^shellcheck' "$T/tools.log")"

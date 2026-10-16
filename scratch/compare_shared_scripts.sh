@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Runs check_tool_versions.sh, scan_pinned_images.sh and lint_workflows.sh from
 # two copies of this repository over the same fixtures, with a fake curl that
 # logs and fails and a fake trivy, and diffs their output: a refactor of

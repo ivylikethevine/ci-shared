@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # What ci-shared syncs into python-constricter, and its own values in the shared rulesets.
 repository = "ivylikethevine/python-constricter"
 # the branch sync pull requests go to: main or dev

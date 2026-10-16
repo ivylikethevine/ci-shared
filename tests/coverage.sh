@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Runs every suite under kcov and fails unless every statement of scripts/*.sh
 # ran; tests/coverage.py says how a statement is judged from kcov's lines.
 # The checks workflow's coverage job runs it.

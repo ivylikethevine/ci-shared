@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # scripts/rulesets.sh: renders the shared rulesets with a target's own values,
 # and diffs them against a fake GitHub's live ones.
 # shellcheck disable=SC2329 # t_main calls the test_* functions by name

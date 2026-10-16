@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Runs every tests/*_test.sh, or those named, and exits with the number of
 # suites that failed.
 #

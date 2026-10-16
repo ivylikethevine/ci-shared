@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # scripts/check_tokens.sh against a fake GitHub: it prints each token's expiry,
 # and fails a token that is unset, cannot read its target, has no expiry, sent
 # one it cannot read, or expires within two weeks.

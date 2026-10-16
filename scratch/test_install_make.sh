@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Runs setup-tool/install.sh's `make` kind from two copies of this repository
 # on a good source tarball, an empty one and a corrupt one, served from
 # file:// URLs, and prints each run's output and exit status to compare.

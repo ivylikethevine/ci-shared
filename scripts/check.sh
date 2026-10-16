@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Runs the checks this repository ships over the repository itself, files/
 # included, with the shared configs: shellcheck and shfmt (.shellcheckrc,
 # .editorconfig), actionlint, lint_workflows.sh, zizmor (.github/zizmor.yml), prettier and
 # markdownlint (.prettierrc.yaml, .markdownlint.yaml), actionlint and
 # lint_workflows.sh again over each template as every target receives it, and
-# that USAGE.md is current. CI's checks workflow runs the same script.
+# that USAGE.md is current and every tracked file carries an SPDX license
+# comment. CI's checks workflow runs the same script.
 #
 #   scripts/check.sh
 #
@@ -48,6 +50,7 @@ run zizmor zizmor --config .github/zizmor.yml ${offline[@]+"${offline[@]}"} .git
 run prettier "$bin/prettier" --check .
 run markdownlint "$bin/markdownlint-cli2" '**/*.md' '#**/node_modules'
 run usage "$CI_SCRIPTS_DIR/usage.sh" --check
+run spdx "$CI_SCRIPTS_DIR/spdx.sh" --check
 
 # Each template rendered for every target that receives it, so a placeholder or
 # block that breaks only one repository's copy still fails here.

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Opens or updates one pull request per repos/<name>.toml that brings the
 # paths it lists in line with files/, templates rendered with the values it
 # gives them.

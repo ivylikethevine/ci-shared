@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # shellcheck shell=bash
 # The ci-shared specifics for ./check_tool_versions.sh, which sources this file (the hook contract is
 # in that script's header). Nothing here runs on its own.

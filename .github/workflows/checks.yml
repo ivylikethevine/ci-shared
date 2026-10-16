@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 name: Checks
 
 # The checks this repository ships, run over the repository itself and the

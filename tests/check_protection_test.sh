@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # scripts/check_protection.sh against a fake GitHub: it passes only targets
 # whose main and dev are fully protected from the token, and fails closed on
 # every API error, odd response, unknown bypass level, missing branch, missing

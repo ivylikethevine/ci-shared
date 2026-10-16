@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # What ci-shared syncs into sharerr-rs, and its own values in the shared rulesets.
 repository = "ivylikethevine/sharerr-rs"
 # the branch sync pull requests go to: main or dev

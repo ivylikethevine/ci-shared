@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # scripts/sync_local.sh: copies files/ into checkouts beside the tree,
 # templates rendered, modes kept, uncommitted edits left alone.
 # shellcheck disable=SC2329 # t_main calls the test_* functions by name

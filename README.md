@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: MIT -->
+
 # ci-shared
 
 The one source for the CI files several repositories carry byte-identical:
@@ -16,6 +18,7 @@ Scorecard and zizmor see ordinary files; nothing in a target refers back here.
 | `scripts/check.sh`            | the shipped checks, run over this repository and `files/`                    |
 | `scripts/config.py`           | validates `repos/` and prints it as JSON, for the scripts to read            |
 | `scripts/usage.sh`            | writes `USAGE.md`; `--check` fails when it is stale                          |
+| `scripts/spdx.sh`             | adds the SPDX license comment; `--check` fails when a file lacks it          |
 | `scripts/census.sh`           | groups the CI files local checkouts share by content, to find drift          |
 | `scripts/sync_local.sh`       | copies `files/` into the checkouts beside this one                           |
 | `scripts/sync_remote.sh`      | opens or updates a pull request per target through the GitHub API            |
@@ -83,9 +86,9 @@ own: `.github/actions/setup-tool/tools.txt` pins the lint tools, and
 Markdown tools' manifest and adds a second run over `files/`.
 
 - `scripts/check.sh` runs shellcheck, shfmt, actionlint, `lint_workflows.sh`,
-  zizmor, prettier,
-  markdownlint and `scripts/usage.sh --check`; `checks.yml` runs it on every
-  push and pull request. Locally it needs the `tools.txt` pins on `PATH` and
+  zizmor, prettier, markdownlint, `scripts/usage.sh --check` and
+  `scripts/spdx.sh --check`; `checks.yml` runs it on every push and pull
+  request. Locally it needs the `tools.txt` pins on `PATH` and
   `npm ci --prefix .github` once.
 - `.github/scripts/check_tool_versions.sh` reports every pin behind the newest
   release past the cooldown; `tool-versions.yml` runs it weekly.

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # scripts/census.sh: groups the CI files checkouts share by content, marks the
 # copies files/ renders to, and --drift keeps only paths whose copies differ.
 # shellcheck disable=SC2329 # t_main calls the test_* functions by name

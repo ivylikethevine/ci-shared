@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Runs scripts/check_protection.sh against a fake `gh` in a scratch copy of the
 # repository, once per scenario, and checks it passes only the fully protected
 # one: every API error, odd response, unknown bypass level, missing branch,

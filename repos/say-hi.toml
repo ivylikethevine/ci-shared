@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # What ci-shared syncs into say-hi, and its own values in the shared rulesets.
 repository = "ivylikethevine/say-hi"
 # the branch sync pull requests go to: main or dev
