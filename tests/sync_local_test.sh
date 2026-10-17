@@ -38,6 +38,45 @@ test_copies_renders_and_keeps_modes() {
   t_no_out differs
 }
 
+test_renders_markdown_markers_and_value_conditions() {
+  fixture
+  cat <<'EOF' | t_shared tpl.md
+<!-- shared:if repo=a -->
+only a
+<!-- shared:endif -->
+<!-- shared:unless repo=a -->
+not a
+<!-- shared:endif -->
+# shared:if repo=b
+b
+# shared:endif
+hello __greeting__
+EOF
+  t_target a dev tpl.md
+  t_toml a <<'EOF'
+[templates."tpl.md"]
+repo = "a"
+greeting = "good morning"
+EOF
+  t_checkout a
+  t_run "$SCRIPTS/sync_local.sh"
+  t_rc 0
+  t_file "$T/a/tpl.md" "$(printf 'only a\nhello good morning')"
+}
+
+test_a_template_value_with_a_percent_is_invalid() {
+  fixture
+  t_toml a <<'EOF'
+[templates."plain.txt"]
+share = "50%"
+EOF
+  t_checkout a
+  t_run "$SCRIPTS/sync_local.sh"
+  t_rc 1
+  t_out "templates.'plain.txt'.share must be a string of single-spaced words without %, & or \\"
+  [ ! -f "$T/a/plain.txt" ] || t_fail "a copy was made"
+}
+
 test_check_reports_each_difference_and_writes_nothing() {
   fixture
   t_checkout a "plain.txt=stale"

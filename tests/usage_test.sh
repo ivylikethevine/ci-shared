@@ -42,11 +42,12 @@ test_lists_template_values() {
   t_toml b <<'EOF'
 [templates.".editorconfig"]
 indent = "4"
+style = "two spaces"
 EOF
   t_run "$SCRIPTS/usage.sh"
   t_rc 0
   # shellcheck disable=SC2016 # literal text
-  grep -qxF -- '- `.editorconfig` in b: `indent=4`' "$T/tree/USAGE.md" || t_fail "no template values in $(cat "$T/tree/USAGE.md")"
+  grep -qxF -- '- `.editorconfig` in b: `indent=4 style=two spaces`' "$T/tree/USAGE.md" || t_fail "no template values in $(cat "$T/tree/USAGE.md")"
   grep -qxF '## Template values' "$T/tree/USAGE.md" || t_fail "no template values heading"
 }
 

@@ -2,11 +2,12 @@
 # SPDX-License-Identifier: MIT
 # Runs the checks this repository ships over the repository itself, files/
 # included, with the shared configs: shellcheck and shfmt (.shellcheckrc,
-# .editorconfig), actionlint, lint_workflows.sh, zizmor (.github/zizmor.yml), prettier and
-# markdownlint (.prettierrc.yaml, .markdownlint.yaml), actionlint and
-# lint_workflows.sh again over each template as every target receives it, and
-# that USAGE.md is current and every tracked file carries an SPDX license
-# comment. CI's checks workflow runs the same script.
+# .editorconfig), actionlint, lint_workflows.sh, zizmor (.github/zizmor.yml),
+# prettier and markdownlint (.prettierrc.yaml, .markdownlint.yaml), then each
+# template as every target receives it: actionlint and lint_workflows.sh for a
+# workflow, markdownlint for Markdown, prettier for both and for JSON, and no
+# `__key__` left that a target sets. USAGE.md must be current and every tracked file carry an
+# SPDX license comment. CI's checks workflow runs the same script.
 #
 #   scripts/check.sh
 #
@@ -47,8 +48,19 @@ run shfmt shfmt -d "${scripts[@]}"
 run actionlint actionlint "${workflows[@]}"
 run lint-workflows .github/scripts/lint_workflows.sh "${workflows[@]}" files/.github/actions/*/action.yml
 run zizmor zizmor --config .github/zizmor.yml ${offline[@]+"${offline[@]}"} .github/workflows files/.github
-run prettier "$bin/prettier" --check .
-run markdownlint "$bin/markdownlint-cli2" '**/*.md' '#**/node_modules'
+# A Markdown template's markers break the lists around them, so the raw copy
+# is linted rendered below instead
+md_templates=()
+while IFS= read -r f; do
+  ci_is_template "${f#files/}" && md_templates+=("$f")
+done < <(find files -name '*.md' -type f | LC_ALL=C sort)
+raw_prettier=(.) raw_markdownlint=('**/*.md' '#**/node_modules')
+for f in ${md_templates[@]+"${md_templates[@]}"}; do
+  raw_prettier+=("!$f")
+  raw_markdownlint+=("#$f")
+done
+run prettier "$bin/prettier" --check "${raw_prettier[@]}"
+run markdownlint "$bin/markdownlint-cli2" "${raw_markdownlint[@]}"
 run usage "$CI_SCRIPTS_DIR/usage.sh" --check
 run spdx "$CI_SCRIPTS_DIR/spdx.sh" --check
 
@@ -57,21 +69,57 @@ run spdx "$CI_SCRIPTS_DIR/spdx.sh" --check
 run config ci_load
 rendered="$(mktemp -d "${TMPDIR:-/tmp}/ci-render.XXXXXX")"
 trap 'case "$rendered" in */ci-render.??????) rm -r "$rendered" ;; esac' EXIT
-templates=()
+templates=() prettier_rendered=() workflows_rendered=() md_rendered=()
+declare -A keys=()
 while read -r slug _; do
   name="${slug#*/}"
   # shellcheck disable=SC2086 # $vars is key=value words, split on purpose
   while read -r path vars; do
-    case "$path" in .github/workflows/*) ;; *) continue ;; esac
-    [ -n "$vars" ] || grep -q '# shared:' "files/$path" || continue
+    [ -n "$vars" ] || ci_is_template "$path" || continue
     mkdir -p "$rendered/$name/$(dirname "$path")"
     ci_render "$path" $vars >"$rendered/$name/$path"
     templates+=("$rendered/$name/$path")
+    case "$path" in
+    .github/workflows/*) workflows_rendered+=("$rendered/$name/$path") ;;
+    *.md) md_rendered+=("$rendered/$name/$path") ;;
+    esac
+    # prettier fails on a file it has no parser for (.gitattributes)
+    case "$path" in
+    *.md | *.yml | *.yaml | *.json) prettier_rendered+=("$rendered/$name/$path") ;;
+    esac
+    for kv in $vars; do keys[$path]="${keys[$path]:-} ${kv%%=*}"; done
   done < <(ci_targets "$name")
 done < <(ci_repos)
+
+# A `__key__` still in a rendering, for a key any target gives that path: a
+# value a target forgot, or one used only inside a block another target keeps.
+# shellcheck disable=SC2329 # run calls it by name
+unrendered() {
+  local f path key found=0
+  for f in "${templates[@]}"; do
+    path="${f#"$rendered"/*/}"
+    for key in ${keys[$path]:-}; do
+      if grep -qF "__${key}__" "$f"; then
+        echo "${f#"$rendered"/} leaves __${key}__ unrendered"
+        found=1
+      fi
+    done
+  done
+  [ "$found" = 0 ]
+}
+
 if [ ${#templates[@]} -gt 0 ]; then
-  run actionlint-rendered actionlint "${templates[@]}"
-  run lint-workflows-rendered .github/scripts/lint_workflows.sh "${templates[@]}"
+  run unrendered unrendered
+fi
+if [ ${#prettier_rendered[@]} -gt 0 ]; then
+  run prettier-rendered "$bin/prettier" --check --config .prettierrc.yaml "${prettier_rendered[@]}"
+fi
+if [ ${#workflows_rendered[@]} -gt 0 ]; then
+  run actionlint-rendered actionlint "${workflows_rendered[@]}"
+  run lint-workflows-rendered .github/scripts/lint_workflows.sh "${workflows_rendered[@]}"
+fi
+if [ ${#md_rendered[@]} -gt 0 ]; then
+  run markdownlint-rendered "$bin/markdownlint-cli2" --config .markdownlint.yaml "${md_rendered[@]}"
 fi
 
 exit "$failed"

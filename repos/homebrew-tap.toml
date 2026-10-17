@@ -12,6 +12,7 @@ files = [
   ".github/scripts/check_tool_versions.sh",
   ".github/scripts/lib.sh",
   ".github/workflows/tool-versions.yml",
+  "LICENSE.md",
   "docs/CODE_OF_CONDUCT.md",
 ]
 

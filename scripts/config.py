@@ -24,8 +24,9 @@ import tomllib
 ROOT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent
 SLUG = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")
 TEMPLATE_KEY = re.compile(r"[A-Za-z_]+")
-# ci_render splits a target's values on spaces
-TEMPLATE_VALUE = re.compile(r"[^\s]+")
+# ci_targets spells a value's spaces %20, so none holds a %; awk's gsub reads
+# & and \ in a replacement, so none holds those either
+TEMPLATE_VALUE = re.compile(r"[^\s%&\\]+( [^\s%&\\]+)*")
 BRANCHES = ("main", "dev")
 COVERAGE_KEYS = {"minimum_coverage", "max_coverage_drop"}
 
@@ -79,7 +80,7 @@ def read(path, errors):
             if not TEMPLATE_KEY.fullmatch(k):
                 errors.append(f"{where}: templates.{p!r} key {k!r} is not letters and _")
             if not isinstance(v, str) or not TEMPLATE_VALUE.fullmatch(v):
-                errors.append(f"{where}: templates.{p!r}.{k} must be a string without spaces")
+                errors.append(f"{where}: templates.{p!r}.{k} must be a string of single-spaced words without %, & or \\")
 
     rulesets = data.setdefault("rulesets", {})
     if not isinstance(rulesets, dict):

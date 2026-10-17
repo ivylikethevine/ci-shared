@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # scripts/check.sh over a fixture tree with every tool faked: each check runs
-# on the right paths, a failure is counted and annotated, and each workflow
-# template is linted as every target receives it.
+# on the right paths, a failure is counted and annotated, and each template is
+# linted as every target receives it.
 # shellcheck disable=SC2329 # t_main calls the test_* functions by name
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -66,20 +66,78 @@ test_runs_every_check_over_the_tree() {
   grep -qxF 'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' "$T/tools.log" ||
     t_fail "zizmor's arguments: $(grep '^zizmor' "$T/tools.log")"
   grep -qxF 'prettier --check .' "$T/tools.log" || t_fail "prettier did not run on the tree"
+  grep -q '^prettier --check --config .prettierrc.yaml .*/ci-render\.' "$T/tools.log" ||
+    t_fail "prettier did not run on the renderings with the shared config"
+  # prettier, actionlint and lint_workflows.sh each see every rendering
   t_eq "$(cat "$T/rendered.log")" "$(
-    cat <<'EOF'
-== a/.github/workflows/codeql.yml
-name: Rust
-lang: rust
-== b/.github/workflows/marked.yml
-actions-only: true
+    for _ in 1 2 3; do
+      cat <<'EOF'
 == a/.github/workflows/codeql.yml
 name: Rust
 lang: rust
 == b/.github/workflows/marked.yml
 actions-only: true
 EOF
+    done
   )" "the rendered templates"
+}
+
+test_lints_a_markdown_template_rendered_not_raw() {
+  fixture
+  printf '# __repo__\n\n<!-- shared:if repo=a -->\n- only a\n<!-- shared:endif -->\n' | t_shared docs/t.md
+  printf '# shared:if repo=a\n*.apk binary\n# shared:endif\n' | t_shared .gitattributes
+  t_target a dev .github/workflows/plain.yml docs/t.md .gitattributes
+  t_toml a <<'EOF'
+[templates."docs/t.md"]
+repo = "a"
+EOF
+  t_target b dev docs/t.md
+  t_toml b <<'EOF'
+[templates."docs/t.md"]
+repo = "b"
+EOF
+  "$SCRIPTS/usage.sh"
+  t_run "$SCRIPTS/check.sh"
+  t_rc 0
+  t_out "== markdownlint-rendered"
+  t_no_out "actionlint-rendered"
+  grep -qxF 'prettier --check . !files/docs/t.md' "$T/tools.log" || t_fail "the raw template was not kept from prettier"
+  grep -qxF 'markdownlint-cli2 **/*.md #**/node_modules #files/docs/t.md' "$T/tools.log" ||
+    t_fail "the raw template was not kept from markdownlint: $(grep '^markdownlint' "$T/tools.log")"
+  grep -q '^markdownlint-cli2 --config .markdownlint.yaml .*/a/docs/t.md .*/b/docs/t.md$' "$T/tools.log" ||
+    t_fail "markdownlint did not run on the renderings: $(grep '^markdownlint' "$T/tools.log")"
+  # a file prettier has no parser for is rendered and checked for leftovers, not formatted
+  grep -q '^prettier --check --config .prettierrc.yaml .*/a/docs/t.md .*/b/docs/t.md$' "$T/tools.log" ||
+    t_fail "prettier's rendered paths: $(grep '^prettier --check --config' "$T/tools.log")"
+  t_eq "$(cat "$T/rendered.log")" "$(
+    for _ in 1 2; do
+      cat <<'EOF'
+== a/docs/t.md
+# a
+
+- only a
+== b/docs/t.md
+# b
+
+EOF
+    done
+  )" "the rendered templates"
+}
+
+test_a_value_a_target_lacks_fails() {
+  fixture
+  printf 'name: __tool__\n# shared:if tool\nrun: __tool__\n# shared:endif\n' | t_shared .github/workflows/u.yml
+  t_target a dev .github/workflows/u.yml
+  t_toml a <<'EOF'
+[templates.".github/workflows/u.yml"]
+tool = "t"
+EOF
+  t_target b dev .github/workflows/u.yml
+  "$SCRIPTS/usage.sh"
+  t_run "$SCRIPTS/check.sh"
+  t_rc 1
+  t_out "b/.github/workflows/u.yml leaves __tool__ unrendered" "::error title=unrendered::unrendered failed"
+  t_no_out "a/.github/workflows/u.yml leaves"
 }
 
 test_counts_and_annotates_each_failure() {

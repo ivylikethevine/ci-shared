@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT
+# Every text file checks out LF on every platform. Git for Windows defaults
+# core.autocrlf=true and actions/checkout does not override it, so without
+# this a Windows checkout would hold CRLF shell scripts.
+* text=auto eol=lf
+# Images and packages are never text, whatever text=auto's sniffing guesses:
+# no eol conversion and no textual diff. One pattern per line, which is all
+# gitattributes accepts.
+*.gif binary
+*.png binary
+*.jpg binary
+*.webp binary
+# shared:if repo=instadroid
+*.jpeg binary
+*.apk binary
+# shared:endif

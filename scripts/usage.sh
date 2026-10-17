@@ -79,7 +79,7 @@ render_values() {
     name="${slug#*/}"
     while read -r path vars; do
       [ -n "$vars" ] || continue
-      rows="$rows- \`$path\` in $name: \`$vars\`"$'\n'
+      rows="$rows- \`$path\` in $name: \`${vars//%20/ }\`"$'\n'
     done < <(ci_targets "$name")
   done < <(ci_repos)
   [ -n "$rows" ] || return 0

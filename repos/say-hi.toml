@@ -7,7 +7,9 @@ sync_branch = "dev"
 # paths from files/, each at the path it has in this repository
 files = [
   ".editorconfig",
+  ".gitattributes",
   ".github/CODEOWNERS",
+  ".github/ISSUE_TEMPLATE/config.yml",
   ".github/actions/advisory-note/action.yml",
   ".github/actions/apt/lib.sh",
   ".github/actions/fetch-latest-artifact/action.yml",
@@ -23,6 +25,7 @@ files = [
   ".github/osv-scanner.toml",
   ".github/package-lock.json",
   ".github/package.json",
+  ".github/pull_request_template.md",
   ".github/scripts/check_tool_versions.sh",
   ".github/scripts/find_tree_run.sh",
   ".github/scripts/lib.sh",
@@ -38,9 +41,20 @@ files = [
   ".markdownlint.yaml",
   ".prettierrc.yaml",
   ".shellcheckrc",
+  "LICENSE.md",
   "docs/CODE_OF_CONDUCT.md",
   "lychee.toml",
 ]
+
+# the values a template takes, by path
+[templates.".github/ISSUE_TEMPLATE/config.yml"]
+repo = "say-hi"
+blank_issues = "true"
+discussions = "true"
+doctor = "hi --doctor --json"
+
+[templates.".github/pull_request_template.md"]
+repo = "say-hi"
 
 # this repository's values in rulesets/main.json
 [rulesets.main]

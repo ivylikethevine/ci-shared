@@ -7,7 +7,9 @@ sync_branch = "dev"
 # paths from files/, each at the path it has in this repository
 files = [
   ".editorconfig",
+  ".gitattributes",
   ".github/CODEOWNERS",
+  ".github/ISSUE_TEMPLATE/config.yml",
   ".github/actions/advisory-note/action.yml",
   ".github/actions/apt/lib.sh",
   ".github/actions/fetch-latest-artifact/action.yml",
@@ -22,6 +24,7 @@ files = [
   ".github/osv-scanner.toml",
   ".github/package-lock.json",
   ".github/package.json",
+  ".github/pull_request_template.md",
   ".github/scripts/check_tool_versions.sh",
   ".github/scripts/lib.sh",
   ".github/scripts/lint_workflows.sh",
@@ -30,6 +33,7 @@ files = [
   ".github/scripts/trivy_scan.sh",
   ".github/workflows/cancel-closed-pr.yml",
   ".github/workflows/codeql.yml",
+  ".github/workflows/image-scan.yml",
   ".github/workflows/link-check.yml",
   ".github/workflows/pages.yml",
   ".github/workflows/release-note.yml",
@@ -39,11 +43,28 @@ files = [
   ".markdownlint.yaml",
   ".prettierrc.yaml",
   ".shellcheckrc",
+  "LICENSE.md",
   "docs/CODE_OF_CONDUCT.md",
   "lychee.toml",
 ]
 
 # the values a template takes, by path
+[templates.".gitattributes"]
+repo = "instadroid"
+
+[templates.".github/workflows/image-scan.yml"]
+image_name = "instadroid"
+trivyignore = ".trivyignore"
+release_workflow = "publish.yml"
+
+[templates.".github/ISSUE_TEMPLATE/config.yml"]
+repo = "instadroid"
+blank_issues = "true"
+doctor = "scraper.py doctor"
+
+[templates.".github/pull_request_template.md"]
+repo = "instadroid"
+
 [templates.".github/workflows/codeql.yml"]
 language = "python"
 Language = "Python"

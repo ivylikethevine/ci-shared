@@ -18,7 +18,8 @@ fixture() {
   printf '# Title\n' >"$d/README.md"
   printf '# SPDX-License-Identifier: MIT\nkey = 1\n' >"$d/done.toml"
   printf '# MIT License\n' >"$d/LICENSE.md"
-  mkdir "$d/LICENSES"
+  mkdir -p "$d/LICENSES" "$d/files"
+  printf '# MIT License\n' >"$d/files/LICENSE.md"
   printf 'MIT License\n' >"$d/LICENSES/MIT.txt"
   printf '{}\n' >"$d/data.json"
   ln -s a.yml "$d/link.yml"
@@ -39,6 +40,7 @@ test_adds_the_comment_where_each_file_takes_it() {
   t_file "$T/tree/README.md" "$(printf '<!-- SPDX-License-Identifier: MIT -->\n\n# Title')"
   [ -L "$T/tree/link.yml" ] || t_fail "link.yml is no longer a symlink"
   t_file "$T/tree/LICENSE.md" "# MIT License"
+  t_file "$T/tree/files/LICENSE.md" "# MIT License"
   t_file "$T/tree/LICENSES/MIT.txt" "MIT License"
   t_run "$SCRIPTS/spdx.sh" --check
   t_rc 0

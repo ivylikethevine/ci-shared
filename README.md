@@ -8,6 +8,33 @@ a few workflows. Each repository keeps its own copy, so local runs, editors,
 Scorecard and zizmor see ordinary files; nothing in a target refers back here.
 [USAGE.md](USAGE.md) lists which repositories receive each file.
 
+## Using an action from another repository
+
+A repository outside the sync can call a composite action here directly,
+pinned to a commit like any other action. Use the `files/` path: the
+`.github/actions/` entries of this repository are symlinks, which the runner
+does not preserve on every platform.
+
+```yaml
+- uses: ivylikethevine/ci-shared/files/.github/actions/upsert-tracking-issue@<40-char sha> # <tag>
+  with:
+    label: tool-versions
+    label-color: 0E8A16
+    label-description: A pin is behind its upstream release
+    title: Pinned tools and dependencies are behind upstream
+    resolved: ${{ steps.check.outputs.problems == '0' }}
+    close-comment: Every pin is current again.
+    body-file: ${{ runner.temp }}/issue.md
+```
+
+`advisory-note`, `fetch-latest-artifact`, `mark-tree` and
+`upsert-tracking-issue` need nothing else: each uses `github.token` and reads
+no file of this repository. `setup-tool` and `setup-tools` read `tools.txt`
+beside the action, which `files/` does not hold, so a caller sets
+`CI_TOOLS_TXT` on the step to its own roster. The scripts under
+`.github/scripts/` and `actions/apt/lib.sh` cannot be called this way; copy
+them, or make the repository a target.
+
 ## Layout
 
 | Path                          | Holds                                                                       |
@@ -59,29 +86,26 @@ target whose workflows run only for `main` loses a point on both.
 
 ## Templates
 
-A file that differs between targets only by a few values is a template. Its
-copy in `files/` spells a value `__key__` and marks lines kept only when a key
-is set (`# shared:if key`) or unset (`# shared:unless key`), up to
-`# shared:endif`. A target's row sets the values after the path:
+A file that differs between targets only by a few values or lines is a
+template. Its copy in `files/` spells a value `__key__` and marks lines kept
+only when a key is set (`shared:if key`), unset (`shared:unless key`) or has
+one value (`shared:if key=value`), up to `shared:endif`; a marker is a `#`
+comment line, or `<!-- shared:if key -->` in Markdown. The target's
+`[templates."<path>"]` table sets the values: words separated by single spaces,
+holding no `%`, `&` or `\`.
 
-```text
-.github/workflows/codeql.yml language=rust Language=Rust
+```toml
+[templates.".github/workflows/codeql.yml"]
+language = "rust"
+Language = "Rust"
 ```
 
 Every script renders before comparing or copying, so a target never sees a
-marker, and `scripts/check.sh` lints each workflow template as every target
-receives it. Values cannot hold spaces.
-
-## To do
-
-- python-constricter keeps its own `.markdownlint.yaml` and `.prettierrc.yaml`
-  (prettier rewraps prose at 100, MD013 at 100). Move it to the shared
-  hand-wrapped copies, whose checks its docs already pass unchanged, and make
-  their comments generic first: they name Zed, `.moxide.toml` and
-  `_config.yml`, which python-constricter does not have. Until then, prettier
-  at its `printWidth: 100` rewraps the shared workflows it receives; its CI
-  runs prettier over Markdown alone, so only an editor's format-on-save shows
-  it.
+marker, and `scripts/check.sh` lints each template as every target receives it
+(actionlint and `lint_workflows.sh` for a workflow, markdownlint for Markdown,
+prettier for both) and fails when a rendering still holds a `__key__` some
+target sets. A Markdown template is skipped by the lint over the raw tree,
+since its markers break the list structure around them.
 
 ## Checking this repository
 

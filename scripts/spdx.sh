@@ -25,7 +25,7 @@ missing=0
 while IFS= read -r -d '' path; do
   f="$CI_SHARED_DIR/$path"
   [ ! -L "$f" ] || continue
-  case "$path" in *.json | LICENSE*) continue ;; esac
+  case "$path" in *.json | LICENSE* | */LICENSE*) continue ;; esac
   ! grep -q "$tag:" "$f" || continue
   missing=$((missing + 1))
   if [ "$check" = 1 ]; then

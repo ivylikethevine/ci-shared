@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: MIT
+blank_issues_enabled: __blank_issues__
+contact_links:
+  - name: Report a vulnerability
+    url: https://github.com/ivylikethevine/__repo__/security/advisories/new
+    about: >-
+      Anything exploitable goes here privately, never in a public issue.
+  - name: Security policy
+    url: https://github.com/ivylikethevine/__repo__/blob/main/docs/SECURITY.md
+    about: >-
+      What's in scope, what's out of scope, and how reports are handled -
+      worth reading before deciding something is a bug.
+  # shared:if discussions
+  - name: Ask a question
+    url: https://github.com/ivylikethevine/__repo__/discussions
+    about: >-
+      Questions, setup help, and ideas that aren't a bug report or a concrete
+      feature request.
+  # shared:endif
+  # shared:if doctor
+  - name: Getting help
+    url: https://github.com/ivylikethevine/__repo__/blob/main/docs/SUPPORT.md
+    about: >-
+      Where to ask, what to include (`__doctor__` output), and what to expect
+      from a one-maintainer project.
+  # shared:endif
+  # shared:if repo=say-hi
+  - name: Supported targets, OSes and shells
+    url: https://github.com/ivylikethevine/__repo__/blob/main/docs/COMPATIBILITY.md
+    about: >-
+      Every one hi supports, and every one answered no with the reason -
+      check here before asking for a new one.
+  # shared:endif

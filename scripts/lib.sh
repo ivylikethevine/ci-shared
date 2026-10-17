@@ -33,13 +33,15 @@ ci_repos() {
 }
 
 # Prints a row per path target <name> receives: the path in files/, then any
-# key=value pairs its template takes. Fails when there is no target <name>.
+# key=value pairs its template takes, a space in a value spelled `%20` so the
+# row splits on spaces (ci_render decodes it; scripts/config.py keeps `%` out
+# of values). Fails when there is no target <name>.
 ci_targets() {
   ci_configs | jq -r --arg n "$1" '
     first(.[] | select(.name == $n)) // error("no target \($n)")
     | .templates as $t
     | .files[]
-    | [., (($t[.] // {}) | to_entries[] | "\(.key)=\(.value)")]
+    | [., (($t[.] // {}) | to_entries[] | "\(.key)=\(.value | gsub(" "; "%20"))")]
     | join(" ")'
 }
 
@@ -80,15 +82,23 @@ ci_target_row() {
   '
 }
 
+# ci_is_template <path> - files/<path> carries a shared: marker
+ci_is_template() {
+  grep -qE '^[[:space:]]*(# |<!-- )shared:(if|unless|endif)' "$CI_SHARED_DIR/files/$1"
+}
+
 # ci_render <path> [key=value...] - prints files/<path> as one target receives
-# it. A template marks lines with `# shared:if <key>` or `# shared:unless <key>`
-# up to `# shared:endif`, kept when <key> is set or unset, and spells a value
-# `__<key>__`; the marker lines never reach the target. A file with neither
-# markers nor values is printed as it is.
+# it. A template marks lines with `shared:if <key>` or `shared:unless <key>`
+# up to `shared:endif`, kept when <key> is set or unset, or with
+# `shared:if <key>=<value>`, kept when <key> has that value; each marker is a
+# `#` comment line, or `<!-- -->` in Markdown. It spells a value `__<key>__`.
+# The marker lines never reach the target. A value's spaces arrive as `%20`
+# (ci_targets' encoding, since the pairs travel as one line of words). A file
+# with neither markers nor values is printed as it is.
 ci_render() {
-  local src="$CI_SHARED_DIR/files/$1"
+  local path="$1" src="$CI_SHARED_DIR/files/$1"
   shift
-  if [ $# -eq 0 ] && ! grep -q '# shared:' "$src"; then
+  if [ $# -eq 0 ] && ! ci_is_template "$path"; then
     cat "$src"
     return
   fi
@@ -97,15 +107,29 @@ ci_render() {
       n = split(vars, kv, " ")
       for (i = 1; i <= n; i++) {
         eq = index(kv[i], "=")
-        val[substr(kv[i], 1, eq - 1)] = substr(kv[i], eq + 1)
+        v = substr(kv[i], eq + 1)
+        gsub(/%20/, " ", v)
+        val[substr(kv[i], 1, eq - 1)] = v
       }
     }
-    /^[[:space:]]*# shared:(if|unless) [A-Za-z_]+[[:space:]]*$/ {
+    /^[[:space:]]*(# |<!-- )shared:(if|unless) [A-Za-z_]+(=[^[:space:]]+)?( -->)?[[:space:]]*$/ {
+      cond = $0
+      sub(/^[[:space:]]*(# |<!-- )shared:/, "", cond)
+      sub(/( -->)?[[:space:]]*$/, "", cond)
+      unless = (cond ~ /^unless /)
+      sub(/^(if|unless) /, "", cond)
+      eq = index(cond, "=")
+      if (eq) {
+        k = substr(cond, 1, eq - 1)
+        hit = (k in val) && val[k] == substr(cond, eq + 1)
+      } else {
+        hit = (cond in val)
+      }
       depth++
-      skip[depth] = ($0 ~ /shared:if /) ? !($NF in val) : ($NF in val)
+      skip[depth] = unless ? hit : !hit
       next
     }
-    /^[[:space:]]*# shared:endif[[:space:]]*$/ { depth--; next }
+    /^[[:space:]]*(# |<!-- )shared:endif( -->)?[[:space:]]*$/ { depth--; next }
     {
       for (d = 1; d <= depth; d++) if (skip[d]) next
       line = $0
