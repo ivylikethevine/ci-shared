@@ -51,6 +51,12 @@ and every workflow that differs.
 `scripts/census.sh --drift` lists every CI path whose copies disagree across
 the checkouts, shared here or not.
 
+A target's CI and CodeQL workflows trigger on pull requests into `dev` as well
+as `main`, so the sync pull request is checked before it merges. Scorecard's
+CI-Tests and SAST checks grade each commit on `main` by the first pull request
+it was merged through, which for a synced commit is the one into `dev`; a
+target whose workflows run only for `main` loses a point on both.
+
 ## Templates
 
 A file that differs between targets only by a few values is a template. Its
