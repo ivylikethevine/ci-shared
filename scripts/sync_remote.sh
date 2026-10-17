@@ -16,7 +16,9 @@
 # SYNC_TOKEN_<NAME> (else GH_TOKEN, for a local run), which needs Contents,
 # Pull requests and Workflows read/write on that target alone. Before writing
 # to a target, check_protection.sh runs on it, and a target that fails gets
-# nothing. Exits with the number of repositories that failed.
+# nothing. Exits with the number of repositories that failed. When
+# GITHUB_STEP_SUMMARY is set (an Actions job), a Markdown section per target
+# saying what it got, file by file, is appended to it.
 #
 # The targets require signed commits, so each commit is signed here with
 # SYNC_SIGNING_KEY, an unencrypted OpenSSH private key registered as a signing
@@ -38,6 +40,15 @@ if [ "${1:-}" = --dry-run ]; then
   shift
 fi
 source_sha="${SOURCE_SHA:-$(git -C "$CI_SHARED_DIR" rev-parse HEAD 2>/dev/null || echo unknown)}"
+
+# summary <line>... - appends the lines to the job summary, when there is one
+summary() {
+  printf '%s\n' "$@" >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
+}
+source_ref="\`$source_sha\`"
+# a link where the workflow runs, a bare sha in a local run
+[ -z "${GITHUB_REPOSITORY:-}" ] || source_ref="[$source_ref](${GITHUB_SERVER_URL:-https://github.com}/$GITHUB_REPOSITORY/commit/$source_sha)"
+summary "## Sync$([ "$dry" = 0 ] || echo ' (dry run)')" '' "Source commit $source_ref." ''
 
 keyfile=''
 if [ "$dry" = 0 ]; then
@@ -128,11 +139,15 @@ sync_repo() {
 
   if [ -z "$files" ]; then
     echo "$name: in line with files/"
+    summary "### $name" '' "In line with \`files/\`." ''
     return 0
   fi
-  [ "$dry" = 0 ] || return 0
+  if [ "$dry" = 1 ]; then
+    summary "### $name" '' "Differs on \`$base\`; nothing written:" '' "$files"
+    return 0
+  fi
 
-  local new_tree commit pr body
+  local new_tree commit pr url body
   # one `path<TAB>mode<TAB>sha` line per entry
   new_tree="$(printf '%s' "$entries" | jq -Rn --arg b "$tree" \
     '{base_tree: $b, tree: [inputs | split("\t") | {path: .[0], mode: .[1], type: "blob", sha: .[2]}]}' |
@@ -145,13 +160,18 @@ sync_repo() {
   fi
 
   body="Brings the shared CI files in line with source commit \`$source_sha\`. Change the source copy, not this branch: the next sync overwrites it."$'\n\n'"$files"
-  pr="$(gh api "repos/$slug/pulls?head=${slug%%/*}:$BRANCH&base=$base&state=open" --jq '.[0].number // empty')"
+  # "number url" of the open pull request, if any
+  pr="$(gh api "repos/$slug/pulls?head=${slug%%/*}:$BRANCH&base=$base&state=open" --jq '.[0] | select(. != null) | "\(.number) \(.html_url)"')"
   if [ -n "$pr" ]; then
+    url="${pr#* }" pr="${pr%% *}"
     gh api -X PATCH "repos/$slug/pulls/$pr" -f body="$body" >/dev/null
     echo "$name: updated pull request #$pr"
+    summary "### $name" '' "Pull request [#$pr]($url) into \`$base\` updated:" '' "$files"
   else
-    pr="$(gh api "repos/$slug/pulls" -f title="$TITLE" -f head="$BRANCH" -f base="$base" -f body="$body" --jq .number)"
+    pr="$(gh api "repos/$slug/pulls" -f title="$TITLE" -f head="$BRANCH" -f base="$base" -f body="$body" --jq '"\(.number) \(.html_url)"')"
+    url="${pr#* }" pr="${pr%% *}"
     echo "$name: opened pull request #$pr"
+    summary "### $name" '' "Pull request [#$pr]($url) into \`$base\` opened:" '' "$files"
   fi
 }
 
@@ -177,6 +197,8 @@ while read -r slug base; do
   set -e
   if [ "$rc" != 0 ]; then
     echo "::error title=sync $name::sync failed, see the lines above"
+    # a target writes its section last, so a failed one has none yet
+    summary "### $name" '' 'Failed; nothing written. See the log.' ''
     failed=$((failed + 1))
   fi
 done < <(ci_repos "$@")

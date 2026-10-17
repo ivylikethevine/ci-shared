@@ -73,7 +73,8 @@ and every workflow that differs.
 4. Once this repository is on GitHub, a push to `main` that changes `files/`
    or `repos/` opens one pull request per target on branch `ci-sync`, and
    re-pushes update it. A change to the scripts alone, `ci_render` included,
-   syncs on the next manual run of `sync.yml`.
+   syncs on the next manual run of `sync.yml`. The run's job summary lists
+   each target's pull request and the files it changes.
 
 `scripts/census.sh --drift` lists every CI path whose copies disagree across
 the checkouts, shared here or not.

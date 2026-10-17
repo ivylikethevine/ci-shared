@@ -24,7 +24,9 @@ t_setup() {
   mkdir -p "$T/bin" "$T/tree/repos" "$T/tree/files"
   cp -R "$REPO_DIR/rulesets" "$T/tree/"
   export T PATH="$T/bin:$_T_PATH" CI_SHARED_DIR="$T/tree" GH_LOG="$T/gh.log"
-  unset GH_TOKEN SOURCE_SHA CI_CONFIGS SYNC_SIGNING_KEY SYNC_COMMITTER_NAME SYNC_COMMITTER_EMAIL
+  # the GITHUB_ ones so a suite run in Actions keeps out of the real job summary
+  unset GH_TOKEN SOURCE_SHA CI_CONFIGS SYNC_SIGNING_KEY SYNC_COMMITTER_NAME SYNC_COMMITTER_EMAIL \
+    GITHUB_STEP_SUMMARY GITHUB_REPOSITORY GITHUB_SERVER_URL
   : >"$GH_LOG"
 }
 

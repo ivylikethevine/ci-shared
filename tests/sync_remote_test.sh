@@ -61,11 +61,11 @@ case "$method $ep" in
   reply "{\"sha\":\"$sha\",\"verification\":{\"verified\":$v}}"
   ;;
 "PATCH "*/git/refs/heads/ci-sync | "POST "*/git/refs) printf '%s\n' "${fields[@]}" >"$T/ref.txt" ;;
-"GET "*/pulls\?*) [ "$s" = pr-open ] && reply '[{"number":7}]' || reply '[]' ;;
+"GET "*/pulls\?*) [ "$s" = pr-open ] && reply '[{"number":7,"html_url":"https://example.invalid/pull/7"}]' || reply '[]' ;;
 "PATCH "*/pulls/7) printf '%s\n' "${fields[@]}" >"$T/pr.txt" ;;
 "POST "*/pulls)
   printf '%s\n' "${fields[@]}" >"$T/pr.txt"
-  reply '{"number":8}'
+  reply '{"number":8,"html_url":"https://example.invalid/pull/8"}'
   ;;
 *) fail "unexpected $method $ep" ;;
 esac
@@ -226,6 +226,52 @@ test_a_blob_github_stored_differently_fails_the_target() {
   t_rc 1
   t_out "came back as 0000000000000000000000000000000000000000"
   t_not_logged 'git/trees$'
+}
+
+test_writes_a_section_per_target_to_the_job_summary() {
+  fake_github
+  fixture
+  local md="$T/summary.md"
+  t_run env GH_TOKEN=t SOURCE_SHA=abc123 GITHUB_STEP_SUMMARY="$md" GITHUB_REPOSITORY=owner/shared \
+    "$SCRIPTS/sync_remote.sh"
+  t_rc 0
+  t_file "$md" "$(
+    cat <<'EOF'
+## Sync
+
+Source commit [`abc123`](https://github.com/owner/shared/commit/abc123).
+
+### a
+
+Pull request [#8](https://example.invalid/pull/8) into `dev` opened:
+
+- `new.sh`
+
+### b
+
+In line with `files/`.
+
+EOF
+  )"
+  : >"$md"
+  t_run env GH_TOKEN=t SCENARIO=pr-open GITHUB_STEP_SUMMARY="$md" "$SCRIPTS/sync_remote.sh" a
+  t_rc 0
+  t_out "a: updated pull request #7"
+  grep -qF -- 'Source commit `' "$md" || t_fail "the source is not a bare sha outside Actions: $(cat "$md")"
+  grep -qF -- "Pull request [#7](https://example.invalid/pull/7) into \`dev\` updated:" "$md" ||
+    t_fail "no updated section in $(cat "$md")"
+  : >"$md"
+  t_run env GH_TOKEN=t GITHUB_STEP_SUMMARY="$md" "$SCRIPTS/sync_remote.sh" --dry-run a
+  t_rc 0
+  grep -qF -- '## Sync (dry run)' "$md" || t_fail "no dry-run heading in $(cat "$md")"
+  grep -qF -- "Differs on \`dev\`; nothing written:" "$md" || t_fail "no dry-run section in $(cat "$md")"
+  # shellcheck disable=SC2016 # literal text
+  grep -qF -- '- `new.sh`' "$md" || t_fail "no file list in $(cat "$md")"
+  : >"$md"
+  t_run env GH_TOKEN=t SCENARIO=tree-error GITHUB_STEP_SUMMARY="$md" "$SCRIPTS/sync_remote.sh" a
+  t_rc 1
+  grep -qF -- 'Failed; nothing written. See the log.' "$md" || t_fail "no failed section in $(cat "$md")"
+  if grep -qF -- 'Pull request' "$md"; then t_fail "a failed target has a pull request section"; fi
 }
 
 test_a_truncated_tree_listing_fails_the_target() {

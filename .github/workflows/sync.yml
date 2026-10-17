@@ -7,7 +7,8 @@ name: Sync
 # alone with Contents, Pull requests and Workflows read/write. The commits are
 # signed with SYNC_SIGNING_KEY. This workflow's own token only reads this
 # repository. A target gets nothing unless its main
-# and dev pass scripts/check_protection.sh. The weekly run writes nothing: it
+# and dev pass scripts/check_protection.sh. The run's job summary lists what
+# each target got, file by file. The weekly run writes nothing: it
 # fails once a token is within two weeks of expiry, or a target's protection
 # has slipped.
 on:
