@@ -26,7 +26,7 @@ EOF
 # workflow and a non-workflow file; target b receives the template alone.
 fixture() {
   local t
-  for t in shellcheck shfmt actionlint zizmor; do tool "$t"; done
+  for t in shellcheck shfmt actionlint zizmor typos gitleaks; do tool "$t"; done
   mkdir -p "$T/tree/scripts" "$T/tree/tests" "$T/tree/.github/scripts" \
     "$T/tree/.github/workflows" "$T/tree/.github/node_modules/.bin"
   echo 'true' >"$T/tree/scripts/s.sh"
@@ -59,9 +59,10 @@ test_runs_every_check_over_the_tree() {
   fixture
   t_run "$SCRIPTS/check.sh"
   t_rc 0
-  t_out "== shellcheck" "== markdownlint" "== usage" "== spdx" "== config" "== lint-workflows-rendered"
+  t_out "== shellcheck" "== markdownlint" "== typos" "== gitleaks" "== usage" "== spdx" "== config" "== lint-workflows-rendered"
   t_no_out "::error"
   t_in -x "$T/tools.log" 'shellcheck -x files/.github/scripts/shared.sh scripts/s.sh tests/t_test.sh' \
+    'typos ' 'gitleaks git --redact --no-banner .' \
     'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' \
     'prettier --check .' \
     'lint_workflows.sh .github/workflows/own.yml files/.github/workflows/plain.yml files/.github/actions/a/action.yml'

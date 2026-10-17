@@ -160,6 +160,26 @@ test_dry_run_reports_and_writes_nothing() {
   t_not_logged 'rules/branches'
 }
 
+test_drift_fails_a_target_differing_with_no_pull_request_open() {
+  fake_github
+  fixture
+  local md="$T/summary.md"
+  t_run env GH_TOKEN=t SCENARIO=unprotected GITHUB_STEP_SUMMARY="$md" "$SCRIPTS/sync_remote.sh" --drift
+  t_rc 1
+  t_out "a: differs from files/ with no sync pull request open" "b: in line with files/" \
+    "::error title=drift::a: differs from files/ with no sync pull request open"
+  t_not_logged '^(POST|PATCH) '
+  t_not_logged 'rules/branches'
+  # shellcheck disable=SC2016 # literal text
+  t_in "$md" '## Sync (drift check)' "Drifted on \`dev\`, with no sync pull request open:" '- `new.sh`'
+  : >"$md"
+  t_run env GH_TOKEN=t SCENARIO=pr-open GITHUB_STEP_SUMMARY="$md" "$SCRIPTS/sync_remote.sh" --drift
+  t_rc 0
+  t_out "a: differs; sync pull request #7 is open"
+  t_no_out "::error"
+  t_in "$md" "Differs on \`dev\`; pull request [#7](https://example.invalid/pull/7) is open:"
+}
+
 test_an_unprotected_target_gets_nothing_and_the_others_sync() {
   fake_github
   fixture

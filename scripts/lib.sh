@@ -24,12 +24,12 @@ ci_configs() {
   printf '%s\n' "$CI_CONFIGS"
 }
 
-# ci_repos [NAME...] - prints "owner/name branch" for each target, or for those
-# NAMEs alone, branch being where its sync pull requests go. Fails, naming
+# ci_repos [NAME...] - prints "owner/name branch" for each target, or for each
+# NAME given alone, branch being where its sync pull requests go. Fails, naming
 # them, when a NAME is no target, so a typo cannot pass as nothing to do; a
-# script taking NAMEs captures the output rather than reading it through a
-# process substitution, whose failure it would not see.
-# shellcheck disable=SC2120 # NAMEs are optional
+# script taking NAME arguments captures the output rather than reading it
+# through a process substitution, whose failure it would not see.
+# shellcheck disable=SC2120 # NAME is optional
 ci_repos() {
   local unknown
   unknown="$(ci_configs | jq -r '($ARGS.positional - [.[].name])[]' --args "$@")"

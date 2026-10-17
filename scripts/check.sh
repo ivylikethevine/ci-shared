@@ -3,11 +3,12 @@
 # Runs the checks this repository ships over the repository itself, files/
 # included, with the shared configs: shellcheck and shfmt (.shellcheckrc,
 # .editorconfig), actionlint, lint_workflows.sh, zizmor (.github/zizmor.yml),
-# prettier and markdownlint (.prettierrc.yaml, .markdownlint.yaml), then each
-# template as every target receives it: actionlint and lint_workflows.sh for a
-# workflow, markdownlint for Markdown, prettier for what it has a parser for,
-# and no `__key__` left that a target sets. USAGE.md must be current and every tracked file carry an
-# SPDX license comment. CI's checks workflow runs the same script.
+# prettier and markdownlint (.prettierrc.yaml, .markdownlint.yaml), typos,
+# gitleaks over the history, then each template as every target receives it:
+# actionlint and lint_workflows.sh for a workflow, markdownlint for Markdown,
+# prettier for what it has a parser for, and no `__key__` left that a target
+# sets. USAGE.md must be current and every tracked file carry an SPDX license
+# comment. CI's checks workflow runs the same script.
 #
 #   scripts/check.sh
 #
@@ -65,6 +66,8 @@ while IFS= read -r f; do
 done < <(find files \( -name '*.md' -o -name '*.json' \) -type f | LC_ALL=C sort)
 run prettier "$bin/prettier" --check "${raw_prettier[@]}"
 run markdownlint "$bin/markdownlint-cli2" "${raw_markdownlint[@]}"
+run typos typos
+run gitleaks gitleaks git --redact --no-banner .
 run usage "$CI_SCRIPTS_DIR/usage.sh" --check
 run spdx "$CI_SCRIPTS_DIR/spdx.sh" --check
 

@@ -77,9 +77,13 @@ and every workflow that differs.
    each target's pull request and the files it changes.
 
 `scripts/census.sh --drift` lists every CI or tooling path whose copies
-disagree across the checkouts, shared here or not; `--gaps` lists, per shared
+disagree across the local checkouts, shared here or not; `--gaps` lists, per shared
 file, the targets holding a copy their `repos/<name>.toml` does not list (which
-the sync never refreshes) and the targets holding none.
+the sync never refreshes) and the targets holding none. On GitHub, the weekly
+`sync.yml` run's `scripts/sync_remote.sh --drift` fails for each target whose
+shared files differ from `files/` with no sync pull request open: one edited
+by hand, or whose pull request was closed unmerged. It and the token and
+protection checks keep one `sync-health` issue open until a weekly run passes.
 
 A target's CI and CodeQL workflows trigger on pull requests into `dev` as well
 as `main`, so the sync pull request is checked before it merges. Scorecard's
@@ -99,6 +103,32 @@ target whose workflows run only for `main` loses a point on both.
   schedule, target branch, commit prefix, limit and cooldown, so one block per
   ecosystem (`shared:if cargo`, `shared:if python`, ...) with the ignores in
   per-repository blocks would replace five copies.
+- This repository's own `main` under `rulesets/` and
+  `scripts/check_protection.sh`: a push to it opens a pull request in every
+  target, so it needs the protection it checks there.
+- The shipped workflow scanners run on this repository: `scorecard.yml`,
+  `codeql.yml` (the `actions` language) and `link-check.yml`. `scorecard.yml`
+  and `link-check.yml` follow a workflow named `CI`, so the name becomes a
+  template value.
+- A scheduled report on the open `ci-sync` pull requests: each target's
+  checks on it and its age, so a shared file that breaks a target shows up
+  here, not only in that target.
+- The weekly `sync.yml` run adds the live `rulesets.sh diff`, reporting a
+  target whose rulesets were edited by hand. It reads with one `GH_TOKEN`, not
+  each target's own, and a token without admin on a target may not see a
+  ruleset's `bypass_actors`, so check what the sync tokens read first.
+- Renovate, self-hosted through `renovatebot/github-action` on this
+  repository alone, as the bump step after `check_tool_versions.sh`: one
+  grouped pull request for the action SHAs and the npm lock under `files/`,
+  held by `minimumReleaseAge` to the same 7-day cooldown, which the sync then
+  carries to every target. The `tools.txt` rows need a regex custom manager
+  for `pin` and a `postUpgradeTasks` command to recompute `sha256`, which
+  Renovate cannot update; `allowedPostUpgradeCommands` is self-hosted only.
+  It needs a token with `workflow` scope (a classic PAT or a GitHub App),
+  `ignorePaths` for the root symlinks into `files/`, a Renovate of at least
+  44.3.1 (CVE-2026-88884: digest updates skipped `minimumReleaseAge`), and its
+  endpoints in harden-runner. Targets keep Dependabot: a `renovate.json`
+  extending a preset here would name this repository.
 
 ## Templates
 
@@ -137,12 +167,13 @@ own: `.github/actions/setup-tool/tools.txt` pins the lint tools, and
 Markdown tools' manifest and the action pins under `files/`.
 
 - `scripts/check.sh` runs shellcheck, shfmt, actionlint, `lint_workflows.sh`,
-  zizmor, prettier, markdownlint, `scripts/usage.sh --check` and
-  `scripts/spdx.sh --check`; `checks.yml` runs it on every push and pull
-  request. Locally it needs the `tools.txt` pins on `PATH` and
+  zizmor, prettier, markdownlint, typos, gitleaks over the history,
+  `scripts/usage.sh --check` and `scripts/spdx.sh --check`; `checks.yml` runs
+  it on every push and pull request. Locally it needs the `tools.txt` pins on `PATH` and
   `npm ci --prefix .github` once.
 - `.github/scripts/check_tool_versions.sh` reports every pin behind the newest
-  release past the cooldown; `tool-versions.yml` runs it weekly.
+  release past the cooldown; `tool-versions.yml` runs it weekly and keeps a
+  `tool-versions` issue open while one is behind.
 - `tests/run.sh [SUITE...]` runs the suites (`T_ONLY=<regex>` picks tests
   within one); each builds its own fixture tree and points the scripts at it
   through `CI_SHARED_DIR`. `tests/coverage.sh` runs them under kcov and fails
@@ -152,10 +183,12 @@ Markdown tools' manifest and the action pins under `files/`.
 
 ## The sync tokens
 
-Each target has its own token, in a repository secret of this repository
-named for it: `SYNC_TOKEN_<NAME>`, the target's name in capitals with `-` as
-`_` (`SYNC_TOKEN_SAY_HI`). _Settings → Secrets and variables → Actions → New
-repository secret_ holds each one, a fine-grained personal access token:
+Each target has its own token, in a secret of this repository's `sync`
+environment named for it: `SYNC_TOKEN_<NAME>`, the target's name in capitals
+with `-` as `_` (`SYNC_TOKEN_SAY_HI`). _Settings → Environments → sync →
+Environment secrets_ holds each one, a fine-grained personal access token. The
+environment's _Deployment branches and tags_ are limited to `main`, so a run
+from any other ref cannot read them.
 
 - **Repository access:** that target alone.
 - **Permissions:** Contents read and write (a pull request needs its branch
@@ -163,8 +196,8 @@ repository secret_ holds each one, a fine-grained personal access token:
   files include `.github/workflows/`); Metadata read is added automatically.
 - **Expiry:** the shortest you will renew. `scripts/check_tokens.sh` reads each
   token's expiry from GitHub and fails once one is within two weeks of it;
-  `sync.yml` runs it on every run and weekly, so the weekly run fails in time
-  to renew.
+  `sync.yml` runs it on every run and weekly, so the weekly run fails, and
+  opens a `sync-health` issue, in time to renew.
 
 A new target needs its secret and its line in `sync.yml`'s job `env`, which
 passes each secret by name; until then `check_tokens.sh` reports it unset and
@@ -187,8 +220,8 @@ Both rulesets require signed commits, and GitHub blocks every merge method
 while a pull request holds an unsigned one, so `sync_remote.sh` signs each
 sync commit. The key is an SSH key used for nothing else:
 
-- **Private half:** the repository secret `SYNC_SIGNING_KEY`, the whole
-  OpenSSH key file, without a passphrase.
+- **Private half:** the `sync` environment's secret `SYNC_SIGNING_KEY`, the
+  whole OpenSSH key file, without a passphrase.
 - **Public half:** a signing key (_Settings → SSH and GPG keys → New SSH key →
   Key type: Signing Key_) of the account whose verified email `sync.yml` sets
   as `SYNC_COMMITTER_EMAIL`. It stays out of `.github/allowed_signers`, which

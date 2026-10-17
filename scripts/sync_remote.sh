@@ -6,17 +6,19 @@
 #
 #   SYNC_TOKEN_<NAME>=<token>... SYNC_SIGNING_KEY=<private key> \
 #   SYNC_COMMITTER_NAME=<name> SYNC_COMMITTER_EMAIL=<email> \
-#     scripts/sync_remote.sh [--dry-run] [NAME...]
+#     scripts/sync_remote.sh [--dry-run | --drift] [NAME...]
 #
 # Works through the Git data API, so nothing is cloned: one commit on the base
 # branch's head, on branch `ci-sync` (force-moved each run), and one pull
 # request from it, updated in place while open. A repository already in line
 # gets nothing. NAME limits the run to those repositories; --dry-run reports
-# what differs and writes nothing. Each target is written with its own token,
+# what differs and writes nothing. --drift is a dry run that also fails each
+# repository differing with no sync pull request open: one edited by hand, or
+# whose pull request was closed unmerged. Each target is written with its own token,
 # SYNC_TOKEN_<NAME> (else GH_TOKEN, for a local run), which needs Contents,
 # Pull requests and Workflows read/write on that target alone. Before writing
 # to a target, check_protection.sh runs on it, and a target that fails gets
-# nothing. Exits with the number of repositories that failed. When
+# nothing. Exits with the number of repositories that failed or drifted. When
 # GITHUB_STEP_SUMMARY is set (an Actions job), a Markdown section per target
 # saying what it got, file by file, is appended to it.
 #
@@ -34,11 +36,11 @@ ci_load
 BRANCH=ci-sync
 TITLE='ci: sync shared CI files'
 
-dry=0
-if [ "${1:-}" = --dry-run ]; then
-  dry=1
-  shift
-fi
+dry=0 drift=0
+case "${1:-}" in
+--dry-run) dry=1 && shift ;;
+--drift) dry=1 drift=1 && shift ;;
+esac
 repos="$(ci_repos "$@")"
 source_sha="${SOURCE_SHA:-$(git -C "$CI_SHARED_DIR" rev-parse HEAD 2>/dev/null || echo unknown)}"
 
@@ -49,7 +51,18 @@ summary() {
 source_ref="\`$source_sha\`"
 # a link where the workflow runs, a bare sha in a local run
 [ -z "${GITHUB_REPOSITORY:-}" ] || source_ref="[$source_ref](${GITHUB_SERVER_URL:-https://github.com}/$GITHUB_REPOSITORY/commit/$source_sha)"
-summary "## Sync$([ "$dry" = 0 ] || echo ' (dry run)')" '' "Source commit $source_ref." ''
+run_kind=''
+[ "$dry" = 0 ] || run_kind=' (dry run)'
+[ "$drift" = 0 ] || run_kind=' (drift check)'
+summary "## Sync$run_kind" '' "Source commit $source_ref." ''
+
+# each drifted target's name, one per line: a target runs in a subshell, so it
+# reports here rather than through a variable
+drifted=''
+if [ "$drift" = 1 ]; then
+  drifted="$(mktemp "${TMPDIR:-/tmp}/ci-drift.XXXXXX")"
+  trap 'rm -f "$drifted"' EXIT
+fi
 
 keyfile=''
 if [ "$dry" = 0 ]; then
@@ -69,6 +82,12 @@ if [ "$dry" = 0 ]; then
     exit 1
   fi
 fi
+
+# open_pr <slug> <base> - prints "number url" of the open sync pull request
+# into base, if any
+open_pr() {
+  gh api "repos/$1/pulls?head=${1%%/*}:$BRANCH&base=$2&state=open" --jq '.[0] | select(. != null) | "\(.number) \(.html_url)"'
+}
 
 # Uploads one file as a blob and checks GitHub stored the bytes git hashes.
 upload_blob() {
@@ -143,12 +162,25 @@ sync_repo() {
     summary "### $name" '' "In line with \`files/\`." ''
     return 0
   fi
+  local pr
+  if [ "$drift" = 1 ]; then
+    pr="$(open_pr "$slug" "$base")"
+    if [ -z "$pr" ]; then
+      echo "$name: differs from files/ with no sync pull request open"
+      echo "$name" >>"$drifted"
+      summary "### $name" '' "Drifted on \`$base\`, with no sync pull request open:" '' "$files"
+    else
+      echo "$name: differs; sync pull request #${pr%% *} is open"
+      summary "### $name" '' "Differs on \`$base\`; pull request [#${pr%% *}](${pr#* }) is open:" '' "$files"
+    fi
+    return 0
+  fi
   if [ "$dry" = 1 ]; then
     summary "### $name" '' "Differs on \`$base\`; nothing written:" '' "$files"
     return 0
   fi
 
-  local new_tree commit pr url verb body
+  local new_tree commit url verb body
   # one `path<TAB>mode<TAB>sha` line per entry
   new_tree="$(printf '%s' "$entries" | jq -Rn --arg b "$tree" \
     '{base_tree: $b, tree: [inputs | split("\t") | {path: .[0], mode: .[1], type: "blob", sha: .[2]}]}' |
@@ -161,8 +193,7 @@ sync_repo() {
   fi
 
   body="Brings the shared CI files in line with source commit \`$source_sha\`. Change the source copy, not this branch: the next sync overwrites it."$'\n\n'"$files"
-  # "number url" of the open pull request, if any
-  pr="$(gh api "repos/$slug/pulls?head=${slug%%/*}:$BRANCH&base=$base&state=open" --jq '.[0] | select(. != null) | "\(.number) \(.html_url)"')"
+  pr="$(open_pr "$slug" "$base")"
   if [ -n "$pr" ]; then
     verb=updated
     gh api -X PATCH "repos/$slug/pulls/${pr%% *}" -f body="$body" >/dev/null
@@ -203,4 +234,8 @@ while read -r slug base; do
   fi
 done <<<"$repos"
 
+if [ -s "$drifted" ]; then
+  echo "::error title=drift::$(paste -sd' ' "$drifted"): differs from files/ with no sync pull request open"
+  failed=$((failed + $(wc -l <"$drifted")))
+fi
 exit "$failed"

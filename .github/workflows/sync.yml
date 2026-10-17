@@ -2,15 +2,17 @@
 name: Sync
 
 # Opens or updates a pull request in each repos/ repository whose copies of
-# the shared files differ from files/. Each target has its own repository
-# secret, SYNC_TOKEN_<NAME>: a fine-grained token scoped to that repository
-# alone with Contents, Pull requests and Workflows read/write. The commits are
-# signed with SYNC_SIGNING_KEY. This workflow's own token only reads this
-# repository. A target gets nothing unless its main
-# and dev pass scripts/check_protection.sh. The run's job summary lists what
-# each target got, file by file. The weekly run writes nothing: it
-# fails once a token is within two weeks of expiry, or a target's protection
-# has slipped.
+# the shared files differ from files/. Each target has its own secret in the
+# `sync` environment, SYNC_TOKEN_<NAME>: a fine-grained token scoped to that
+# repository alone with Contents, Pull requests and Workflows read/write. The
+# commits are signed with SYNC_SIGNING_KEY. This workflow's own token reads
+# this repository and writes only its `sync-health` issue. A target gets
+# nothing unless its main and dev pass scripts/check_protection.sh. The run's
+# job summary lists what each target got, file by file. The weekly run writes
+# nothing to a target: it fails once a token is within two weeks of expiry,
+# a target's protection has slipped, or a target differs from files/ with no
+# sync pull request open, and keeps the `sync-health` issue open until a
+# weekly run passes all three.
 on:
   # only a push that changes what a target receives; a change to the scripts
   # alone (ci_render's included) reaches the targets on the next dispatch
@@ -43,9 +45,16 @@ jobs:
     name: Sync
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # SYNC_TOKEN_<NAME> and SYNC_SIGNING_KEY are secrets of this environment,
+    # whose deployment branches are main alone, so no other ref's run reads them
+    environment: sync
     # job-scoped, not workflow-level, for Scorecard's Token-Permissions check
     permissions:
       contents: read
+    outputs:
+      tokens: ${{ steps.tokens.outcome }}
+      protection: ${{ steps.protection.outcome }}
+      drift: ${{ steps.drift.outcome }}
     # one per repos/<name>.toml, each read by the scripts for its own target
     env:
       SYNC_TOKEN_HOMEBREW_TAP: ${{ secrets.SYNC_TOKEN_HOMEBREW_TAP }}
@@ -70,15 +79,26 @@ jobs:
 
       # every target, whatever the repos input names. The steps after run
       # whatever this one finds: an expiring token still syncs.
-      - name: Check the sync tokens' expiry
+      - id: tokens
+        name: Check the sync tokens' expiry
         run: scripts/check_tokens.sh
 
       # every target, on the runs where the sync below does not check each
       # one itself: the weekly run and a dry run write nothing, and a run
       # limited to named targets leaves the others unchecked
-      - name: Check the targets' branch protection
+      - id: protection
+        name: Check the targets' branch protection
         if: ${{ !cancelled() && (github.event_name == 'schedule' || inputs.dry-run || inputs.repos != '') }}
         run: scripts/check_protection.sh
+
+      # the weekly run: a target that differs with no sync pull request open
+      # was edited by hand, or its pull request was closed unmerged
+      - id: drift
+        name: Check the targets for drift
+        if: ${{ !cancelled() && github.event_name == 'schedule' }}
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: scripts/sync_remote.sh --drift
 
       - name: Open or update the sync pull requests
         if: ${{ !cancelled() && github.event_name != 'schedule' }}
@@ -100,3 +120,70 @@ jobs:
           # one repository name per word
           read -r -a names <<<"$REPOS"
           scripts/sync_remote.sh ${args[@]+"${args[@]}"} ${names[@]+"${names[@]}"}
+
+  # The weekly checks' tracking issue, in a job of its own so the token that
+  # writes issues never shares a job with the sync secrets. The body names the
+  # failed checks; the details stay in the run's log.
+  health:
+    name: Sync health
+    needs: sync
+    if: ${{ !cancelled() && github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write # upsert (and close) its own tracking issue
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: block
+          disable-sudo: true
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+
+      # for the local action alone
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # a check skipped by an earlier failure has no outcome and reads as not
+      # run, not as failed
+      - id: body
+        name: Compose the tracking issue body
+        env:
+          TOKENS: ${{ needs.sync.outputs.tokens }}
+          PROTECTION: ${{ needs.sync.outputs.protection }}
+          DRIFT: ${{ needs.sync.outputs.drift }}
+        run: |
+          set -euo pipefail
+          # line <outcome> <script> <what its failure means>
+          line() {
+            case $1 in
+            success) ;;
+            failure) echo "- \`$2\`: $3" ;;
+            *) echo "- \`$2\`: did not run (${1:-no outcome})" ;;
+            esac
+          }
+          {
+            echo "The weekly sync checks did not pass; the run's log has the details."
+            echo
+            line "$TOKENS" scripts/check_tokens.sh "a token is unset, unreadable or within two weeks of expiry"
+            line "$PROTECTION" scripts/check_protection.sh "a target's main or dev is not protected from its token"
+            line "$DRIFT" "scripts/sync_remote.sh --drift" "a target differs from files/ with no sync pull request open, or could not be read"
+          } >"$RUNNER_TEMP/issue.md"
+          ok=true
+          for outcome in "$TOKENS" "$PROTECTION" "$DRIFT"; do
+            [ "$outcome" = success ] || ok=false
+          done
+          echo "resolved=$ok" >>"$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/upsert-tracking-issue
+        with:
+          label: sync-health
+          label-color: B60205
+          label-description: A weekly sync check failed
+          title: The weekly sync checks failed
+          resolved: ${{ steps.body.outputs.resolved }}
+          close-comment: Every weekly sync check passes again.
+          resolved-when: a weekly run passes every check
+          body-file: ${{ runner.temp }}/issue.md

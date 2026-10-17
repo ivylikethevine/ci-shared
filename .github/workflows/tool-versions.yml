@@ -3,15 +3,22 @@ name: Tool versions
 
 # Every pin here and in files/ against the newest upstream release past the
 # cooldown: .github/scripts/check_tool_versions.sh, whose local hook adds
-# files/ to the directories it reads. Fails on drift; the fix is an edit under
-# files/ (or this repository's tools.txt), which the sync then carries to
-# every target.
+# files/ to the directories it reads. The signal is one `tool-versions`
+# tracking issue, opened when something is behind, rewritten on every later
+# run, closed when all is current. The fix is an edit under files/ (or this
+# repository's tools.txt), which the sync then carries to every target.
 on:
   schedule:
     - cron: "17 14 * * 1"
   workflow_dispatch:
 
 permissions: {}
+
+# queue rather than cancel: a run cancelled mid-upsert can leave its tracking
+# issue half-written (or a duplicate opened)
+concurrency:
+  group: tool-versions
+  cancel-in-progress: false
 
 jobs:
   versions:
@@ -21,8 +28,10 @@ jobs:
     # job-scoped, not workflow-level, for Scorecard's Token-Permissions check
     permissions:
       contents: read
+      issues: write # upsert (and close) its own tracking issue
     steps:
-      # block: the checkout, the releases and tags APIs, and the npm registry.
+      # block: the checkout, the releases and tags APIs (and the issue upsert),
+      # and the npm registry.
       - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
@@ -36,7 +45,42 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Check every pin
+      # The script exits with the number of problems, captured as an output
+      # rather than failing the step, so the issue closes on zero and opens on
+      # the rest.
+      - id: check
+        name: Check every pin
         env:
           GH_TOKEN: ${{ github.token }}
-        run: .github/scripts/check_tool_versions.sh
+        run: |
+          set -uo pipefail
+          rc=0
+          .github/scripts/check_tool_versions.sh | tee "$RUNNER_TEMP/tool-versions.txt" || rc=$?
+          echo "problems=$rc" >>"$GITHUB_OUTPUT"
+
+      - name: Compose the tracking issue body
+        if: steps.check.outputs.problems != '0'
+        env:
+          PROBLEMS: ${{ steps.check.outputs.problems }}
+        run: |
+          set -euo pipefail
+          {
+            echo "$PROBLEMS problem(s) with the pins below. Fix each OUTDATED, ERROR or UNREAD row"
+            echo "under files/, or in this repository's tools.txt for its own lint tools; every use"
+            echo "of an action SHA moves together, and the \`->\` line under such a row is what to pin."
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/tool-versions.txt"
+            echo '```'
+          } >"$RUNNER_TEMP/issue.md"
+
+      - uses: ./.github/actions/upsert-tracking-issue
+        with:
+          label: tool-versions
+          label-color: 0E8A16
+          label-description: A pin is behind its upstream release
+          title: Pinned tools and dependencies are behind upstream
+          resolved: ${{ steps.check.outputs.problems == '0' }}
+          close-comment: Every pin is current again.
+          resolved-when: every pin is current
+          body-file: ${{ runner.temp }}/issue.md
