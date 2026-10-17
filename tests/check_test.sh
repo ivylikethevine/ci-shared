@@ -86,15 +86,7 @@ test_lints_a_markdown_template_rendered_not_raw() {
   printf '# __repo__\n\n<!-- shared:if repo=a -->\n- only a\n<!-- shared:endif -->\n' | t_shared docs/t.md
   printf '# shared:if repo=a\n*.apk binary\n# shared:endif\n' | t_shared .gitattributes
   t_target a dev .github/workflows/plain.yml docs/t.md .gitattributes
-  t_toml a <<'EOF'
-[templates."docs/t.md"]
-repo = "a"
-EOF
   t_target b dev docs/t.md
-  t_toml b <<'EOF'
-[templates."docs/t.md"]
-repo = "b"
-EOF
   "$SCRIPTS/usage.sh"
   t_run "$SCRIPTS/check.sh"
   t_rc 0
@@ -107,8 +99,8 @@ EOF
   # every rendering, a file prettier has no parser for included: --ignore-unknown skips it
   grep -q '^prettier --check --config .prettierrc.yaml --ignore-unknown .*/a/docs/t.md .*/a/.gitattributes .*/b/docs/t.md$' "$T/tools.log" ||
     t_fail "prettier's rendered paths: $(grep '^prettier --check --config' "$T/tools.log")"
-  # prettier sees every rendering (a's .gitattributes renders empty: no
-  # value keeps its block), markdownlint the Markdown alone
+  # prettier sees every rendering (a's .gitattributes keeps its block on the
+  # implicit repo alone), markdownlint the Markdown alone
   t_file "$T/rendered.log" "$(
     cat <<'EOF'
 == a/docs/t.md
@@ -116,6 +108,7 @@ EOF
 
 - only a
 == a/.gitattributes
+*.apk binary
 == b/docs/t.md
 # b
 
@@ -134,10 +127,6 @@ test_lints_a_json_template_rendered_not_raw() {
   fixture
   printf '{\n# shared:if repo=a\n  "a": true,\n# shared:endif\n  "b": true\n}\n' | t_shared .vscode/settings.json
   t_target a dev .github/workflows/plain.yml .vscode/settings.json
-  t_toml a <<'EOF'
-[templates.".vscode/settings.json"]
-repo = "a"
-EOF
   t_target b dev .vscode/settings.json
   "$SCRIPTS/usage.sh"
   t_run "$SCRIPTS/check.sh"

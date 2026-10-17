@@ -77,12 +77,14 @@ render() {
 }
 
 # The values each repository gives each template, one bullet per row that
-# sets any.
+# sets any beyond the implicit `repo`.
 render_values() {
   local slug name path vars rows=""
   while read -r slug _; do
     name="${slug#*/}"
     while read -r path vars; do
+      vars="${vars#"repo=$name"}"
+      vars="${vars# }"
       [ -n "$vars" ] || continue
       rows="$rows- \`$path\` in $name: \`${vars//%20/ }\`"$'\n'
     done < <(ci_targets "$name")

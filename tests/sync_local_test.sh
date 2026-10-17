@@ -55,7 +55,6 @@ EOF
   t_target a dev tpl.md
   t_toml a <<'EOF'
 [templates."tpl.md"]
-repo = "a"
 greeting = "good morning"
 EOF
   t_checkout a

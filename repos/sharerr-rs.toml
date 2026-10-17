@@ -57,31 +57,13 @@ files = [
 ]
 
 # the values a template takes, by path
-[templates.".gitignore"]
-repo = "sharerr-rs"
-mcp = "true"
-rust = "true"
-jekyll = "true"
-
 [templates.".github/workflows/image-scan.yml"]
 pins_egress = "audit"
-repo = "sharerr-rs"
 image_name = "sharerr"
 trivyignore = "docker/.trivyignore"
-release_workflow = "docker.yml"
-
-[templates.".github/ISSUE_TEMPLATE/config.yml"]
-repo = "sharerr-rs"
-blank_issues = "true"
-discussions = "true"
-doctor = "sharerr doctor"
-
-[templates.".github/pull_request_template.md"]
-repo = "sharerr-rs"
 
 [templates.".github/workflows/codeql.yml"]
 language = "rust"
-Language = "Rust"
 
 [templates.".vscode/settings.json"]
 rust = "true"
@@ -89,12 +71,7 @@ rust = "true"
 [templates.".zed/settings.json"]
 rust = "true"
 
-[templates.".moxide.toml"]
-# cargo's build output
-excluded = '"target"'
-
 [templates."_config.yml"]
-repo = "sharerr-rs"
 title = "sharerr"
 description = "Share your media library with friends, over the tools you already run."
 

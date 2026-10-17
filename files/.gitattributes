@@ -11,6 +11,4 @@
 *.jpg binary
 *.jpeg binary
 *.webp binary
-# shared:if repo=instadroid
 *.apk binary
-# shared:endif

@@ -55,37 +55,15 @@ files = [
 
 # the values a template takes, by path
 [templates.".gitignore"]
-repo = "say-hi"
 images = "true"
 stray_files = "true"
 
-[templates.".github/ISSUE_TEMPLATE/config.yml"]
-repo = "say-hi"
-blank_issues = "true"
-discussions = "true"
-doctor = "hi --doctor --json"
-
-[templates.".github/pull_request_template.md"]
-repo = "say-hi"
-
-[templates.".vscode/settings.json"]
-repo = "say-hi"
-
-[templates.".zed/settings.json"]
-repo = "say-hi"
-
-[templates.".moxide.toml"]
-# dist/ holds the packaging stage, a second copy of README.md and config/
-excluded = '"dist"'
-
 [templates."_config.yml"]
-repo = "say-hi"
 title = "say-hi"
 description = "A greeting, a prompt, and your aliases on every machine you ssh, docker, podman, nomad, or kubectl into - without installing anything there."
 
 [templates.".github/workflows/image-scan.yml"]
 pins_egress = "block"
-repo = "say-hi"
 
 # this repository's values in rulesets/main.json
 [rulesets.main]

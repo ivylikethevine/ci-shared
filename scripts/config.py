@@ -82,6 +82,8 @@ def read(path, errors):
         for k, v in values.items():
             if not TEMPLATE_KEY.fullmatch(k):
                 errors.append(f"{where}: templates.{p!r} key {k!r} is not letters and _")
+            elif k == "repo":
+                errors.append(f"{where}: templates.{p!r}.repo is set by the sync, from the file's name")
             if not isinstance(v, str) or not TEMPLATE_VALUE.fullmatch(v):
                 errors.append(f"{where}: templates.{p!r}.{k} must be a string of single-spaced words without %, & or \\")
 

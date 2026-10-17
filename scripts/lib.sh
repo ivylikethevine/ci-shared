@@ -44,14 +44,23 @@ ci_repos() {
 # Prints a row per path target <name> receives: the path in files/, then any
 # key=value pairs its template takes, a space in a value spelled `%20` so the
 # row splits on spaces (ci_render decodes it; scripts/config.py keeps `%` out
-# of values). Fails when there is no target <name>.
+# of values). A template's row starts with `repo=<name>`, set by nothing but
+# the target's name. Fails when there is no target <name>.
 ci_targets() {
-  ci_configs | jq -r --arg n "$1" '
+  local name="$1" path vars
+  ci_configs | jq -r --arg n "$name" '
     first(.[] | select(.name == $n)) // error("no target \($n)")
     | .templates as $t
     | .files[]
     | [., (($t[.] // {}) | to_entries[] | "\(.key)=\(.value | gsub(" "; "%20"))")]
-    | join(" ")'
+    | join(" ")' |
+    while read -r path vars; do
+      if [ -n "$vars" ] || ci_is_template "$path"; then
+        echo "$path repo=$name${vars:+ $vars}"
+      else
+        echo "$path"
+      fi
+    done
 }
 
 # ci_token_secret <name> - prints the name of the secret holding target
@@ -91,17 +100,17 @@ ci_target_row() {
   '
 }
 
-# ci_is_template <path> - files/<path> carries a shared: marker
+# ci_is_template <path> - files/<path> carries a shared: marker or `__repo__`
 ci_is_template() {
-  grep -qE '^[[:space:]]*(# |<!-- )shared:(if|unless|endif)' "$CI_SHARED_DIR/files/$1"
+  grep -qE '^[[:space:]]*(# |<!-- )shared:(if|unless|endif)|__repo__' "$CI_SHARED_DIR/files/$1"
 }
 
 # ci_render <path> [key=value...] - prints files/<path> as one target receives
 # it. A template marks lines with `shared:if <key>` or `shared:unless <key>`
 # up to `shared:endif`, kept when <key> is set or unset, or with
 # `shared:if <key>=<value>`, kept when <key> has that value; each marker is a
-# `#` comment line, or `<!-- -->` in Markdown. It spells a value `__<key>__`.
-# The marker lines never reach the target. A value's spaces arrive as `%20`
+# `#` comment line, or `<!-- -->` in Markdown. It spells a value `__<key>__`;
+# `repo` is the target's name. The marker lines never reach the target. A value's spaces arrive as `%20`
 # (ci_targets' encoding, since the pairs travel as one line of words). A file
 # with neither markers nor values is printed as it is.
 ci_render() {

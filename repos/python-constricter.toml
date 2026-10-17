@@ -38,28 +38,13 @@ files = [
 
 # the values a template takes, by path
 [templates.".gitignore"]
-repo = "python-constricter"
 stray_files = "true"
-claude_settings = "untracked"
-python = "true"
-
-[templates.".github/ISSUE_TEMPLATE/config.yml"]
-repo = "python-constricter"
-blank_issues = "false"
-discussions = "true"
-
-[templates.".github/pull_request_template.md"]
-repo = "python-constricter"
 
 [templates.".vscode/settings.json"]
 python = "true"
+
 [templates.".zed/settings.json"]
 python = "true"
-
-[templates.".moxide.toml"]
-# local/ holds scratch, caches and local builds
-excluded = '"local"'
-
 
 # this repository's values in rulesets/main.json
 [rulesets.main]

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-blank_issues_enabled: __blank_issues__
+blank_issues_enabled: true
 contact_links:
   - name: Report a vulnerability
     url: https://github.com/ivylikethevine/__repo__/security/advisories/new
@@ -10,20 +10,16 @@ contact_links:
     about: >-
       What's in scope, what's out of scope, and how reports are handled -
       worth reading before deciding something is a bug.
-  # shared:if discussions
   - name: Ask a question
     url: https://github.com/ivylikethevine/__repo__/discussions
     about: >-
       Questions, setup help, and ideas that aren't a bug report or a concrete
       feature request.
-  # shared:endif
-  # shared:if doctor
   - name: Getting help
     url: https://github.com/ivylikethevine/__repo__/blob/main/docs/SUPPORT.md
     about: >-
-      Where to ask, what to include (`__doctor__` output), and what to expect
-      from a one-maintainer project.
-  # shared:endif
+      Where to ask, what to include, and what to expect from a one-maintainer
+      project.
   # shared:if repo=say-hi
   - name: Supported targets, OSes and shells
     url: https://github.com/ivylikethevine/__repo__/blob/main/docs/COMPATIBILITY.md

@@ -55,33 +55,17 @@ files = [
 ]
 
 # the values a template takes, by path
-[templates.".gitattributes"]
-repo = "instadroid"
-
 [templates.".gitignore"]
-repo = "instadroid"
 images = "true"
 stray_files = "true"
-python = "true"
-jekyll = "true"
 
 [templates.".github/workflows/image-scan.yml"]
 pins_egress = "audit"
 image_name = "instadroid"
 trivyignore = ".trivyignore"
-release_workflow = "publish.yml"
-
-[templates.".github/ISSUE_TEMPLATE/config.yml"]
-repo = "instadroid"
-blank_issues = "true"
-doctor = "scraper.py doctor"
-
-[templates.".github/pull_request_template.md"]
-repo = "instadroid"
 
 [templates.".github/workflows/codeql.yml"]
 language = "python"
-Language = "Python"
 
 [templates.".vscode/settings.json"]
 python = "true"
@@ -89,12 +73,7 @@ python = "true"
 [templates.".zed/settings.json"]
 python = "true"
 
-[templates.".moxide.toml"]
-# local/ holds runtime data and the dev venv; _site/ is a local Jekyll build
-excluded = '"local", "_site"'
-
 [templates."_config.yml"]
-repo = "instadroid"
 title = "instadroid"
 description = "A real, logged-in Instagram Android app running in redroid, publishing the chronological Following feed as Atom for FreshRSS."
 

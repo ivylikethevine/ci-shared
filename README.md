@@ -108,12 +108,12 @@ only when a key is set (`shared:if key`), unset (`shared:unless key`) or has
 one value (`shared:if key=value`), up to `shared:endif`; a marker is a `#`
 comment line, or `<!-- shared:if key -->` in Markdown. The target's
 `[templates."<path>"]` table sets the values: words separated by single spaces,
-holding no `%`, `&` or `\`.
+holding no `%`, `&` or `\`. The key `repo` is always set, to the target's
+name, so a file may spell `__repo__` or `shared:if repo=<name>` with no table.
 
 ```toml
 [templates.".github/workflows/codeql.yml"]
 language = "rust"
-Language = "Rust"
 ```
 
 Every script renders before comparing or copying, so a target never sees a

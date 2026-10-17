@@ -59,39 +59,23 @@ Which repositories receive each shared file, written by
 
 ## Template values
 
-- `.gitignore` in homebrew-tap: `repo=homebrew-tap stray_files=true claude_settings=untracked`
-- `.gitattributes` in instadroid: `repo=instadroid`
-- `.github/ISSUE_TEMPLATE/config.yml` in instadroid: `repo=instadroid blank_issues=true doctor=scraper.py doctor`
-- `.github/pull_request_template.md` in instadroid: `repo=instadroid`
+- `.gitignore` in homebrew-tap: `stray_files=true`
 - `.github/workflows/advisories.yml` in instadroid: `python=true tool=pip-audit`
-- `.github/workflows/codeql.yml` in instadroid: `language=python Language=Python`
-- `.github/workflows/image-scan.yml` in instadroid: `pins_egress=audit image_name=instadroid trivyignore=.trivyignore release_workflow=publish.yml`
-- `.gitignore` in instadroid: `repo=instadroid images=true stray_files=true python=true jekyll=true`
-- `.moxide.toml` in instadroid: `excluded="local", "_site"`
+- `.github/workflows/codeql.yml` in instadroid: `language=python`
+- `.github/workflows/image-scan.yml` in instadroid: `pins_egress=audit image_name=instadroid trivyignore=.trivyignore`
+- `.gitignore` in instadroid: `images=true stray_files=true`
 - `.vscode/settings.json` in instadroid: `python=true`
 - `.zed/settings.json` in instadroid: `python=true`
-- `_config.yml` in instadroid: `repo=instadroid title=instadroid description=A real, logged-in Instagram Android app running in redroid, publishing the chronological Following feed as Atom for FreshRSS.`
-- `.github/ISSUE_TEMPLATE/config.yml` in python-constricter: `repo=python-constricter blank_issues=false discussions=true`
-- `.github/pull_request_template.md` in python-constricter: `repo=python-constricter`
-- `.gitignore` in python-constricter: `repo=python-constricter stray_files=true claude_settings=untracked python=true`
-- `.moxide.toml` in python-constricter: `excluded="local"`
+- `_config.yml` in instadroid: `title=instadroid description=A real, logged-in Instagram Android app running in redroid, publishing the chronological Following feed as Atom for FreshRSS.`
+- `.gitignore` in python-constricter: `stray_files=true`
 - `.vscode/settings.json` in python-constricter: `python=true`
 - `.zed/settings.json` in python-constricter: `python=true`
-- `.github/ISSUE_TEMPLATE/config.yml` in say-hi: `repo=say-hi blank_issues=true discussions=true doctor=hi --doctor --json`
-- `.github/pull_request_template.md` in say-hi: `repo=say-hi`
-- `.github/workflows/image-scan.yml` in say-hi: `pins_egress=block repo=say-hi`
-- `.gitignore` in say-hi: `repo=say-hi images=true stray_files=true`
-- `.moxide.toml` in say-hi: `excluded="dist"`
-- `.vscode/settings.json` in say-hi: `repo=say-hi`
-- `.zed/settings.json` in say-hi: `repo=say-hi`
-- `_config.yml` in say-hi: `repo=say-hi title=say-hi description=A greeting, a prompt, and your aliases on every machine you ssh, docker, podman, nomad, or kubectl into - without installing anything there.`
-- `.github/ISSUE_TEMPLATE/config.yml` in sharerr-rs: `repo=sharerr-rs blank_issues=true discussions=true doctor=sharerr doctor`
-- `.github/pull_request_template.md` in sharerr-rs: `repo=sharerr-rs`
+- `.github/workflows/image-scan.yml` in say-hi: `pins_egress=block`
+- `.gitignore` in say-hi: `images=true stray_files=true`
+- `_config.yml` in say-hi: `title=say-hi description=A greeting, a prompt, and your aliases on every machine you ssh, docker, podman, nomad, or kubectl into - without installing anything there.`
 - `.github/workflows/advisories.yml` in sharerr-rs: `rust=true tool=cargo-deny`
-- `.github/workflows/codeql.yml` in sharerr-rs: `language=rust Language=Rust`
-- `.github/workflows/image-scan.yml` in sharerr-rs: `pins_egress=audit repo=sharerr-rs image_name=sharerr trivyignore=docker/.trivyignore release_workflow=docker.yml`
-- `.gitignore` in sharerr-rs: `repo=sharerr-rs mcp=true rust=true jekyll=true`
-- `.moxide.toml` in sharerr-rs: `excluded="target"`
+- `.github/workflows/codeql.yml` in sharerr-rs: `language=rust`
+- `.github/workflows/image-scan.yml` in sharerr-rs: `pins_egress=audit image_name=sharerr trivyignore=docker/.trivyignore`
 - `.vscode/settings.json` in sharerr-rs: `rust=true`
 - `.zed/settings.json` in sharerr-rs: `rust=true`
-- `_config.yml` in sharerr-rs: `repo=sharerr-rs title=sharerr description=Share your media library with friends, over the tools you already run.`
+- `_config.yml` in sharerr-rs: `title=sharerr description=Share your media library with friends, over the tools you already run.`

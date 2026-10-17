@@ -6,8 +6,8 @@ local/
 # npm installs, the pinned CI Markdown tools' (.github/package.json) included.
 node_modules/
 
-# Claude Code: .claude/settings.json is shared and tracked; personal overrides,
-# agent worktrees and host-specific agent notes stay local.
+# Claude Code: personal overrides, agent worktrees and host-specific agent
+# notes stay local.
 .claude/settings.local.json
 .claude/worktrees/
 CLAUDE.local.md
@@ -18,9 +18,7 @@ CLAUDE.local.md
 /.gitconfig
 /.gitmodules
 /.idea
-# shared:unless mcp
 /.mcp.json
-# shared:endif
 /.profile
 /.ripgreprc
 /.zprofile
@@ -36,11 +34,9 @@ CLAUDE.local.md
 /.claude/skills
 /.claude/workflows
 /.claude/.cc-writes
-# shared:if claude_settings=untracked
-# .claude/settings.json too: this repository tracks none, so the device would
-# show as untracked
+# .claude/settings.json too: where it is tracked the ignore changes nothing,
+# and where it is not the device would show as untracked
 /.claude/settings.json
-# shared:endif
 
 # Secrets and local environment. A .env.example is a template with no real
 # values, so it stays tracked.
@@ -72,7 +68,6 @@ keys/
 # Logs.
 *.log
 
-# shared:if python
 # Python's bytecode caches and packaging metadata, and Hypothesis's example
 # database.
 __pycache__/
@@ -83,17 +78,12 @@ __pycache__/
 # Packaging output at the root; a build/ deeper in the tree is source.
 /build/
 /dist/
-# shared:endif
-# shared:if rust
 # Rust build output.
 /target
 **/*.rs.bk
-# shared:endif
-# shared:if jekyll
 # A local Jekyll build of the docs site; CI builds the real one.
 _site/
 .jekyll-cache/
-# shared:endif
 # shared:if images
 # Screenshots and images: none ships, and one can hold real account content.
 *.png
