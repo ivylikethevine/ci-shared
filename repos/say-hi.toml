@@ -34,6 +34,7 @@ files = [
   ".github/scripts/scan_pinned_images.sh",
   ".github/workflows/cancel-closed-pr.yml",
   ".github/workflows/codeql.yml",
+  ".github/workflows/image-scan.yml",
   ".github/workflows/link-check.yml",
   ".github/workflows/release-note.yml",
   ".github/workflows/scorecard.yml",
@@ -41,10 +42,13 @@ files = [
   ".github/zizmor.yml",
   ".gitignore",
   ".markdownlint.yaml",
+  ".moxide.toml",
   ".prettierrc.yaml",
   ".shellcheckrc",
   ".vscode/settings.json",
+  ".zed/settings.json",
   "LICENSE.md",
+  "_config.yml",
   "docs/CODE_OF_CONDUCT.md",
   "lychee.toml",
 ]
@@ -65,6 +69,22 @@ doctor = "hi --doctor --json"
 repo = "say-hi"
 
 [templates.".vscode/settings.json"]
+repo = "say-hi"
+
+[templates.".zed/settings.json"]
+repo = "say-hi"
+
+[templates.".moxide.toml"]
+# dist/ holds the packaging stage, a second copy of README.md and config/
+excluded = '"dist"'
+
+[templates."_config.yml"]
+repo = "say-hi"
+title = "say-hi"
+description = "A greeting, a prompt, and your aliases on every machine you ssh, docker, podman, nomad, or kubectl into - without installing anything there."
+
+[templates.".github/workflows/image-scan.yml"]
+pins_egress = "block"
 repo = "say-hi"
 
 # this repository's values in rulesets/main.json

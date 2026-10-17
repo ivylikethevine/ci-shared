@@ -63,7 +63,8 @@ test_runs_every_check_over_the_tree() {
   t_no_out "::error"
   t_in -x "$T/tools.log" 'shellcheck -x files/.github/scripts/shared.sh scripts/s.sh tests/t_test.sh' \
     'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' \
-    'prettier --check .'
+    'prettier --check .' \
+    'lint_workflows.sh .github/workflows/own.yml files/.github/workflows/plain.yml files/.github/actions/a/action.yml'
   grep -q '^prettier --check --config .prettierrc.yaml .*/ci-render\.' "$T/tools.log" ||
     t_fail "prettier did not run on the renderings with the shared config"
   # prettier, actionlint and lint_workflows.sh each see every rendering

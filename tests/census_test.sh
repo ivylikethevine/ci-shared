@@ -67,4 +67,33 @@ test_drift_keeps_paths_with_several_copies() {
   t_no_out lychee.toml
 }
 
+# a path outside the CI pattern counts once files/ holds it
+test_counts_every_shared_path() {
+  fixture
+  echo site | t_shared _config.yml
+  echo zed | t_shared .zed/settings.json
+  t_checkout e "_config.yml=site" ".zed/settings.json=zed" "Makefile=x"
+  t_checkout f "_config.yml=site" ".zed/settings.json=other" "Makefile=x"
+  t_target e dev
+  t_target f dev
+  t_run "$SCRIPTS/census.sh" "$T"
+  t_rc 0
+  t_out _config.yml .zed/settings.json "$(blob site) 100644 = files/  e f"
+  t_no_out Makefile
+}
+
+# c and d hold .editorconfig and d .github/t.yml without listing them; a lists
+# nothing and holds none
+test_gaps_lists_unlisted_copies_and_missing_files() {
+  fixture
+  t_run "$SCRIPTS/census.sh" --gaps "$T"
+  t_rc 0
+  t_eq "$(cat "$T/out")" ".editorconfig
+  unlisted  c d
+  missing   a
+.github/t.yml
+  unlisted  d
+  missing   a" "the gaps"
+}
+
 t_main

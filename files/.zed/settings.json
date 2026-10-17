@@ -1,0 +1,25 @@
+{
+  "tab_size": 2,
+# shared:if repo=say-hi
+  "file_types": {
+    "JSONC": [".zed/settings.json"],
+    "TOML": ["colors**", "packages", "plugins"],
+    "Properties": ["vimrc", "nanorc"]
+  },
+# shared:endif
+  "languages": {
+# shared:if python
+    "Python": {
+      "tab_size": 4
+    },
+# shared:endif
+# shared:if rust
+    "Rust": {
+      "tab_size": 4
+    },
+# shared:endif
+    "Markdown": {
+      "show_edit_predictions": false
+    }
+  }
+}

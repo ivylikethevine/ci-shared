@@ -43,13 +43,20 @@ bin=.github/node_modules/.bin
 offline=()
 [ -n "${GH_TOKEN:-}" ] || offline=(--offline)
 
+# A template workflow's blocks can hold a value a target chooses (an egress
+# policy), so lint_workflows.sh reads it rendered below, not raw
+raw_lint_workflows=()
+for f in "${workflows[@]}"; do
+  case $f in files/*) ! ci_is_template "${f#files/}" || continue ;; esac
+  raw_lint_workflows+=("$f")
+done
 run shellcheck shellcheck -x "${scripts[@]}"
 run shfmt shfmt -d "${scripts[@]}"
 run actionlint actionlint "${workflows[@]}"
-run lint-workflows .github/scripts/lint_workflows.sh "${workflows[@]}" files/.github/actions/*/action.yml
+run lint-workflows .github/scripts/lint_workflows.sh "${raw_lint_workflows[@]}" files/.github/actions/*/action.yml
 run zizmor zizmor --config .github/zizmor.yml ${offline[@]+"${offline[@]}"} .github/workflows files/.github
 # A Markdown template's markers break the lists around them, and a JSON
-# template's are not JSON, so the raw copies are linted rendered below instead
+# template's are not JSON, so the raw copies are formatted rendered below instead
 raw_prettier=(.) raw_markdownlint=('**/*.md' '#**/node_modules')
 while IFS= read -r f; do
   ci_is_template "${f#files/}" || continue

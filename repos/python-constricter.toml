@@ -26,9 +26,11 @@ files = [
   ".github/zizmor.yml",
   ".gitignore",
   ".markdownlint.yaml",
+  ".moxide.toml",
   ".prettierrc.yaml",
   ".shellcheckrc",
   ".vscode/settings.json",
+  ".zed/settings.json",
   "LICENSE.md",
   "docs/CODE_OF_CONDUCT.md",
   "lychee.toml",
@@ -51,6 +53,13 @@ repo = "python-constricter"
 
 [templates.".vscode/settings.json"]
 python = "true"
+[templates.".zed/settings.json"]
+python = "true"
+
+[templates.".moxide.toml"]
+# local/ holds scratch, caches and local builds
+excluded = '"local"'
+
 
 # this repository's values in rulesets/main.json
 [rulesets.main]

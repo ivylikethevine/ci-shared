@@ -37,24 +37,24 @@ them, or make the repository a target.
 
 ## Layout
 
-| Path                          | Holds                                                                       |
-| ----------------------------- | --------------------------------------------------------------------------- |
-| `files/`                      | the master copies, at the path they have in a target                        |
-| `repos/<name>.toml`           | one target: its repository, sync branch, files, template and ruleset values |
-| `USAGE.md`                    | each file against the repositories receiving it, written from `repos/`      |
-| `scripts/check.sh`            | the shipped checks, run over this repository and `files/`                   |
-| `scripts/config.py`           | validates `repos/` and prints it as JSON, for the scripts to read           |
-| `scripts/usage.sh`            | writes `USAGE.md`; `--check` fails when it is stale                         |
-| `scripts/spdx.sh`             | adds the SPDX license comment; `--check` fails when a file lacks it         |
-| `scripts/census.sh`           | groups the CI files local checkouts share by content, to find drift         |
-| `scripts/sync_local.sh`       | copies `files/` into the checkouts beside this one                          |
-| `scripts/sync_remote.sh`      | opens or updates a pull request per target through the GitHub API           |
-| `scripts/check_protection.sh` | fails unless each target's `main` and `dev` are protected from its token    |
-| `scripts/check_tokens.sh`     | prints when each target's sync token expires, failing within two weeks      |
-| `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets     |
-| `rulesets/`                   | the rulesets every target shares, in GitHub's import format                 |
-| `tests/`                      | a suite per script in `scripts/`, run against fixtures and a fake `gh`      |
-| `.github/workflows/`          | `sync.yml`, `checks.yml` and `tool-versions.yml`                            |
+| Path                          | Holds                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------- |
+| `files/`                      | the master copies, at the path they have in a target                            |
+| `repos/<name>.toml`           | one target: its repository, sync branch, files, template and ruleset values     |
+| `USAGE.md`                    | each file against the repositories receiving it, written from `repos/`          |
+| `scripts/check.sh`            | the shipped checks, run over this repository and `files/`                       |
+| `scripts/config.py`           | validates `repos/` and prints it as JSON, for the scripts to read               |
+| `scripts/usage.sh`            | writes `USAGE.md`; `--check` fails when it is stale                             |
+| `scripts/spdx.sh`             | adds the SPDX license comment; `--check` fails when a file lacks it             |
+| `scripts/census.sh`           | groups the CI and tooling files local checkouts share by content, to find drift |
+| `scripts/sync_local.sh`       | copies `files/` into the checkouts beside this one                              |
+| `scripts/sync_remote.sh`      | opens or updates a pull request per target through the GitHub API               |
+| `scripts/check_protection.sh` | fails unless each target's `main` and `dev` are protected from its token        |
+| `scripts/check_tokens.sh`     | prints when each target's sync token expires, failing within two weeks          |
+| `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets         |
+| `rulesets/`                   | the rulesets every target shares, in GitHub's import format                     |
+| `tests/`                      | a suite per script in `scripts/`, run against fixtures and a fake `gh`          |
+| `.github/workflows/`          | `sync.yml`, `checks.yml` and `tool-versions.yml`                                |
 
 A file belongs here once two targets hold it byte-identical. Per-repository
 files stay in their repository: `setup-tool/tools.txt`,
@@ -76,14 +76,29 @@ and every workflow that differs.
    syncs on the next manual run of `sync.yml`. The run's job summary lists
    each target's pull request and the files it changes.
 
-`scripts/census.sh --drift` lists every CI path whose copies disagree across
-the checkouts, shared here or not.
+`scripts/census.sh --drift` lists every CI or tooling path whose copies
+disagree across the checkouts, shared here or not; `--gaps` lists, per shared
+file, the targets holding a copy their `repos/<name>.toml` does not list (which
+the sync never refreshes) and the targets holding none.
 
 A target's CI and CodeQL workflows trigger on pull requests into `dev` as well
 as `main`, so the sync pull request is checked before it merges. Scorecard's
 CI-Tests and SAST checks grade each commit on `main` by the first pull request
 it was merged through, which for a synced commit is the one into `dev`; a
 target whose workflows run only for `main` loses a point on both.
+
+## Roadmap
+
+- `.github/actions/setup-tool/tools.txt` as a template: the lint and scanner
+  rows (shellcheck, actionlint, zizmor, hadolint, trivy, lychee, gitleaks,
+  typos) are byte-identical across the targets and bumped as one batch, so one
+  edit here would move every pin; each target's own rows go in a
+  `shared:if repo=<name>` block, and the per-repository `check_tool_versions.local.sh`
+  stays where it is.
+- `.github/dependabot.yml` as a template: every entry carries the same
+  schedule, target branch, commit prefix, limit and cooldown, so one block per
+  ecosystem (`shared:if cargo`, `shared:if python`, ...) with the ignores in
+  per-repository blocks would replace five copies.
 
 ## Templates
 
@@ -106,7 +121,10 @@ marker, and `scripts/check.sh` lints each template as every target receives it
 (actionlint and `lint_workflows.sh` for a workflow, markdownlint for Markdown,
 prettier for both) and fails when a rendering still holds a `__key__` some
 target sets. A Markdown template is skipped by the lint over the raw tree,
-since its markers break the list structure around them.
+since its markers break the list structure around them. A workflow template
+is skipped by the raw `lint_workflows.sh` run, since a block may hold a value a
+target chooses, such as an egress policy; actionlint and zizmor still read it
+raw.
 
 ## Checking this repository
 

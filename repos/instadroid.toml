@@ -31,6 +31,7 @@ files = [
   ".github/scripts/release_notes.sh",
   ".github/scripts/scan_pinned_images.sh",
   ".github/scripts/trivy_scan.sh",
+  ".github/workflows/advisories.yml",
   ".github/workflows/cancel-closed-pr.yml",
   ".github/workflows/codeql.yml",
   ".github/workflows/image-scan.yml",
@@ -42,10 +43,13 @@ files = [
   ".github/zizmor.yml",
   ".gitignore",
   ".markdownlint.yaml",
+  ".moxide.toml",
   ".prettierrc.yaml",
   ".shellcheckrc",
   ".vscode/settings.json",
+  ".zed/settings.json",
   "LICENSE.md",
+  "_config.yml",
   "docs/CODE_OF_CONDUCT.md",
   "lychee.toml",
 ]
@@ -62,6 +66,7 @@ python = "true"
 jekyll = "true"
 
 [templates.".github/workflows/image-scan.yml"]
+pins_egress = "audit"
 image_name = "instadroid"
 trivyignore = ".trivyignore"
 release_workflow = "publish.yml"
@@ -80,6 +85,22 @@ Language = "Python"
 
 [templates.".vscode/settings.json"]
 python = "true"
+
+[templates.".zed/settings.json"]
+python = "true"
+
+[templates.".moxide.toml"]
+# local/ holds runtime data and the dev venv; _site/ is a local Jekyll build
+excluded = '"local", "_site"'
+
+[templates."_config.yml"]
+repo = "instadroid"
+title = "instadroid"
+description = "A real, logged-in Instagram Android app running in redroid, publishing the chronological Following feed as Atom for FreshRSS."
+
+[templates.".github/workflows/advisories.yml"]
+python = "true"
+tool = "pip-audit"
 
 # this repository's values in rulesets/main.json
 [rulesets.main]

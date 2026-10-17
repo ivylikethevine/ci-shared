@@ -2,10 +2,12 @@
 name: Image scan
 
 # Advisory trivy scans; nothing here blocks a merge.
+# shared:if image_name
 # - trivy: each published image's :latest (one matrix row per image), which
 #   goes stale between releases as advisories land; findings go to code
 #   scanning (category image-scan-<name>) and a warning. __release_workflow__'s
 #   scan job is the release gate.
+# shared:endif
 # - pins: the digest-pinned images in the Dockerfiles and compose files.
 #   tool-versions.yml reports a moved tag, not its severity, so this scans
 #   each pinned digest and what its tag points at now, and keeps one
@@ -36,6 +38,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # shared:if image_name
   trivy:
     name: published ${{ matrix.name }} image (trivy, advisory)
     # only a green push to main; the schedule and a dispatch pass the first clause
@@ -140,6 +143,7 @@ jobs:
           IMAGE_REF: ${{ steps.probe.outputs.image }}
         run: echo "trivy - no fixable HIGH/CRITICAL vulnerabilities in $IMAGE_REF" | tee -a "$GITHUB_STEP_SUMMARY"
 
+  # shared:endif
   pins:
     name: pinned images (trivy, advisory)
     # only a green push to main; the schedule and a dispatch pass the first clause
@@ -155,7 +159,27 @@ jobs:
     steps:
       - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
-          egress-policy: audit
+          egress-policy: __pins_egress__
+          # shared:if repo=say-hi
+          disable-sudo: true
+          # Off this job's own audit log: the pinned images' registries, and
+          # trivy's database and version check. The release hosts serve the
+          # trivy binary on a setup-tool cache miss, which a warm-cache audit
+          # log never shows. A rotating
+          # run-actions-N-azure-*.actions.githubusercontent.com host also
+          # appeared; no fixed row covers it, and this job is advisory.
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            results-receiver.actions.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            objects.githubusercontent.com:443
+            index.docker.io:443
+            auth.docker.io:443
+            production.cloudfront.docker.com:443
+            mirror.gcr.io:443
+            check.trivy.dev:443
+          # shared:endif
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

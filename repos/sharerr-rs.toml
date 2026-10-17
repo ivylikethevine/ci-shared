@@ -33,6 +33,7 @@ files = [
   ".github/scripts/release_notes.sh",
   ".github/scripts/scan_pinned_images.sh",
   ".github/scripts/trivy_scan.sh",
+  ".github/workflows/advisories.yml",
   ".github/workflows/cancel-closed-pr.yml",
   ".github/workflows/codeql.yml",
   ".github/workflows/image-scan.yml",
@@ -44,10 +45,13 @@ files = [
   ".github/zizmor.yml",
   ".gitignore",
   ".markdownlint.yaml",
+  ".moxide.toml",
   ".prettierrc.yaml",
   ".shellcheckrc",
   ".vscode/settings.json",
+  ".zed/settings.json",
   "LICENSE.md",
+  "_config.yml",
   "docs/CODE_OF_CONDUCT.md",
   "lychee.toml",
 ]
@@ -60,6 +64,7 @@ rust = "true"
 jekyll = "true"
 
 [templates.".github/workflows/image-scan.yml"]
+pins_egress = "audit"
 repo = "sharerr-rs"
 image_name = "sharerr"
 trivyignore = "docker/.trivyignore"
@@ -80,6 +85,22 @@ Language = "Rust"
 
 [templates.".vscode/settings.json"]
 rust = "true"
+
+[templates.".zed/settings.json"]
+rust = "true"
+
+[templates.".moxide.toml"]
+# cargo's build output
+excluded = '"target"'
+
+[templates."_config.yml"]
+repo = "sharerr-rs"
+title = "sharerr"
+description = "Share your media library with friends, over the tools you already run."
+
+[templates.".github/workflows/advisories.yml"]
+rust = "true"
+tool = "cargo-deny"
 
 # this repository's values in rulesets/main.json
 [rulesets.main]
