@@ -84,10 +84,10 @@ python = "true"
 # this repository's values in rulesets/main.json
 [rulesets.main]
 required_status_checks = [
-  { context = "CI result", integration_id = 15368 },
-  { context = "CodeQL (actions)", integration_id = 15368 },
-  { context = "CodeQL (python)", integration_id = 15368 },
-  { context = "release note (pr body)", integration_id = 15368 },
+  { context = "CI result" },
+  { context = "CodeQL (actions)" },
+  { context = "CodeQL (python)" },
+  { context = "release note (pr body)" },
 ]
 code_scanning_tools = ["CodeQL", "Scorecard", "Trivy"]
 code_quality = false

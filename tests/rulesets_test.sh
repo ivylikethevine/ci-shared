@@ -99,6 +99,9 @@ test_diff_matches_rulesets_as_github_returns_them() {
   t_run env GH_TOKEN=t "$SCRIPTS/rulesets.sh" diff a
   t_rc 0
   t_not_logged owner/b
+  t_run env GH_TOKEN=t "$SCRIPTS/rulesets.sh" diff nope
+  t_rc 1
+  t_out "repos/ has no target nope"
 }
 
 test_diff_shows_drift_and_missing_rulesets() {

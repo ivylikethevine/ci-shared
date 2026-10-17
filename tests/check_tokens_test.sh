@@ -60,7 +60,7 @@ test_fails_each_bad_token() {
     "::error title=token c::SYNC_TOKEN_C has no expiry date" \
     "::error title=token d::SYNC_TOKEN_D has an expiry GitHub sent as 'soon'" \
     "::error title=token e::SYNC_TOKEN_E cannot read owner/e (HTTP/2.0 401 Unauthorized)"
-  grep -qxF "::error title=token f::SYNC_TOKEN_F cannot read owner/f" "$T/out" || t_fail "no bare error for f"
+  t_in -x "$T/out" "::error title=token f::SYNC_TOKEN_F cannot read owner/f"
   t_not_logged 'owner/a'
 }
 
@@ -72,6 +72,10 @@ test_checks_the_named_targets_alone() {
   t_rc 0
   t_out "b: SYNC_TOKEN_B expires"
   t_no_out "a:"
+  t_run env SYNC_TOKEN_B=days:30 "$SCRIPTS/check_tokens.sh" b nope
+  t_rc 1
+  t_out "repos/ has no target nope"
+  t_no_out "b:"
 }
 
 t_main

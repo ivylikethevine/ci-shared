@@ -29,6 +29,9 @@ TEMPLATE_KEY = re.compile(r"[A-Za-z_]+")
 TEMPLATE_VALUE = re.compile(r"[^\s%&\\]+( [^\s%&\\]+)*")
 BRANCHES = ("main", "dev")
 COVERAGE_KEYS = {"minimum_coverage", "max_coverage_drop"}
+# the GitHub Actions app, which reports a required status check unless the
+# check names another integration
+ACTIONS_APP = 15368
 
 
 def check_keys(where, table, allowed, errors):
@@ -109,6 +112,8 @@ def read(path, errors):
             or not isinstance(c.get("integration_id", 0), int)
         ):
             errors.append(f"{where}: each required status check is {{context, integration_id}}, not {c!r}")
+        else:
+            c.setdefault("integration_id", ACTIONS_APP)
     tools = main.setdefault("code_scanning_tools", [])
     if not isinstance(tools, list) or not all(isinstance(t, str) for t in tools):
         errors.append(f"{where}: rulesets.main.code_scanning_tools must be a list of names")
@@ -135,14 +140,12 @@ def main():
     if not paths:
         errors.append("repos/ holds no <name>.toml")
     configs = [c for c in (read(p, errors) for p in paths) if c is not None]
-    seen, secrets = {}, {}
+    # repositories cannot collide: each ends in its file's name
+    secrets = {}
     for c in configs:
         if c["token_secret"] in secrets:
             errors.append(f"repos/{c['name']}.toml: its token secret {c['token_secret']} is also repos/{secrets[c['token_secret']]}.toml's")
         secrets.setdefault(c["token_secret"], c["name"])
-        if c.get("repository") in seen:
-            errors.append(f"repos/{c['name']}.toml: {c['repository']} is also in repos/{seen[c['repository']]}.toml")
-        seen.setdefault(c.get("repository"), c["name"])
     if errors:
         for e in errors:
             print(e, file=sys.stderr)

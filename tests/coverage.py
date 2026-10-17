@@ -26,6 +26,7 @@ Prints each script's figure and every statement not run or not seen, and
 exits 1 unless every statement of every script ran.
 """
 
+import functools
 import json
 import subprocess
 import sys
@@ -95,11 +96,8 @@ def statements(script):
 
 def judge(stmts, seen):
     """Sets each statement's .ran: True, False or None (not seen)."""
-    done = {}
-
+    @functools.cache  # a Stmt hashes by identity
     def ran(s):
-        if id(s) in done:
-            return done[id(s)]
         span = range(s.first, s.last + 1) if s.leaf else range(s.first, s.first + 1)
         counted = [seen[n] for n in span if n in seen]
         if any(counted):
@@ -112,7 +110,6 @@ def judge(stmts, seen):
             verdict = ran(s.next)
         else:
             verdict = None
-        done[id(s)] = verdict
         return verdict
 
     for s in stmts:

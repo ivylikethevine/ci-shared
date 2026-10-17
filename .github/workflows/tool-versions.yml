@@ -2,9 +2,10 @@
 name: Tool versions
 
 # Every pin here and in files/ against the newest upstream release past the
-# cooldown: .github/scripts/check_tool_versions.sh, whose local hook adds the
-# run over files/. Fails on drift; the fix is an edit under files/ (or this
-# repository's tools.txt), which the sync then carries to every target.
+# cooldown: .github/scripts/check_tool_versions.sh, whose local hook adds
+# files/ to the directories it reads. Fails on drift; the fix is an edit under
+# files/ (or this repository's tools.txt), which the sync then carries to
+# every target.
 on:
   schedule:
     - cron: "17 14 * * 1"

@@ -61,15 +61,13 @@ test_runs_every_check_over_the_tree() {
   t_rc 0
   t_out "== shellcheck" "== markdownlint" "== usage" "== spdx" "== config" "== lint-workflows-rendered"
   t_no_out "::error"
-  grep -qxF 'shellcheck -x files/.github/scripts/shared.sh scripts/s.sh tests/t_test.sh' "$T/tools.log" ||
-    t_fail "shellcheck's paths: $(grep '^shellcheck' "$T/tools.log")"
-  grep -qxF 'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' "$T/tools.log" ||
-    t_fail "zizmor's arguments: $(grep '^zizmor' "$T/tools.log")"
-  grep -qxF 'prettier --check .' "$T/tools.log" || t_fail "prettier did not run on the tree"
+  t_in -x "$T/tools.log" 'shellcheck -x files/.github/scripts/shared.sh scripts/s.sh tests/t_test.sh' \
+    'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' \
+    'prettier --check .'
   grep -q '^prettier --check --config .prettierrc.yaml .*/ci-render\.' "$T/tools.log" ||
     t_fail "prettier did not run on the renderings with the shared config"
   # prettier, actionlint and lint_workflows.sh each see every rendering
-  t_eq "$(cat "$T/rendered.log")" "$(
+  t_file "$T/rendered.log" "$(
     for _ in 1 2 3; do
       cat <<'EOF'
 == a/.github/workflows/codeql.yml
@@ -79,7 +77,7 @@ lang: rust
 actions-only: true
 EOF
     done
-  )" "the rendered templates"
+  )"
 }
 
 test_lints_a_markdown_template_rendered_not_raw() {
@@ -101,17 +99,25 @@ EOF
   t_rc 0
   t_out "== markdownlint-rendered"
   t_no_out "actionlint-rendered"
-  grep -qxF 'prettier --check . !files/docs/t.md' "$T/tools.log" || t_fail "the raw template was not kept from prettier"
-  grep -qxF 'markdownlint-cli2 **/*.md #**/node_modules #files/docs/t.md' "$T/tools.log" ||
-    t_fail "the raw template was not kept from markdownlint: $(grep '^markdownlint' "$T/tools.log")"
+  # the raw template is kept from prettier and markdownlint
+  t_in -x "$T/tools.log" 'prettier --check . !files/docs/t.md' 'markdownlint-cli2 **/*.md #**/node_modules #files/docs/t.md'
   grep -q '^markdownlint-cli2 --config .markdownlint.yaml .*/a/docs/t.md .*/b/docs/t.md$' "$T/tools.log" ||
     t_fail "markdownlint did not run on the renderings: $(grep '^markdownlint' "$T/tools.log")"
-  # a file prettier has no parser for is rendered and checked for leftovers, not formatted
-  grep -q '^prettier --check --config .prettierrc.yaml .*/a/docs/t.md .*/b/docs/t.md$' "$T/tools.log" ||
+  # every rendering, a file prettier has no parser for included: --ignore-unknown skips it
+  grep -q '^prettier --check --config .prettierrc.yaml --ignore-unknown .*/a/docs/t.md .*/a/.gitattributes .*/b/docs/t.md$' "$T/tools.log" ||
     t_fail "prettier's rendered paths: $(grep '^prettier --check --config' "$T/tools.log")"
-  t_eq "$(cat "$T/rendered.log")" "$(
-    for _ in 1 2; do
-      cat <<'EOF'
+  # prettier sees every rendering (a's .gitattributes renders empty: no
+  # value keeps its block), markdownlint the Markdown alone
+  t_file "$T/rendered.log" "$(
+    cat <<'EOF'
+== a/docs/t.md
+# a
+
+- only a
+== a/.gitattributes
+== b/docs/t.md
+# b
+
 == a/docs/t.md
 # a
 
@@ -120,8 +126,7 @@ EOF
 # b
 
 EOF
-    done
-  )" "the rendered templates"
+  )"
 }
 
 test_lints_a_json_template_rendered_not_raw() {
@@ -136,12 +141,11 @@ EOF
   "$SCRIPTS/usage.sh"
   t_run "$SCRIPTS/check.sh"
   t_rc 0
-  grep -qxF 'prettier --check . !files/.vscode/settings.json' "$T/tools.log" || t_fail "the raw template was not kept from prettier"
-  grep -qxF 'markdownlint-cli2 **/*.md #**/node_modules' "$T/tools.log" ||
-    t_fail "markdownlint's raw list changed: $(grep '^markdownlint' "$T/tools.log")"
-  grep -q '^prettier --check --config .prettierrc.yaml .*/a/.vscode/settings.json .*/b/.vscode/settings.json$' "$T/tools.log" ||
+  # the raw template is kept from prettier; markdownlint's raw list is unchanged
+  t_in -x "$T/tools.log" 'prettier --check . !files/.vscode/settings.json' 'markdownlint-cli2 **/*.md #**/node_modules'
+  grep -q '^prettier --check --config .prettierrc.yaml --ignore-unknown .*/a/.vscode/settings.json .*/b/.vscode/settings.json$' "$T/tools.log" ||
     t_fail "prettier did not run on the renderings: $(grep '^prettier --check --config' "$T/tools.log")"
-  t_eq "$(cat "$T/rendered.log")" "$(
+  t_file "$T/rendered.log" "$(
     cat <<'EOF'
 == a/.vscode/settings.json
 {
@@ -153,7 +157,7 @@ EOF
   "b": true
 }
 EOF
-  )" "the rendered templates"
+  )"
 }
 
 test_a_value_a_target_lacks_fails() {

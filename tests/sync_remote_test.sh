@@ -107,10 +107,8 @@ test_opens_a_pull_request_for_what_differs() {
     t_fail "the signature does not verify against the unsigned commit"
   t_logged '^POST repos/owner/a/git/refs$'
   t_file "$T/ref.txt" "$(printf 'ref=refs/heads/ci-sync\nsha=%s' "$(cat "$T/commit.sha")")"
-  grep -qF 'head=ci-sync' "$T/pr.txt" || t_fail "no head in $(cat "$T/pr.txt")"
-  grep -qF 'base=dev' "$T/pr.txt" || t_fail "no base in $(cat "$T/pr.txt")"
   # shellcheck disable=SC2016 # literal text
-  grep -qF -- '- `new.sh`' "$T/pr.txt" || t_fail "no file list in the body"
+  t_in "$T/pr.txt" head=ci-sync base=dev '- `new.sh`'
 }
 
 test_moves_the_branch_and_updates_an_open_pull_request() {
@@ -128,7 +126,16 @@ test_moves_the_branch_and_updates_an_open_pull_request() {
   t_run env GH_TOKEN=t SCENARIO=branch-exists "$SCRIPTS/sync_remote.sh" b
   t_rc 0
   t_logged '^PATCH repos/owner/b/git/refs/heads/ci-sync$'
-  grep -qF 'force=true' "$T/ref.txt" || t_fail "the branch was not force-moved"
+  t_in "$T/ref.txt" force=true
+}
+
+test_refuses_an_unknown_target_before_writing() {
+  fake_github
+  fixture
+  t_run env GH_TOKEN=t "$SCRIPTS/sync_remote.sh" a nope
+  t_rc 1
+  t_out "repos/ has no target nope"
+  t_not_logged .
 }
 
 test_source_sha_defaults_to_this_tree_head() {
@@ -136,11 +143,11 @@ test_source_sha_defaults_to_this_tree_head() {
   fixture
   t_run env GH_TOKEN=t "$SCRIPTS/sync_remote.sh" a
   t_rc 0
-  grep -qF 'Source: unknown' "$T/commit.json" || t_fail "outside a checkout the source is not unknown"
+  t_in "$T/commit.json" 'Source: unknown'
   t_git "$T/tree" init -q
   t_git "$T/tree" commit -q --allow-empty -m tree
   t_run env GH_TOKEN=t "$SCRIPTS/sync_remote.sh" a
-  grep -qF "Source: $(git -C "$T/tree" rev-parse HEAD)" "$T/commit.json" || t_fail "the source is not the tree's HEAD"
+  t_in "$T/commit.json" "Source: $(git -C "$T/tree" rev-parse HEAD)"
 }
 
 test_dry_run_reports_and_writes_nothing() {
@@ -257,21 +264,18 @@ EOF
   t_run env GH_TOKEN=t SCENARIO=pr-open GITHUB_STEP_SUMMARY="$md" "$SCRIPTS/sync_remote.sh" a
   t_rc 0
   t_out "a: updated pull request #7"
-  grep -qF -- 'Source commit `' "$md" || t_fail "the source is not a bare sha outside Actions: $(cat "$md")"
-  grep -qF -- "Pull request [#7](https://example.invalid/pull/7) into \`dev\` updated:" "$md" ||
-    t_fail "no updated section in $(cat "$md")"
+  # a bare sha outside Actions
+  t_in "$md" 'Source commit `' "Pull request [#7](https://example.invalid/pull/7) into \`dev\` updated:"
   : >"$md"
   t_run env GH_TOKEN=t GITHUB_STEP_SUMMARY="$md" "$SCRIPTS/sync_remote.sh" --dry-run a
   t_rc 0
-  grep -qF -- '## Sync (dry run)' "$md" || t_fail "no dry-run heading in $(cat "$md")"
-  grep -qF -- "Differs on \`dev\`; nothing written:" "$md" || t_fail "no dry-run section in $(cat "$md")"
   # shellcheck disable=SC2016 # literal text
-  grep -qF -- '- `new.sh`' "$md" || t_fail "no file list in $(cat "$md")"
+  t_in "$md" '## Sync (dry run)' "Differs on \`dev\`; nothing written:" '- `new.sh`'
   : >"$md"
   t_run env GH_TOKEN=t SCENARIO=tree-error GITHUB_STEP_SUMMARY="$md" "$SCRIPTS/sync_remote.sh" a
   t_rc 1
-  grep -qF -- 'Failed; nothing written. See the log.' "$md" || t_fail "no failed section in $(cat "$md")"
-  if grep -qF -- 'Pull request' "$md"; then t_fail "a failed target has a pull request section"; fi
+  t_in "$md" 'Failed; nothing written. See the log.'
+  t_not_in "$md" 'Pull request'
 }
 
 test_a_truncated_tree_listing_fails_the_target() {

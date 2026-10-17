@@ -16,8 +16,12 @@ ci_load
 out="$CI_SHARED_DIR/USAGE.md"
 
 render() {
-  local names=() slug
-  while read -r slug _; do names+=("${slug#*/}"); done < <(ci_repos)
+  local names=() lists=() slug i
+  # each target's paths once, as a newline-wrapped list the cells search
+  while read -r slug _; do
+    names+=("${slug#*/}")
+    lists+=($'\n'"$(ci_targets "${slug#*/}" | cut -d' ' -f1)"$'\n')
+  done < <(ci_repos)
 
   # REUSE-IgnoreStart
   printf '<!-- SPDX-License-Identifier: MIT -->\n\n# Usage\n\n'
@@ -32,13 +36,14 @@ render() {
   ) | while read -r path; do
     row="\`$path\`"
     count=0
-    for name in "${names[@]}"; do
-      if ci_target_row "$name" "$path" >/dev/null; then
+    for i in "${!names[@]}"; do
+      case "${lists[$i]}" in
+      *$'\n'"$path"$'\n'*)
         row="$row"$'\t'x
         count=$((count + 1))
-      else
-        row="$row"$'\t'
-      fi
+        ;;
+      *) row="$row"$'\t' ;;
+      esac
     done
     printf '%s\t%s\n' "$row" "$count"
   done | awk -F'\t' -v header="File	${names[*]}	Repos" '
@@ -87,11 +92,15 @@ render_values() {
   printf '%s' "$rows"
 }
 
+usage() {
+  render && render_values
+}
+
 if [ "${1:-}" = --check ]; then
-  if ! { render && render_values; } | cmp -s - "$out"; then
+  if ! usage | cmp -s - "$out"; then
     echo "USAGE.md is out of date: run scripts/usage.sh" >&2
     exit 1
   fi
 else
-  { render && render_values; } >"$out"
+  usage >"$out"
 fi

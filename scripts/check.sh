@@ -5,8 +5,8 @@
 # .editorconfig), actionlint, lint_workflows.sh, zizmor (.github/zizmor.yml),
 # prettier and markdownlint (.prettierrc.yaml, .markdownlint.yaml), then each
 # template as every target receives it: actionlint and lint_workflows.sh for a
-# workflow, markdownlint for Markdown, prettier for both and for JSON, and no
-# `__key__` left that a target sets. USAGE.md must be current and every tracked file carry an
+# workflow, markdownlint for Markdown, prettier for what it has a parser for,
+# and no `__key__` left that a target sets. USAGE.md must be current and every tracked file carry an
 # SPDX license comment. CI's checks workflow runs the same script.
 #
 #   scripts/check.sh
@@ -66,7 +66,7 @@ run spdx "$CI_SCRIPTS_DIR/spdx.sh" --check
 run config ci_load
 rendered="$(mktemp -d "${TMPDIR:-/tmp}/ci-render.XXXXXX")"
 trap 'case "$rendered" in */ci-render.??????) rm -r "$rendered" ;; esac' EXIT
-templates=() prettier_rendered=() workflows_rendered=() md_rendered=()
+templates=() workflows_rendered=() md_rendered=()
 declare -A keys=()
 while read -r slug _; do
   name="${slug#*/}"
@@ -79,10 +79,6 @@ while read -r slug _; do
     case "$path" in
     .github/workflows/*) workflows_rendered+=("$rendered/$name/$path") ;;
     *.md) md_rendered+=("$rendered/$name/$path") ;;
-    esac
-    # prettier fails on a file it has no parser for (.gitattributes)
-    case "$path" in
-    *.md | *.yml | *.yaml | *.json) prettier_rendered+=("$rendered/$name/$path") ;;
     esac
     for kv in $vars; do keys[$path]="${keys[$path]:-} ${kv%%=*}"; done
   done < <(ci_targets "$name")
@@ -107,9 +103,8 @@ unrendered() {
 
 if [ ${#templates[@]} -gt 0 ]; then
   run unrendered unrendered
-fi
-if [ ${#prettier_rendered[@]} -gt 0 ]; then
-  run prettier-rendered "$bin/prettier" --check --config .prettierrc.yaml "${prettier_rendered[@]}"
+  # --ignore-unknown: a file prettier has no parser for (.gitattributes)
+  run prettier-rendered "$bin/prettier" --check --config .prettierrc.yaml --ignore-unknown "${templates[@]}"
 fi
 if [ ${#workflows_rendered[@]} -gt 0 ]; then
   run actionlint-rendered actionlint "${workflows_rendered[@]}"

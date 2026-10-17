@@ -84,20 +84,20 @@ rust = "true"
 # this repository's values in rulesets/main.json
 [rulesets.main]
 required_status_checks = [
-  { context = "cargo-deny", integration_id = 15368 },
-  { context = "clippy + tests", integration_id = 15368 },
-  { context = "dependency review", integration_id = 15368 },
-  { context = "docker (lighthouse) / build", integration_id = 15368 },
-  { context = "docker (sharerr) / build", integration_id = 15368 },
-  { context = "docs (markdownlint + prettier + typos)", integration_id = 15368 },
-  { context = "markdown links (lychee offline)", integration_id = 15368 },
-  { context = "msrv", integration_id = 15368 },
-  { context = "release note (pr body)", integration_id = 15368 },
-  { context = "rustfmt", integration_id = 15368 },
-  { context = "secrets (gitleaks)", integration_id = 15368 },
-  { context = "shell + compose", integration_id = 15368 },
-  { context = "terraform (fmt + validate)", integration_id = 15368 },
-  { context = "workflow lint (zizmor + actionlint)", integration_id = 15368 },
+  { context = "cargo-deny" },
+  { context = "clippy + tests" },
+  { context = "dependency review" },
+  { context = "docker (lighthouse) / build" },
+  { context = "docker (sharerr) / build" },
+  { context = "docs (markdownlint + prettier + typos)" },
+  { context = "markdown links (lychee offline)" },
+  { context = "msrv" },
+  { context = "release note (pr body)" },
+  { context = "rustfmt" },
+  { context = "secrets (gitleaks)" },
+  { context = "shell + compose" },
+  { context = "terraform (fmt + validate)" },
+  { context = "workflow lint (zizmor + actionlint)" },
 ]
 code_scanning_tools = ["CodeQL", "Scorecard", "Trivy"]
 code_quality = true

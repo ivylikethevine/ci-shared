@@ -83,13 +83,14 @@ check_branch() {
 
 repos="$(ci_repos "$@")"
 if [ -z "$repos" ]; then
-  echo "::error title=protection::repos/ lists no targets${*:+ named $*}"
+  echo "::error title=protection::repos/ lists no targets"
   exit 1
 fi
 
 failed=0
 while read -r slug base extra; do
-  # the sync writes only to rows this check covers
+  # the sync writes only to rows this check covers: config.py's SLUG and
+  # BRANCHES again, checked here too so a misread config fails closed
   if [[ ! $slug =~ ^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$ ]] || [ -n "$extra" ] ||
     { [ "$base" != main ] && [ "$base" != dev ]; }; then
     echo "::error title=protection::target '$slug $base${extra:+ $extra}' is not 'owner/name main|dev'"

@@ -118,8 +118,8 @@ test_reads_each_target_with_its_own_token() {
   t_run env GH_TOKEN=shared SYNC_TOKEN_REPO=own "$SCRIPTS/check_protection.sh"
   t_rc 0
   t_eq "$(cut -d' ' -f1 "$T/tokens.log" | sort -u | tr '\n' ' ')" "own shared " "the tokens used"
-  grep -q '^own repos/owner/repo/' "$T/tokens.log" || t_fail "owner/repo not read with its own token"
-  if grep -q '^own repos/owner/other-repo/' "$T/tokens.log"; then t_fail "owner/other-repo read with owner/repo's token"; fi
+  t_in "$T/tokens.log" 'own repos/owner/repo/'
+  t_not_in "$T/tokens.log" 'own repos/owner/other-repo/'
   : >"$T/tokens.log"
   t_run env SYNC_TOKEN_OTHER_REPO=o "$SCRIPTS/check_protection.sh" other-repo
   t_rc 0
@@ -127,7 +127,7 @@ test_reads_each_target_with_its_own_token() {
   t_no_out "owner/repo "
   t_run env GH_TOKEN=t "$SCRIPTS/check_protection.sh" nope
   t_rc 1
-  t_out "repos/ lists no targets named nope"
+  t_out "repos/ has no target nope"
 }
 
 test_fails_on_an_invalid_config() {

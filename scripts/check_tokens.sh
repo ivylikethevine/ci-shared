@@ -49,6 +49,7 @@ check_token() {
   echo "$var expires $expiry, in $days days"
 }
 
+repos="$(ci_repos "$@")"
 failed=0
 while read -r slug _; do
   name="${slug#*/}"
@@ -58,6 +59,6 @@ while read -r slug _; do
     echo "::error title=token $name::$out"
     failed=$((failed + 1))
   fi
-done < <(ci_repos "$@")
+done <<<"$repos"
 
 exit "$failed"

@@ -116,7 +116,7 @@ and the helpers under `.github/actions/` and `.github/scripts/` are symlinks
 into `files/`, so there is one copy of each. Two files are this repository's
 own: `.github/actions/setup-tool/tools.txt` pins the lint tools, and
 `.github/scripts/check_tool_versions.local.sh` points the version check at the
-Markdown tools' manifest and adds a second run over `files/`.
+Markdown tools' manifest and the action pins under `files/`.
 
 - `scripts/check.sh` runs shellcheck, shfmt, actionlint, `lint_workflows.sh`,
   zizmor, prettier, markdownlint, `scripts/usage.sh --check` and
@@ -186,8 +186,9 @@ verify it. A local run sets `SYNC_SIGNING_KEY`, `SYNC_COMMITTER_NAME` and
 `rulesets/main.json`, `rulesets/dev.json` and `rulesets/stable.json` are the
 rulesets every target shares; the `[rulesets.main]` table of
 `repos/<name>.toml` holds what is a target's own on `main`: the required status
-checks, the code scanning tools, the coverage floor and whether code quality is
-gated.
+checks (each `{ context = "<name>" }`, with an `integration_id` only when an
+app other than GitHub Actions reports it), the code scanning tools, the
+coverage floor and whether code quality is gated.
 
 - **`main`:** no force push or deletion, signed commits, a pull request with
   checks passing on an up-to-date branch, merge or squash. Repository admins

@@ -24,9 +24,10 @@ t_setup() {
   mkdir -p "$T/bin" "$T/tree/repos" "$T/tree/files"
   cp -R "$REPO_DIR/rulesets" "$T/tree/"
   export T PATH="$T/bin:$_T_PATH" CI_SHARED_DIR="$T/tree" GH_LOG="$T/gh.log"
-  # the GITHUB_ ones so a suite run in Actions keeps out of the real job summary
-  unset GH_TOKEN SOURCE_SHA CI_CONFIGS SYNC_SIGNING_KEY SYNC_COMMITTER_NAME SYNC_COMMITTER_EMAIL \
-    GITHUB_STEP_SUMMARY GITHUB_REPOSITORY GITHUB_SERVER_URL
+  # every SYNC_ and GITHUB_ variable too: a token of the machine's, or the
+  # real job summary of a suite run in Actions, stays out of the fixtures
+  # shellcheck disable=SC2046 # variable names, no spaces
+  unset GH_TOKEN SOURCE_SHA CI_CONFIGS $(compgen -v | grep -E '^(SYNC|GITHUB)_' || true)
   : >"$GH_LOG"
 }
 
@@ -53,20 +54,38 @@ t_rc() {
   [ "$T_RC" = "$1" ] || t_fail "exit $T_RC, wanted $1"
 }
 
+# t_in [-x] <file> <text...> - the file holds each <text> (a fixed string;
+# -x: a whole line); the file is shown on failure
+t_in() {
+  local opts=(-qF) f s
+  if [ "$1" = -x ]; then
+    opts+=(-x)
+    shift
+  fi
+  f=$1
+  shift
+  for s; do
+    grep "${opts[@]}" -- "$s" "$f" || t_fail "no '$s' in $f:"$'\n'"$(cat "$f")"
+  done
+}
+
+# t_not_in <file> <text...> - the file holds none of them
+t_not_in() {
+  local f=$1 s
+  shift
+  for s; do
+    if grep -qF -- "$s" "$f"; then t_fail "'$s' in $f"; fi
+  done
+}
+
 # t_out <text...> - the last t_run printed each <text> (fixed strings)
 t_out() {
-  local s
-  for s; do
-    grep -qF -- "$s" "$T/out" || t_fail "no '$s' in the output"
-  done
+  t_in "$T/out" "$@"
 }
 
 # t_no_out <text...> - the last t_run printed none of them
 t_no_out() {
-  local s
-  for s; do
-    if grep -qF -- "$s" "$T/out"; then t_fail "'$s' in the output"; fi
-  done
+  t_not_in "$T/out" "$@"
 }
 
 # t_eq <got> <want> <what>

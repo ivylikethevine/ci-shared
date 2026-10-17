@@ -73,9 +73,11 @@ jobs:
       - name: Check the sync tokens' expiry
         run: scripts/check_tokens.sh
 
-      # every target again; the sync below checks each one it writes to itself
+      # every target, on the runs where the sync below does not check each
+      # one itself: the weekly run and a dry run write nothing, and a run
+      # limited to named targets leaves the others unchecked
       - name: Check the targets' branch protection
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (github.event_name == 'schedule' || inputs.dry-run || inputs.repos != '') }}
         run: scripts/check_protection.sh
 
       - name: Open or update the sync pull requests

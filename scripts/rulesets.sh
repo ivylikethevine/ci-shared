@@ -95,6 +95,7 @@ render)
   ;;
 diff)
   shift
+  repos="$(ci_repos "$@")"
   failed=0
   while read -r slug _; do
     # set -e turned back on inside a subshell outside any `if` or `||` (it
@@ -107,7 +108,7 @@ diff)
     rc=$?
     set -e
     failed=$((failed + rc))
-  done < <(ci_repos "$@")
+  done <<<"$repos"
   exit "$failed"
   ;;
 *)

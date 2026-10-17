@@ -39,6 +39,7 @@ if [ "${1:-}" = --dry-run ]; then
   dry=1
   shift
 fi
+repos="$(ci_repos "$@")"
 source_sha="${SOURCE_SHA:-$(git -C "$CI_SHARED_DIR" rev-parse HEAD 2>/dev/null || echo unknown)}"
 
 # summary <line>... - appends the lines to the job summary, when there is one
@@ -147,7 +148,7 @@ sync_repo() {
     return 0
   fi
 
-  local new_tree commit pr url body
+  local new_tree commit pr url verb body
   # one `path<TAB>mode<TAB>sha` line per entry
   new_tree="$(printf '%s' "$entries" | jq -Rn --arg b "$tree" \
     '{base_tree: $b, tree: [inputs | split("\t") | {path: .[0], mode: .[1], type: "blob", sha: .[2]}]}' |
@@ -163,16 +164,15 @@ sync_repo() {
   # "number url" of the open pull request, if any
   pr="$(gh api "repos/$slug/pulls?head=${slug%%/*}:$BRANCH&base=$base&state=open" --jq '.[0] | select(. != null) | "\(.number) \(.html_url)"')"
   if [ -n "$pr" ]; then
-    url="${pr#* }" pr="${pr%% *}"
-    gh api -X PATCH "repos/$slug/pulls/$pr" -f body="$body" >/dev/null
-    echo "$name: updated pull request #$pr"
-    summary "### $name" '' "Pull request [#$pr]($url) into \`$base\` updated:" '' "$files"
+    verb=updated
+    gh api -X PATCH "repos/$slug/pulls/${pr%% *}" -f body="$body" >/dev/null
   else
+    verb=opened
     pr="$(gh api "repos/$slug/pulls" -f title="$TITLE" -f head="$BRANCH" -f base="$base" -f body="$body" --jq '"\(.number) \(.html_url)"')"
-    url="${pr#* }" pr="${pr%% *}"
-    echo "$name: opened pull request #$pr"
-    summary "### $name" '' "Pull request [#$pr]($url) into \`$base\` opened:" '' "$files"
   fi
+  url="${pr#* }" pr="${pr%% *}"
+  echo "$name: $verb pull request #$pr"
+  summary "### $name" '' "Pull request [#$pr]($url) into \`$base\` $verb:" '' "$files"
 }
 
 failed=0
@@ -201,6 +201,6 @@ while read -r slug base; do
     summary "### $name" '' 'Failed; nothing written. See the log.' ''
     failed=$((failed + 1))
   fi
-done < <(ci_repos "$@")
+done <<<"$repos"
 
 exit "$failed"
