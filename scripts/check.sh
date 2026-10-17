@@ -48,17 +48,14 @@ run shfmt shfmt -d "${scripts[@]}"
 run actionlint actionlint "${workflows[@]}"
 run lint-workflows .github/scripts/lint_workflows.sh "${workflows[@]}" files/.github/actions/*/action.yml
 run zizmor zizmor --config .github/zizmor.yml ${offline[@]+"${offline[@]}"} .github/workflows files/.github
-# A Markdown template's markers break the lists around them, so the raw copy
-# is linted rendered below instead
-md_templates=()
-while IFS= read -r f; do
-  ci_is_template "${f#files/}" && md_templates+=("$f")
-done < <(find files -name '*.md' -type f | LC_ALL=C sort)
+# A Markdown template's markers break the lists around them, and a JSON
+# template's are not JSON, so the raw copies are linted rendered below instead
 raw_prettier=(.) raw_markdownlint=('**/*.md' '#**/node_modules')
-for f in ${md_templates[@]+"${md_templates[@]}"}; do
+while IFS= read -r f; do
+  ci_is_template "${f#files/}" || continue
   raw_prettier+=("!$f")
-  raw_markdownlint+=("#$f")
-done
+  case $f in *.md) raw_markdownlint+=("#$f") ;; esac
+done < <(find files \( -name '*.md' -o -name '*.json' \) -type f | LC_ALL=C sort)
 run prettier "$bin/prettier" --check "${raw_prettier[@]}"
 run markdownlint "$bin/markdownlint-cli2" "${raw_markdownlint[@]}"
 run usage "$CI_SCRIPTS_DIR/usage.sh" --check

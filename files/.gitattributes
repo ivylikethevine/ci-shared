@@ -9,8 +9,8 @@
 *.gif binary
 *.png binary
 *.jpg binary
+*.jpeg binary
 *.webp binary
 # shared:if repo=instadroid
-*.jpeg binary
 *.apk binary
 # shared:endif

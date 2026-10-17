@@ -124,6 +124,38 @@ EOF
   )" "the rendered templates"
 }
 
+test_lints_a_json_template_rendered_not_raw() {
+  fixture
+  printf '{\n# shared:if repo=a\n  "a": true,\n# shared:endif\n  "b": true\n}\n' | t_shared .vscode/settings.json
+  t_target a dev .github/workflows/plain.yml .vscode/settings.json
+  t_toml a <<'EOF'
+[templates.".vscode/settings.json"]
+repo = "a"
+EOF
+  t_target b dev .vscode/settings.json
+  "$SCRIPTS/usage.sh"
+  t_run "$SCRIPTS/check.sh"
+  t_rc 0
+  grep -qxF 'prettier --check . !files/.vscode/settings.json' "$T/tools.log" || t_fail "the raw template was not kept from prettier"
+  grep -qxF 'markdownlint-cli2 **/*.md #**/node_modules' "$T/tools.log" ||
+    t_fail "markdownlint's raw list changed: $(grep '^markdownlint' "$T/tools.log")"
+  grep -q '^prettier --check --config .prettierrc.yaml .*/a/.vscode/settings.json .*/b/.vscode/settings.json$' "$T/tools.log" ||
+    t_fail "prettier did not run on the renderings: $(grep '^prettier --check --config' "$T/tools.log")"
+  t_eq "$(cat "$T/rendered.log")" "$(
+    cat <<'EOF'
+== a/.vscode/settings.json
+{
+  "a": true,
+  "b": true
+}
+== b/.vscode/settings.json
+{
+  "b": true
+}
+EOF
+  )" "the rendered templates"
+}
+
 test_a_value_a_target_lacks_fails() {
   fixture
   printf 'name: __tool__\n# shared:if tool\nrun: __tool__\n# shared:endif\n' | t_shared .github/workflows/u.yml

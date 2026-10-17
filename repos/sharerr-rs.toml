@@ -42,15 +42,23 @@ files = [
   ".github/workflows/scorecard.yml",
   ".github/workflows/tool-versions.yml",
   ".github/zizmor.yml",
+  ".gitignore",
   ".markdownlint.yaml",
   ".prettierrc.yaml",
   ".shellcheckrc",
+  ".vscode/settings.json",
   "LICENSE.md",
   "docs/CODE_OF_CONDUCT.md",
   "lychee.toml",
 ]
 
 # the values a template takes, by path
+[templates.".gitignore"]
+repo = "sharerr-rs"
+mcp = "true"
+rust = "true"
+jekyll = "true"
+
 [templates.".github/workflows/image-scan.yml"]
 repo = "sharerr-rs"
 image_name = "sharerr"
@@ -69,6 +77,9 @@ repo = "sharerr-rs"
 [templates.".github/workflows/codeql.yml"]
 language = "rust"
 Language = "Rust"
+
+[templates.".vscode/settings.json"]
+rust = "true"
 
 # this repository's values in rulesets/main.json
 [rulesets.main]

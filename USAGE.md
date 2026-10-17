@@ -30,7 +30,7 @@ Which repositories receive each shared file, written by
 | `.github/scripts/check_tool_versions.sh`           | x            | x          | x                  | x      | x          | 5     |
 | `.github/scripts/find_tree_run.sh`                 |              |            |                    | x      | x          | 2     |
 | `.github/scripts/lib.sh`                           | x            | x          | x                  | x      | x          | 5     |
-| `.github/scripts/lint_workflows.sh`                |              | x          |                    |        | x          | 2     |
+| `.github/scripts/lint_workflows.sh`                |              | x          | x                  | x      | x          | 4     |
 | `.github/scripts/release_notes.sh`                 |              | x          | x                  | x      | x          | 4     |
 | `.github/scripts/scan_pinned_images.sh`            |              | x          |                    | x      | x          | 3     |
 | `.github/scripts/trivy_scan.sh`                    |              | x          |                    |        | x          | 2     |
@@ -43,26 +43,37 @@ Which repositories receive each shared file, written by
 | `.github/workflows/scorecard.yml`                  |              | x          | x                  | x      | x          | 4     |
 | `.github/workflows/tool-versions.yml`              | x            | x          | x                  | x      | x          | 5     |
 | `.github/zizmor.yml`                               |              | x          | x                  | x      | x          | 4     |
+| `.gitignore`                                       | x            | x          | x                  | x      | x          | 5     |
 | `.markdownlint.yaml`                               |              | x          | x                  | x      | x          | 4     |
 | `.prettierrc.yaml`                                 |              | x          | x                  | x      | x          | 4     |
-| `.shellcheckrc`                                    |              | x          |                    | x      | x          | 3     |
+| `.shellcheckrc`                                    |              | x          | x                  | x      | x          | 4     |
+| `.vscode/settings.json`                            | x            | x          | x                  | x      | x          | 5     |
 | `LICENSE.md`                                       | x            | x          | x                  | x      | x          | 5     |
 | `docs/CODE_OF_CONDUCT.md`                          | x            | x          | x                  | x      | x          | 5     |
 | `lychee.toml`                                      |              | x          | x                  | x      | x          | 4     |
-| **Files per repository**                           | 8            | 40         | 22                 | 38     | 42         | 42    |
+| **Files per repository**                           | 10           | 42         | 26                 | 41     | 44         | 44    |
 
 ## Template values
 
+- `.gitignore` in homebrew-tap: `repo=homebrew-tap stray_files=true claude_settings=untracked`
 - `.gitattributes` in instadroid: `repo=instadroid`
 - `.github/ISSUE_TEMPLATE/config.yml` in instadroid: `repo=instadroid blank_issues=true doctor=scraper.py doctor`
 - `.github/pull_request_template.md` in instadroid: `repo=instadroid`
 - `.github/workflows/codeql.yml` in instadroid: `language=python Language=Python`
 - `.github/workflows/image-scan.yml` in instadroid: `image_name=instadroid trivyignore=.trivyignore release_workflow=publish.yml`
-- `.github/ISSUE_TEMPLATE/config.yml` in python-constricter: `repo=python-constricter blank_issues=false`
+- `.gitignore` in instadroid: `repo=instadroid images=true stray_files=true python=true jekyll=true`
+- `.vscode/settings.json` in instadroid: `python=true`
+- `.github/ISSUE_TEMPLATE/config.yml` in python-constricter: `repo=python-constricter blank_issues=false discussions=true`
 - `.github/pull_request_template.md` in python-constricter: `repo=python-constricter`
+- `.gitignore` in python-constricter: `repo=python-constricter stray_files=true claude_settings=untracked python=true`
+- `.vscode/settings.json` in python-constricter: `python=true`
 - `.github/ISSUE_TEMPLATE/config.yml` in say-hi: `repo=say-hi blank_issues=true discussions=true doctor=hi --doctor --json`
 - `.github/pull_request_template.md` in say-hi: `repo=say-hi`
+- `.gitignore` in say-hi: `repo=say-hi images=true stray_files=true`
+- `.vscode/settings.json` in say-hi: `repo=say-hi`
 - `.github/ISSUE_TEMPLATE/config.yml` in sharerr-rs: `repo=sharerr-rs blank_issues=true discussions=true doctor=sharerr doctor`
 - `.github/pull_request_template.md` in sharerr-rs: `repo=sharerr-rs`
 - `.github/workflows/codeql.yml` in sharerr-rs: `language=rust Language=Rust`
 - `.github/workflows/image-scan.yml` in sharerr-rs: `repo=sharerr-rs image_name=sharerr trivyignore=docker/.trivyignore release_workflow=docker.yml`
+- `.gitignore` in sharerr-rs: `repo=sharerr-rs mcp=true rust=true jekyll=true`
+- `.vscode/settings.json` in sharerr-rs: `rust=true`

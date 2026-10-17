@@ -1,0 +1,229 @@
+# SPDX-License-Identifier: MIT
+
+# Everything generated on this machine (scratch, tool caches, local builds).
+local/
+
+# npm installs, the pinned CI Markdown tools' (.github/package.json) included.
+node_modules/
+
+# Claude Code: .claude/settings.json is shared and tracked; personal overrides,
+# agent worktrees and host-specific agent notes stay local.
+.claude/settings.local.json
+.claude/worktrees/
+CLAUDE.local.md
+# Claude Code's sandbox bind-mounts /dev/null over these denied paths while a
+# session runs; none is a file of this repo
+/.bash_profile
+/.bashrc
+/.gitconfig
+/.gitmodules
+/.idea
+# shared:unless mcp
+/.mcp.json
+# shared:endif
+/.profile
+/.ripgreprc
+/.zprofile
+/.zshrc
+/.claude/agents
+/.claude/commands
+/.claude/hooks
+/.claude/launch.json
+/.claude/loop.md
+/.claude/output-styles
+/.claude/routines
+/.claude/scheduled_tasks.json
+/.claude/skills
+/.claude/workflows
+/.claude/.cc-writes
+# shared:if claude_settings=untracked
+# .claude/settings.json too: this repository tracks none, so the device would
+# show as untracked
+/.claude/settings.json
+# shared:endif
+
+# Secrets and local environment. A .env.example is a template with no real
+# values, so it stays tracked.
+.env
+.env.*
+!.env.example
+.envrc
+.direnv/
+*.key
+*.pem
+*.pfx
+*.crt
+*.cert
+*.pub
+*.rsa
+*.priv
+secret/
+secrets/
+private/
+keys/
+
+# Editor and OS droppings, and the backups merge tools leave beside a conflict.
+.DS_Store
+*.swp
+*.swo
+*~
+*.orig
+
+# Logs.
+*.log
+
+# shared:if python
+# Python's bytecode caches and packaging metadata, and Hypothesis's example
+# database.
+__pycache__/
+*.pyc
+*.egg-info/
+.hypothesis/
+.import_linter_cache/
+# Packaging output at the root; a build/ deeper in the tree is source.
+/build/
+/dist/
+# shared:endif
+# shared:if rust
+# Rust build output.
+/target
+**/*.rs.bk
+# shared:endif
+# shared:if jekyll
+# A local Jekyll build of the docs site; CI builds the real one.
+_site/
+.jekyll-cache/
+# shared:endif
+# shared:if images
+# Screenshots and images: none ships, and one can hold real account content.
+*.png
+*.jpg
+*.jpeg
+*.bmp
+# shared:endif
+# shared:if stray_files
+# Not used in this project; kept out so stray editor or tooling output isn't
+# committed by accident.
+*.js
+*.ts
+*.bat
+*.cmd
+*.ps
+*.ps1
+*.ps2
+*.psd
+*.doc
+*.docx
+*.id
+# shared:endif
+# shared:if repo=say-hi
+**output**
+**build**
+**tmp**
+**secret**
+**private**
+**key**
+**local**
+
+*.py
+*.pyc
+*.env
+*.direnv
+*.envrc
+*.txt
+# setup-tool's roster, which the blanket *.txt above would swallow; the action
+# and the drift checker both read it
+!.github/actions/setup-tool/tools.txt
+# the drift checker's repo hook, which the blanket **local** above would swallow
+!.github/scripts/check_tool_versions.local.sh
+*.tsv
+*.csv
+*.sql
+*.toml
+# the typos allowlist, read by the lint gate (tests/lint/tools_test.sh)
+!.typos.toml
+!.moxide.toml
+# lychee's link-check config, read by ci.yml and link-check.yml
+!lychee.toml
+# the advisories Scorecard's Vulnerabilities check skips in package-lock.json
+!.github/osv-scanner.toml
+# everything under the payload directories ships, whatever it is named: the
+# blanket rules above once swallowed a config/*.toml (drift_test.sh's
+# lint_ignored_payload keeps it that way)
+!config/**
+!common/**
+# packaging/mkpkg.sh's staging and output directory. Not "build/" or
+# "output/": the blanket rules above would swallow those.
+dist/
+
+# this project's own publishing key, which the secrets rules above would swallow
+!packaging/apk/*.rsa.pub
+
+# `nix build`'s link to what it built
+/result
+/result-*
+
+# the coverage drivers' reports (tests/coverage.sh, tests/coverage_v2.sh), as
+# coverage.yml writes them into the checkout
+/coverage-report/
+/coverage-v2-report/
+# a local render's GIFs (docs/tapes/generate.sh): CI renders the six and
+# pages.yml serves them; only the hand-reviewed demo.gif is committed
+/docs/tapes/*.gif
+!/docs/tapes/demo.gif
+# a local render of docs/USAGE.md's images (docs/tapes/usage.sh), which
+# usage.yml renders and pages.yml serves the same way
+/docs/tapes/usage-*.svg
+# shared:endif
+# shared:if repo=sharerr-rs
+# Local runtime state: vault, sqlite db, generated torrents.
+/data
+/config/sharerr.toml
+
+# Test fixtures are generated, never committed (they are large synthetic blobs).
+/tests/fixtures/media
+
+# Sonarr's and Radarr's own config and databases in the compose test stack. Bind
+# mounted rather than named volumes so `seed-arr` can write to them from the host.
+/docker/state
+/docker/state-vpn
+/docker/state-tm
+/docker/state-rt
+/docker/state-two-instance
+# The mesh stack's own live config copies: scratch copies of
+# docker/config-mesh-*/sharerr.toml (run_docker_tests_mesh.sh says why), since
+# one scenario rewrites a node's config in place through a real settings POST
+# and that must never land on the tracked template.
+/docker/state-mesh
+
+# Terraform working state for the hosted-lighthouse modules under
+# docker/deploy/lighthouse/terraform. State can hold addresses and key names;
+# keep it with the rest of your homelab's, not here.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform.lock.hcl
+docker/deploy/lighthouse/terraform/fly/.generated/
+# shared:endif
+# shared:if repo=instadroid
+# Build and scratch output.
+target/
+output/
+tmp/
+temp/
+
+# Any other env file.
+*.env
+
+# Instagram APKs (fixtures are pseudonymized XML, never captures).
+*.apk
+*.xapk
+# shared:endif
+# shared:if repo=python-constricter
+# Generated by a build (hatch_build.py, or `python -m stdlib_tables`): the
+# standard-library tables, and the tests' list of what only some platforms and
+# Pythons have.
+constricter/fix/tables/
+stdlib_tables/partial.json
+# shared:endif

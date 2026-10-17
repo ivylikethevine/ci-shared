@@ -12,9 +12,17 @@ files = [
   ".github/scripts/check_tool_versions.sh",
   ".github/scripts/lib.sh",
   ".github/workflows/tool-versions.yml",
+  ".gitignore",
+  ".vscode/settings.json",
   "LICENSE.md",
   "docs/CODE_OF_CONDUCT.md",
 ]
+
+# the values a template takes, by path
+[templates.".gitignore"]
+repo = "homebrew-tap"
+stray_files = "true"
+claude_settings = "untracked"
 
 # this repository's values in rulesets/main.json
 [rulesets.main]

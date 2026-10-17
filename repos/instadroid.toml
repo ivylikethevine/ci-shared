@@ -40,9 +40,11 @@ files = [
   ".github/workflows/scorecard.yml",
   ".github/workflows/tool-versions.yml",
   ".github/zizmor.yml",
+  ".gitignore",
   ".markdownlint.yaml",
   ".prettierrc.yaml",
   ".shellcheckrc",
+  ".vscode/settings.json",
   "LICENSE.md",
   "docs/CODE_OF_CONDUCT.md",
   "lychee.toml",
@@ -51,6 +53,13 @@ files = [
 # the values a template takes, by path
 [templates.".gitattributes"]
 repo = "instadroid"
+
+[templates.".gitignore"]
+repo = "instadroid"
+images = "true"
+stray_files = "true"
+python = "true"
+jekyll = "true"
 
 [templates.".github/workflows/image-scan.yml"]
 image_name = "instadroid"
@@ -68,6 +77,9 @@ repo = "instadroid"
 [templates.".github/workflows/codeql.yml"]
 language = "python"
 Language = "Python"
+
+[templates.".vscode/settings.json"]
+python = "true"
 
 # this repository's values in rulesets/main.json
 [rulesets.main]

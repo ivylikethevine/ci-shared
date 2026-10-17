@@ -1,0 +1,30 @@
+{
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.detectIndentation": false,
+# shared:if python
+  "[python]": {
+    "editor.tabSize": 4
+  },
+# shared:endif
+# shared:if rust
+  "[rust]": {
+    "editor.tabSize": 4
+  },
+# shared:endif
+# shared:if repo=say-hi
+  "files.associations": {
+    "config/colors": "toml",
+    "config/packages": "toml",
+    "config/plugins": "toml",
+    "docs/tapes/editors/vimrc": "ini",
+    "docs/tapes/editors/nanorc": "ini"
+  },
+# shared:endif
+  "[markdown]": {
+# shared:if repo=say-hi
+    "editor.formatOnSave": false,
+# shared:endif
+    "editor.inlineSuggest.enabled": false
+  }
+}

@@ -55,12 +55,7 @@ If one of these cannot be completed, give a justification.
 
 ## AI disclosure
 
-<!-- shared:unless repo=python-constricter -->
 AI usage is allowed on this project, but "[agent] said _______" is not a valid excuse for problems with the final product. See [AI usage](https://github.com/ivylikethevine/__repo__/blob/main/README.md#ai-usage) and [AI-assisted contributions](https://github.com/ivylikethevine/__repo__/blob/main/docs/CONTRIBUTING.md#ai-assisted-contributions).
-<!-- shared:endif -->
-<!-- shared:if repo=python-constricter -->
-AI usage is allowed on this project, but "[agent] said _______" is not a valid excuse for problems with the final product. See [AI usage](https://github.com/ivylikethevine/__repo__/blob/main/README.md#ai-usage).
-<!-- shared:endif -->
 
 - [ ] (If applicable) This code was written with generative AI.
 - [ ] **(If yes to above)** I have reviewed, understood, and stand behind this code as if it were entirely hand written.
