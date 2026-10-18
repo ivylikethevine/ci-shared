@@ -31,8 +31,8 @@ jobs:
       issues: write # upsert (and close) its own tracking issue
     steps:
       # block: the checkout, the releases and tags APIs (and the issue upsert),
-      # the npm registry, and salsa.debian.org's tags API for the gitlab: row
-      # of checkbashisms.
+      # the npm registry, PyPI's JSON API for requirements-dev.in, and
+      # salsa.debian.org's tags API for the gitlab: row of checkbashisms.
       - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
@@ -41,6 +41,7 @@ jobs:
             github.com:443
             api.github.com:443
             registry.npmjs.org:443
+            pypi.org:443
             salsa.debian.org:443
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

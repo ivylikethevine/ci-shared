@@ -26,11 +26,12 @@ EOF
 # workflow and a non-workflow file; target b receives the template alone.
 fixture() {
   local t
-  for t in shellcheck shfmt actionlint zizmor typos gitleaks; do tool "$t"; done
-  mkdir -p "$T/tree/scripts" "$T/tree/tests" "$T/tree/.github/scripts" \
+  for t in shellcheck shfmt constricter actionlint zizmor typos gitleaks; do tool "$t"; done
+  mkdir -p "$T/tree/scripts" "$T/tree/tests" "$T/tree/scratch" "$T/tree/.github/scripts" \
     "$T/tree/.github/workflows" "$T/tree/.github/node_modules/.bin"
   echo 'true' >"$T/tree/scripts/s.sh"
   echo 'true' >"$T/tree/tests/t_test.sh"
+  echo 'true' >"$T/tree/scratch/x.sh"
   echo 'on: push' >"$T/tree/.github/workflows/own.yml"
   echo '{}' >"$T/tree/.github/zizmor.yml"
   ln -s "$T/bin/actionlint" "$T/tree/.github/scripts/lint_workflows.sh"
@@ -61,7 +62,8 @@ test_runs_every_check_over_the_tree() {
   t_rc 0
   t_out "== shellcheck" "== markdownlint" "== typos" "== gitleaks" "== usage" "== spdx" "== config" "== lint-workflows-rendered"
   t_no_out "::error"
-  t_in -x "$T/tools.log" 'shellcheck -x files/.github/scripts/shared.sh scripts/s.sh tests/t_test.sh' \
+  t_in -x "$T/tools.log" 'shellcheck -x files/.github/scripts/shared.sh scratch/x.sh scripts/s.sh tests/t_test.sh' \
+    'constricter scripts tests scratch' \
     'typos ' 'gitleaks git --redact --no-banner .' \
     'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' \
     'prettier --check .' \

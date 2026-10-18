@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: MIT
+# Settings for the Python dev tools requirements-dev.txt pins; this repository
+# is no package.
+
+[tool.constricter]
+# The strictest level, module and class bodies included: every variable is
+# annotated where it's first bound, and no annotation is vague. scripts/check.sh
+# runs it over scripts/, tests/ and scratch/.
+level = "suffocate"
+all-scopes = true
+min-python = "3.11"
+
+[tool.coverage.run]
+# tests/coverage.sh sets the data file and the source directories, as absolute
+# paths, since the suites run from their fixture trees
+branch = true
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_covered = true
+# a script is run, never imported, so its guard never takes the other branch
+partial_also = ['if __name__ == "__main__":']

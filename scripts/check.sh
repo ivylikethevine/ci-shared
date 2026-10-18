@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Runs the checks this repository ships over the repository itself, files/
 # included, with the shared configs: shellcheck and shfmt (.shellcheckrc,
-# .editorconfig), actionlint, lint_workflows.sh, zizmor (.github/zizmor.yml),
+# .editorconfig), constricter over the Python (pyproject.toml), actionlint, lint_workflows.sh, zizmor (.github/zizmor.yml),
 # prettier and markdownlint (.prettierrc.yaml, .markdownlint.yaml), typos,
 # gitleaks over the history, then each template as every target receives it:
 # actionlint and lint_workflows.sh for a workflow, markdownlint for Markdown,
@@ -12,7 +12,8 @@
 #
 #   scripts/check.sh
 #
-# Needs the tools.txt pins on PATH and `npm ci --prefix .github` once. A
+# Needs the tools.txt pins and requirements-dev.txt's tools on PATH, and
+# `npm ci --prefix .github` once. A
 # missing tool fails its check rather than skipping it. Exits with the number
 # of checks that failed.
 set -uo pipefail
@@ -36,7 +37,7 @@ run() {
 
 scripts=()
 while IFS= read -r f; do scripts+=("$f"); done < <(
-  find scripts tests .github/scripts files -name '*.sh' -type f | LC_ALL=C sort
+  find scripts tests scratch .github/scripts files -name '*.sh' -type f | LC_ALL=C sort
 )
 workflows=(.github/workflows/*.yml files/.github/workflows/*.yml)
 bin=.github/node_modules/.bin
@@ -53,6 +54,7 @@ for f in "${workflows[@]}"; do
 done
 run shellcheck shellcheck -x "${scripts[@]}"
 run shfmt shfmt -d "${scripts[@]}"
+run constricter constricter scripts tests scratch
 run actionlint actionlint "${workflows[@]}"
 run lint-workflows .github/scripts/lint_workflows.sh "${raw_lint_workflows[@]}" files/.github/actions/*/action.yml
 run zizmor zizmor --config .github/zizmor.yml ${offline[@]+"${offline[@]}"} .github/workflows files/.github

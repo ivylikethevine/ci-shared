@@ -25,7 +25,8 @@ jobs:
       contents: read
     steps:
       # block: the checkout, the pinned tools' release downloads, the npm
-      # registry, the cache service, and the API zizmor's online audits read.
+      # registry, PyPI, the cache service, and the API zizmor's online audits
+      # read.
       - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
@@ -36,6 +37,8 @@ jobs:
             release-assets.githubusercontent.com:443
             objects.githubusercontent.com:443
             registry.npmjs.org:443
+            pypi.org:443
+            files.pythonhosted.org:443
 
       # the whole history, which gitleaks scans
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -56,6 +59,14 @@ jobs:
       - name: Install the pinned Markdown tools
         run: npm ci --prefix .github --ignore-scripts --no-audit --no-fund
 
+      # the runner's python3, a venv holding requirements-dev.txt's hashed pins
+      - name: Install the pinned Python tools
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet --require-hashes --no-deps -r requirements-dev.txt
+          echo "$RUNNER_TEMP/venv/bin" >>"$GITHUB_PATH"
+
       - name: Run the checks
         env:
           GH_TOKEN: ${{ github.token }}
@@ -68,9 +79,9 @@ jobs:
     permissions:
       contents: read
     steps:
-      # block: the checkout, the cache service, shfmt's release download,
-      # kcov's source tarball, and the Ubuntu archive for kcov's libraries
-      # and build deps.
+      # block: the checkout, the cache service, the pinned tools' release
+      # downloads, kcov's source tarball, PyPI, and the Ubuntu archive for
+      # kcov's libraries and build deps.
       - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
@@ -80,6 +91,8 @@ jobs:
             results-receiver.actions.githubusercontent.com:443
             release-assets.githubusercontent.com:443
             objects.githubusercontent.com:443
+            pypi.org:443
+            files.pythonhosted.org:443
             azure.archive.ubuntu.com:80
             archive.ubuntu.com:80
             security.ubuntu.com:80
@@ -93,7 +106,7 @@ jobs:
       # built from source on a cache miss (tools.txt's cmake kind)
       - uses: ./.github/actions/setup-tools
         with:
-          tools: shfmt kcov
+          tools: shfmt kcov yq
 
       # kcov's runtime libraries, which a cached kcov needs as much as a
       # fresh build; apt runs only when the image lacks one
@@ -105,5 +118,13 @@ jobs:
             _ci_apt_install libdw1 libelf1 libcurl4 zlib1g
           fi
 
-      - name: Run the tests under kcov, failing below 100%
+      # the runner's python3, a venv holding requirements-dev.txt's hashed pins
+      - name: Install the pinned Python tools
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet --require-hashes --no-deps -r requirements-dev.txt
+          echo "$RUNNER_TEMP/venv/bin" >>"$GITHUB_PATH"
+
+      - name: Run the tests under kcov and coverage.py, failing below 100%
         run: tests/coverage.sh

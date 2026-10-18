@@ -9,17 +9,17 @@
 #
 # Needs bash, jq and mikefarah yq; output also lands in local/egress_census.tsv.
 set -euo pipefail
-here="$(dirname "$0")/.."
+here="${CI_SHARED_DIR:-$(dirname "$0")/..}"
 if (($# == 0)); then
-	for f in "$here"/repos/*.toml; do set -- "$@" "$(basename "$f" .toml)"; done
+  for f in "$here"/repos/*.toml; do set -- "$@" "$(basename "$f" .toml)"; done
 fi
 mkdir -p "$here/local"
 out="$here/local/egress_census.tsv"
 printf 'repo\tworkflow\tjob\trunners\tpolicy\tendpoints\n' >"$out"
 for repo in "$@"; do
-	for wf in "$here/../$repo"/.github/workflows/*.y*ml; do
-		[[ -f $wf ]] || continue
-		yq -o=json '.' "$wf" | jq -r --arg repo "$repo" --arg wf "$(basename "$wf")" '
+  for wf in "$here/../$repo"/.github/workflows/*.y*ml; do
+    [[ -f $wf ]] || continue
+    yq -o=json '.' "$wf" | jq -r --arg repo "$repo" --arg wf "$(basename "$wf")" '
 			(.jobs // {}) | to_entries[] | .key as $job | .value as $j
 			| ([$j["runs-on"]] + [$j.strategy.matrix // {} | .. | strings]
 				| map(select(type == "string" and test("macos|windows"; "i"))) | unique) as $os
@@ -32,6 +32,6 @@ for repo in "$@"; do
 				($hs | map((.with["allowed-endpoints"] // "") | [splits("\\s+")]
 					| map(select(. != "")) | length | tostring) | join("; "))]
 			| @tsv'
-	done
+  done
 done >>"$out"
 column -t -s $'\t' "$out"

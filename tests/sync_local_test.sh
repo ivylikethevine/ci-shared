@@ -63,6 +63,51 @@ EOF
   t_file "$T/a/tpl.md" "$(printf 'only a\nhello good morning')"
 }
 
+test_renders_else_and_value_lists() {
+  fixture
+  cat <<'EOF' | t_shared tpl.md
+# shared:if repo=b,a
+a or b
+# shared:else
+neither
+# shared:endif
+<!-- shared:if repo=b,c -->
+b or c
+<!-- shared:else -->
+not b or c
+<!-- shared:endif -->
+# shared:unless repo=c,a
+not c or a
+# shared:else
+c or a
+# shared:if language
+# shared:else
+no language
+# shared:endif
+# shared:endif
+EOF
+  t_target a dev tpl.md
+  t_checkout a
+  t_run "$SCRIPTS/sync_local.sh"
+  t_rc 0
+  t_file "$T/a/tpl.md" "$(printf 'a or b\nnot b or c\nc or a\nno language')"
+}
+
+test_a_stray_else_fails() {
+  fixture
+  printf 'x\n# shared:else\n' | t_shared stray.txt
+  printf '# shared:if repo=a\n# shared:else\n# shared:else\n# shared:endif\n' | t_shared twice.txt
+  t_target a dev stray.txt
+  t_checkout a
+  t_run "$SCRIPTS/sync_local.sh"
+  t_rc 1
+  t_out "stray.txt:2: shared:else outside a block"
+  t_target a dev twice.txt
+  t_run "$SCRIPTS/sync_local.sh"
+  t_rc 1
+  t_out "twice.txt:3: shared:else repeated in one block"
+}
+
 test_a_template_value_with_a_percent_is_invalid() {
   fixture
   t_toml a <<'EOF'

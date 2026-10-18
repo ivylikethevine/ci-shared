@@ -54,7 +54,10 @@ them, or make the repository a target.
 | `scripts/check_tokens.sh`     | prints when each target's sync token expires, failing within two weeks          |
 | `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets         |
 | `rulesets/`                   | the rulesets every target shares, in GitHub's import format                     |
-| `tests/`                      | a suite per script in `scripts/`, run against fixtures and a fake `gh`          |
+| `scratch/`                    | analysis scripts kept for reuse, each with its suite under `tests/`             |
+| `tests/`                      | a suite per script, run against fixtures and a fake `gh`                        |
+| `requirements-dev.in`         | the Python dev tools, constricter and coverage.py; `.txt` is its hashed lock    |
+| `pyproject.toml`              | those tools' settings                                                           |
 | `.github/workflows/`          | `sync.yml`, `checks.yml` and `tool-versions.yml`                                |
 
 A file belongs here once two targets hold it byte-identical. Per-repository
@@ -128,8 +131,9 @@ target whose workflows run only for `main` loses a point on both.
 A file that differs between targets only by a few values or lines is a
 template. Its copy in `files/` spells a value `__key__` and marks lines kept
 only when a key is set (`shared:if key`), unset (`shared:unless key`) or has
-one value (`shared:if key=value`), up to `shared:endif`; a marker is a `#`
-comment line, or `<!-- shared:if key -->` in Markdown. The target's
+one of a few values (`shared:if key=a,b`), up to `shared:endif`; a
+`shared:else` between them keeps the other lines instead. Blocks nest, and a
+marker is a `#` comment line, or `<!-- shared:if key -->` in Markdown. The target's
 `[templates."<path>"]` table sets the values: words separated by single spaces,
 holding no `%`, `&` or `\`. The key `repo` is always set, to the target's
 name, so a file may spell `__repo__` or `shared:if repo=<name>` with no table.
@@ -158,22 +162,31 @@ into `files/`, so there is one copy of each; `.github/actions/setup-tool/tools.t
 is the unrendered template, so the version check reads every target's pins.
 One file is this repository's own:
 `.github/scripts/check_tool_versions.local.sh` points the version check at the
-Markdown tools' manifest and the action pins under `files/`.
+Markdown tools' and Python tools' manifests and the action pins under `files/`.
 
-- `scripts/check.sh` runs shellcheck, shfmt, actionlint, `lint_workflows.sh`,
-  zizmor, prettier, markdownlint, typos, gitleaks over the history,
-  `scripts/usage.sh --check` and `scripts/spdx.sh --check`; `checks.yml` runs
-  it on every push and pull request. Locally it needs the `tools.txt` pins on `PATH` and
-  `npm ci --prefix .github` once.
+Every script and Python file here, `scratch/` included, has a test suite with
+100% coverage, and the Python passes constricter at `suffocate`. A scratch
+script that is not worth a suite is run from a temporary directory and not
+kept.
+
+- `scripts/check.sh` runs shellcheck, shfmt, constricter, actionlint,
+  `lint_workflows.sh`, zizmor, prettier, markdownlint, typos, gitleaks over the
+  history, `scripts/usage.sh --check` and `scripts/spdx.sh --check`;
+  `checks.yml` runs it on every push and pull request. Locally it needs the
+  `tools.txt` pins on `PATH`, `npm ci --prefix .github` once, and
+  `requirements-dev.txt` in a virtual environment whose `bin/` is on `PATH`:
+  `python3 -m venv local/venv && local/venv/bin/pip install --require-hashes --no-deps -r requirements-dev.txt`.
 - `.github/scripts/check_tool_versions.sh` reports every pin behind the newest
   release past the cooldown; `tool-versions.yml` runs it weekly and keeps a
   `tool-versions` issue open while one is behind.
 - `tests/run.sh [SUITE...]` runs the suites (`T_ONLY=<regex>` picks tests
   within one); each builds its own fixture tree and points the scripts at it
-  through `CI_SHARED_DIR`. `tests/coverage.sh` runs them under kcov and fails
-  unless every statement of `scripts/*.sh` ran; `checks.yml`'s coverage job
-  runs it. It needs the `kcov` and `shfmt` pins; `tests/coverage.py` explains
-  how kcov's line counts are mapped to statements.
+  through `CI_SHARED_DIR`. `tests/coverage.sh` runs them under kcov and
+  coverage.py and fails unless every statement of `scripts/*.sh` and
+  `scratch/*.sh` ran and every line and branch of the Python did;
+  `checks.yml`'s coverage job runs it. It needs the `kcov`, `shfmt` and `yq`
+  pins and the virtual environment above; `tests/coverage.py` explains how
+  kcov's line counts are mapped to statements.
 
 ## The sync tokens
 

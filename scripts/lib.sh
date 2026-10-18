@@ -102,17 +102,20 @@ ci_target_row() {
 
 # ci_is_template <path> - files/<path> carries a shared: marker or `__repo__`
 ci_is_template() {
-  grep -qE '^[[:space:]]*(# |<!-- )shared:(if|unless|endif)|__repo__' "$CI_SHARED_DIR/files/$1"
+  grep -qE '^[[:space:]]*(# |<!-- )shared:(if|unless|else|endif)|__repo__' "$CI_SHARED_DIR/files/$1"
 }
 
 # ci_render <path> [key=value...] - prints files/<path> as one target receives
 # it. A template marks lines with `shared:if <key>` or `shared:unless <key>`
 # up to `shared:endif`, kept when <key> is set or unset, or with
-# `shared:if <key>=<value>`, kept when <key> has that value; each marker is a
-# `#` comment line, or `<!-- -->` in Markdown. It spells a value `__<key>__`;
-# `repo` is the target's name. The marker lines never reach the target. A value's spaces arrive as `%20`
+# `shared:if <key>=<value>[,<value>...]`, kept when <key> has one of those
+# values; an optional `shared:else` keeps the lines up to `shared:endif` when
+# the block's own lines go. Each marker is a `#` comment line, or `<!-- -->` in
+# Markdown. It spells a value `__<key>__`; `repo` is the target's name. The
+# marker lines never reach the target. A value's spaces arrive as `%20`
 # (ci_targets' encoding, since the pairs travel as one line of words). A file
-# with neither markers nor values is printed as it is.
+# with neither markers nor values is printed as it is; a `shared:else` outside
+# a block, or a second one in a block, fails.
 ci_render() {
   local path="$1" src="$CI_SHARED_DIR/files/$1"
   shift
@@ -137,14 +140,26 @@ ci_render() {
       unless = (cond ~ /^unless /)
       sub(/^(if|unless) /, "", cond)
       eq = index(cond, "=")
+      hit = 0
       if (eq) {
         k = substr(cond, 1, eq - 1)
-        hit = (k in val) && val[k] == substr(cond, eq + 1)
+        n = split(substr(cond, eq + 1), alts, ",")
+        for (i = 1; i <= n; i++) if ((k in val) && val[k] == alts[i]) hit = 1
       } else {
         hit = (cond in val)
       }
       depth++
       skip[depth] = unless ? hit : !hit
+      elsed[depth] = 0
+      next
+    }
+    /^[[:space:]]*(# |<!-- )shared:else( -->)?[[:space:]]*$/ {
+      if (depth == 0 || elsed[depth]) {
+        print FILENAME ":" FNR ": shared:else " (depth ? "repeated in one block" : "outside a block") >"/dev/stderr"
+        exit 1
+      }
+      elsed[depth] = 1
+      skip[depth] = !skip[depth]
       next
     }
     /^[[:space:]]*(# |<!-- )shared:endif( -->)?[[:space:]]*$/ { depth--; next }
