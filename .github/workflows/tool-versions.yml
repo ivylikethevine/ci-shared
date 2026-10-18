@@ -5,8 +5,8 @@ name: Tool versions
 # cooldown: .github/scripts/check_tool_versions.sh, whose local hook adds
 # files/ to the directories it reads. The signal is one `tool-versions`
 # tracking issue, opened when something is behind, rewritten on every later
-# run, closed when all is current. The fix is an edit under files/ (or this
-# repository's tools.txt), which the sync then carries to every target.
+# run, closed when all is current. The fix is an edit under files/, which the
+# sync then carries to every target.
 on:
   schedule:
     - cron: "17 14 * * 1"
@@ -31,7 +31,8 @@ jobs:
       issues: write # upsert (and close) its own tracking issue
     steps:
       # block: the checkout, the releases and tags APIs (and the issue upsert),
-      # and the npm registry.
+      # the npm registry, and salsa.debian.org's tags API for the gitlab: row
+      # of checkbashisms.
       - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
@@ -40,6 +41,7 @@ jobs:
             github.com:443
             api.github.com:443
             registry.npmjs.org:443
+            salsa.debian.org:443
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -66,8 +68,8 @@ jobs:
           set -euo pipefail
           {
             echo "$PROBLEMS problem(s) with the pins below. Fix each OUTDATED, ERROR or UNREAD row"
-            echo "under files/, or in this repository's tools.txt for its own lint tools; every use"
-            echo "of an action SHA moves together, and the \`->\` line under such a row is what to pin."
+            echo "under files/; every use of an action SHA moves together, and the \`->\` line"
+            echo "under such a row is what to pin."
             echo
             echo '```'
             cat "$RUNNER_TEMP/tool-versions.txt"

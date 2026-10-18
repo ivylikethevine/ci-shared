@@ -11,6 +11,7 @@ files = [
   ".github/CODEOWNERS",
   ".github/ISSUE_TEMPLATE/config.yml",
   ".github/actions/upsert-tracking-issue/action.yml",
+  ".github/dependabot.yml",
   ".github/osv-scanner.toml",
   ".github/package-lock.json",
   ".github/package.json",

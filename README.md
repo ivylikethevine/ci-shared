@@ -30,8 +30,9 @@ does not preserve on every platform.
 `advisory-note`, `fetch-latest-artifact`, `mark-tree` and
 `upsert-tracking-issue` need nothing else: each uses `github.token` and reads
 no file of this repository. `setup-tool` and `setup-tools` read `tools.txt`
-beside the action, which `files/` does not hold, so a caller sets
-`CI_TOOLS_TXT` on the step to its own roster. The scripts under
+beside the action, in `files/` the unrendered template with every target's
+rows; a caller with a roster of its own sets `CI_TOOLS_TXT` on the step to it.
+The scripts under
 `.github/scripts/` and `actions/apt/lib.sh` cannot be called this way; copy
 them, or make the repository a target.
 
@@ -57,9 +58,11 @@ them, or make the repository a target.
 | `.github/workflows/`          | `sync.yml`, `checks.yml` and `tool-versions.yml`                                |
 
 A file belongs here once two targets hold it byte-identical. Per-repository
-files stay in their repository: `setup-tool/tools.txt`,
-`check_tool_versions.local.sh`, `dependabot.yml`, the issue and PR templates,
-and every workflow that differs.
+files stay in their repository: `check_tool_versions.local.sh`, the
+bug-report and feature-request forms, and every workflow that differs. `setup-tool/tools.txt` and
+`dependabot.yml` are the exceptions: a target's own rows and entries live here
+too, in its `shared:if repo=<name>` blocks, so any change to them is an edit
+here.
 
 ## Changing a shared file
 
@@ -93,16 +96,6 @@ target whose workflows run only for `main` loses a point on both.
 
 ## Roadmap
 
-- `.github/actions/setup-tool/tools.txt` as a template: the lint and scanner
-  rows (shellcheck, actionlint, zizmor, hadolint, trivy, lychee, gitleaks,
-  typos) are byte-identical across the targets and bumped as one batch, so one
-  edit here would move every pin; each target's own rows go in a
-  `shared:if repo=<name>` block, and the per-repository `check_tool_versions.local.sh`
-  stays where it is.
-- `.github/dependabot.yml` as a template: every entry carries the same
-  schedule, target branch, commit prefix, limit and cooldown, so one block per
-  ecosystem (`shared:if cargo`, `shared:if python`, ...) with the ignores in
-  per-repository blocks would replace five copies.
 - This repository's own `main` under `rulesets/` and
   `scripts/check_protection.sh`: a push to it opens a pull request in every
   target, so it needs the protection it checks there.
@@ -161,8 +154,9 @@ raw.
 This repository runs the checks it ships, on itself and on `files/`. The lint
 configs at the root, `.github/zizmor.yml`, `.github/package.json` and its lock,
 and the helpers under `.github/actions/` and `.github/scripts/` are symlinks
-into `files/`, so there is one copy of each. Two files are this repository's
-own: `.github/actions/setup-tool/tools.txt` pins the lint tools, and
+into `files/`, so there is one copy of each; `.github/actions/setup-tool/tools.txt`
+is the unrendered template, so the version check reads every target's pins.
+One file is this repository's own:
 `.github/scripts/check_tool_versions.local.sh` points the version check at the
 Markdown tools' manifest and the action pins under `files/`.
 
