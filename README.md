@@ -53,12 +53,14 @@ them, or make the repository a target.
 | `scripts/check_protection.sh` | fails unless each target's `main` and `dev` are protected from its token        |
 | `scripts/check_tokens.sh`     | prints when each target's sync token expires, failing within two weeks          |
 | `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets         |
+| `scripts/sync_prs.sh`         | reports each target's open sync pull request: its age and its checks            |
+| `scripts/own_workflows.sh`    | writes this repository's copies of the shared workflows it runs                 |
 | `rulesets/`                   | the rulesets every target shares, in GitHub's import format                     |
 | `scratch/`                    | analysis scripts kept for reuse, each with its suite under `tests/`             |
 | `tests/`                      | a suite per script, run against fixtures and a fake `gh`                        |
 | `requirements-dev.in`         | the Python dev tools, constricter and coverage.py; `.txt` is its hashed lock    |
 | `pyproject.toml`              | those tools' settings                                                           |
-| `.github/workflows/`          | `sync.yml`, `checks.yml` and `tool-versions.yml`                                |
+| `.github/workflows/`          | `sync.yml`, `checks.yml`, `tool-versions.yml` and copies of three shared ones   |
 
 A file belongs here once two targets hold it byte-identical. Per-repository
 files stay in their repository: `check_tool_versions.local.sh`, the
@@ -71,7 +73,8 @@ here.
 
 1. Edit it under `files/`. To share a new file, copy it in, add its path to
    the `files` list of each `repos/<name>.toml` that should receive it, and run
-   `scripts/usage.sh`.
+   `scripts/usage.sh`. After a change to `codeql.yml`, `link-check.yml` or
+   `scorecard.yml`, run `scripts/own_workflows.sh`.
 2. Run `scripts/check.sh`.
 3. `scripts/sync_local.sh --check` lists the checkouts that differ;
    `scripts/sync_local.sh` copies the change into them, leaving any path with
@@ -88,7 +91,13 @@ file, the targets holding a copy their `repos/<name>.toml` does not list (which
 the sync never refreshes) and the targets holding none. On GitHub, the weekly
 `sync.yml` run's `scripts/sync_remote.sh --drift` fails for each target whose
 shared files differ from `files/` with no sync pull request open: one edited
-by hand, or whose pull request was closed unmerged. It and the token and
+by hand, or whose pull request was closed unmerged. The same run's
+`scripts/rulesets.sh diff` fails for each target whose rulesets differ from
+`rulesets/`, and `scripts/sync_prs.sh` for each sync pull request with a failed
+check, no checks, or open over two weeks, so a shared file that breaks a target
+shows up here. The last is off until the repository variable `SYNC_PR_REPORT`
+(_Settings → Secrets and variables → Actions → Variables_) is `true`, which
+waits on the tokens' Checks and Commit statuses read. These and the token and
 protection checks keep one `sync-health` issue open until a weekly run passes.
 
 A target's CI and CodeQL workflows trigger on pull requests into `dev` as well
@@ -102,17 +111,6 @@ target whose workflows run only for `main` loses a point on both.
 - This repository's own `main` under `rulesets/` and
   `scripts/check_protection.sh`: a push to it opens a pull request in every
   target, so it needs the protection it checks there.
-- The shipped workflow scanners run on this repository: `scorecard.yml`,
-  `codeql.yml` (the `actions` language) and `link-check.yml`. `scorecard.yml`
-  and `link-check.yml` follow a workflow named `CI`, so the name becomes a
-  template value.
-- A scheduled report on the open `ci-sync` pull requests: each target's
-  checks on it and its age, so a shared file that breaks a target shows up
-  here, not only in that target.
-- The weekly `sync.yml` run adds the live `rulesets.sh diff`, reporting a
-  target whose rulesets were edited by hand. It reads with one `GH_TOKEN`, not
-  each target's own, and a token without admin on a target may not see a
-  ruleset's `bypass_actors`, so check what the sync tokens read first.
 - Renovate, self-hosted through `renovatebot/github-action` on this
   repository alone, as the bump step after `check_tool_versions.sh`: one
   grouped pull request for the action SHAs and the npm lock under `files/`,
@@ -164,6 +162,12 @@ One file is this repository's own:
 `.github/scripts/check_tool_versions.local.sh` points the version check at the
 Markdown tools' and Python tools' manifests and the action pins under `files/`.
 
+It runs three of the workflows it ships, as its targets do: `codeql.yml` (the
+`actions` language alone), `scorecard.yml` and `link-check.yml`, the last two
+following `checks.yml`, which is named `CI` for them. A workflow cannot be a
+symlink, so `scripts/own_workflows.sh` writes each as a copy, `files/`
+rendered with no values, and `scripts/check.sh` fails when one is stale.
+
 Every script and Python file here, `scratch/` included, has a test suite with
 100% coverage, and the Python passes constricter at `suffocate`. A scratch
 script that is not worth a suite is run from a temporary directory and not
@@ -171,7 +175,8 @@ kept.
 
 - `scripts/check.sh` runs shellcheck, shfmt, constricter, actionlint,
   `lint_workflows.sh`, zizmor, prettier, markdownlint, typos, gitleaks over the
-  history, `scripts/usage.sh --check` and `scripts/spdx.sh --check`;
+  history, `scripts/usage.sh --check`, `scripts/spdx.sh --check` and
+  `scripts/own_workflows.sh --check`;
   `checks.yml` runs it on every push and pull request. Locally it needs the
   `tools.txt` pins on `PATH`, `npm ci --prefix .github` once, and
   `requirements-dev.txt` in a virtual environment whose `bin/` is on `PATH`:
@@ -200,7 +205,12 @@ from any other ref cannot read them.
 - **Repository access:** that target alone.
 - **Permissions:** Contents read and write (a pull request needs its branch
   pushed), Pull requests read and write, Workflows read and write (the synced
-  files include `.github/workflows/`); Metadata read is added automatically.
+  files include `.github/workflows/`), Checks read and Commit statuses read
+  (`scripts/sync_prs.sh` reads the checks on the sync pull request, once
+  `SYNC_PR_REPORT` turns it on); Metadata read is added automatically. No
+  Administration permission: without it, GitHub hides a ruleset's
+  `bypass_actors`, which `scripts/rulesets.sh diff` then compares without, and
+  `scripts/check_protection.sh` reads the bypass that matters, the token's own.
 - **Expiry:** the shortest you will renew. `scripts/check_tokens.sh` reads each
   token's expiry from GitHub and fails once one is within two weeks of it;
   `sync.yml` runs it on every run and weekly, so the weekly run fails, and
@@ -219,7 +229,8 @@ target before writing to it, and a target that fails gets nothing while the
 others still sync.
 
 For a local run, `GH_TOKEN` stands in for any target whose `SYNC_TOKEN_<NAME>`
-is unset; `check_tokens.sh` reads only the `SYNC_TOKEN_<NAME>` variables.
+is unset, in every script but `check_tokens.sh`, which reads only the
+`SYNC_TOKEN_<NAME>` variables.
 
 ## The signing key
 
@@ -262,4 +273,5 @@ approval would lift it to 8/10.
 
 `scripts/rulesets.sh render <name> main|dev|stable` prints a ruleset to import
 (_Settings → Rules → Rulesets → New ruleset → Import a ruleset_);
-`scripts/rulesets.sh diff [NAME...]` shows where the live ones differ.
+`scripts/rulesets.sh diff [NAME...]` shows where the live ones differ, and
+the weekly `sync.yml` run fails on any.

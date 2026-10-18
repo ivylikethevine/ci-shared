@@ -1,0 +1,115 @@
+# SPDX-License-Identifier: MIT
+name: Link check
+
+# External links in the docs. Advisory: a rotted URL is worth fixing but has
+# never shipped a bug, so this never fails on one and is never a required
+# check; what it finds goes to one `link-check` tracking issue, closed by the
+# run that finds none. Runs after every green CI run on a push to main (a doc
+# change checks its new links when it lands) and weekly, since links rot with
+# no push here; never per-PR. Pull requests check relative links and fragments
+# offline (ci.yml). Settings for both are lychee.toml.
+on: # zizmor: ignore[dangerous-triggers]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "23 8 * * 1"
+  workflow_dispatch:
+
+# pushes to main can stack, but queue rather than cancel: a run cancelled
+# mid-upsert can leave its tracking issue half-written (or a duplicate opened)
+concurrency:
+  group: link-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  lychee:
+    name: lychee (advisory)
+    # only a green push to main gets a fresh sweep; the schedule and a manual
+    # dispatch pass the first clause
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # the one write this job does: upsert (and close) its own tracking issue
+      issues: write
+    steps:
+      # audit, deliberately: lychee's job is to reach every URL the docs name,
+      # so an allowlist would be the docs' own link list.
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+          disable-sudo: true
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # the tools.txt pin (sha256-verified, drift-checked), the same binary
+      # ci.yml's offline check runs
+      - uses: ./.github/actions/setup-tool
+        with:
+          tool: lychee
+
+      # lychee exits 2 for broken links, which is the finding, not a failure;
+      # any other non-zero exit (bad input, a crash) still fails the job.
+      - id: check
+        name: Check for dead links
+        env:
+          # authenticated github.com requests dodge the anonymous rate limit
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          # .github/link-check-paths.txt, in a repo that has one, adds
+          # pathspecs beyond the Markdown, one per line; the cleaned list
+          # is kept for the issue body
+          : >"$RUNNER_TEMP/link-paths"
+          if [ -f .github/link-check-paths.txt ]; then
+            sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^$/d' .github/link-check-paths.txt >"$RUNNER_TEMP/link-paths"
+          fi
+          mapfile -t extra <"$RUNNER_TEMP/link-paths"
+          mapfile -d '' files < <(git ls-files -z '*.md' ${extra[@]+"${extra[@]}"})
+          rc=0
+          lychee --config lychee.toml --include-fragments --no-progress \
+            --format markdown --output "$RUNNER_TEMP/lychee.md" "${files[@]}" || rc=$?
+          case "$rc" in
+            0) echo "found=0" >>"$GITHUB_OUTPUT" ;;
+            2) echo "found=1" >>"$GITHUB_OUTPUT" ;;
+            *) exit "$rc" ;;
+          esac
+
+      - name: Compose the tracking issue body
+        if: steps.check.outputs.found == '1'
+        run: |
+          set -euo pipefail
+          extra="$(tr '\n' ' ' <"$RUNNER_TEMP/link-paths")"
+          {
+            echo "lychee found dead or unreachable links in the docs. A URL that is fine but"
+            echo "refuses automated checks belongs in \`lychee.toml\` with a comment saying why."
+            echo "Reproduce with \`git ls-files -z '*.md' ${extra}| xargs -0 lychee --config lychee.toml --include-fragments\`."
+            echo
+            cat "$RUNNER_TEMP/lychee.md"
+          } >"$RUNNER_TEMP/issue.md"
+
+      # with warning-title set, this also writes the ::warning and the step
+      # summary
+      - uses: ./.github/actions/upsert-tracking-issue
+        with:
+          label: link-check
+          label-color: FBCA04
+          label-description: A link in the docs is dead or unreachable
+          title: Dead links in the docs
+          resolved: ${{ steps.check.outputs.found != '1' }}
+          close-comment: Every link resolves again.
+          resolved-when: every link resolves
+          body-file: ${{ runner.temp }}/issue.md
+          warning-title: lychee
+          warning-body: Dead or unreachable links - advisory, not blocking - see the link-check issue

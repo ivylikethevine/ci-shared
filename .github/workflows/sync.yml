@@ -4,15 +4,18 @@ name: Sync
 # Opens or updates a pull request in each repos/ repository whose copies of
 # the shared files differ from files/. Each target has its own secret in the
 # `sync` environment, SYNC_TOKEN_<NAME>: a fine-grained token scoped to that
-# repository alone with Contents, Pull requests and Workflows read/write. The
-# commits are signed with SYNC_SIGNING_KEY. This workflow's own token reads
-# this repository and writes only its `sync-health` issue. A target gets
-# nothing unless its main and dev pass scripts/check_protection.sh. The run's
-# job summary lists what each target got, file by file. The weekly run writes
+# repository alone with Contents, Pull requests and Workflows read/write and
+# Checks and Commit statuses read. The commits are signed with
+# SYNC_SIGNING_KEY. This workflow's own token reads this repository and writes
+# only its `sync-health` issue. A target gets nothing unless its main and dev
+# pass scripts/check_protection.sh. The run's job summary lists what each
+# target got, file by file. The weekly run writes
 # nothing to a target: it fails once a token is within two weeks of expiry,
-# a target's protection has slipped, or a target differs from files/ with no
-# sync pull request open, and keeps the `sync-health` issue open until a
-# weekly run passes all three.
+# a target's protection has slipped, a target differs from files/ with no
+# sync pull request open, a target's rulesets differ from rulesets/, or (with
+# the repository variable SYNC_PR_REPORT set to `true`) a sync pull request
+# has a failed check or has stayed open too long, and keeps the `sync-health`
+# issue open until a weekly run passes them all.
 on:
   # only a push that changes what a target receives; a change to the scripts
   # alone (ci_render's included) reaches the targets on the next dispatch
@@ -55,6 +58,8 @@ jobs:
       tokens: ${{ steps.tokens.outcome }}
       protection: ${{ steps.protection.outcome }}
       drift: ${{ steps.drift.outcome }}
+      rulesets: ${{ steps.rulesets.outcome }}
+      prs: ${{ steps.prs.outcome }}
     # one per repos/<name>.toml, each read by the scripts for its own target
     env:
       SYNC_TOKEN_HOMEBREW_TAP: ${{ secrets.SYNC_TOKEN_HOMEBREW_TAP }}
@@ -99,6 +104,21 @@ jobs:
         env:
           SOURCE_SHA: ${{ github.sha }}
         run: scripts/sync_remote.sh --drift
+
+      # the weekly run: a ruleset edited by hand on a target
+      - id: rulesets
+        name: Compare the targets' rulesets with rulesets/
+        if: ${{ !cancelled() && github.event_name == 'schedule' }}
+        run: scripts/rulesets.sh diff
+
+      # the weekly run: a shared file that breaks a target fails the checks on
+      # its sync pull request. Off unless the repository variable
+      # SYNC_PR_REPORT is `true`: the tokens need Checks and Commit statuses
+      # read first.
+      - id: prs
+        name: Report on the open sync pull requests
+        if: ${{ !cancelled() && github.event_name == 'schedule' && vars.SYNC_PR_REPORT == 'true' }}
+        run: scripts/sync_prs.sh
 
       - name: Open or update the sync pull requests
         if: ${{ !cancelled() && github.event_name != 'schedule' }}
@@ -154,12 +174,15 @@ jobs:
           TOKENS: ${{ needs.sync.outputs.tokens }}
           PROTECTION: ${{ needs.sync.outputs.protection }}
           DRIFT: ${{ needs.sync.outputs.drift }}
+          RULESETS: ${{ needs.sync.outputs.rulesets }}
+          # `off` while SYNC_PR_REPORT leaves the report off, which passes
+          PRS: ${{ vars.SYNC_PR_REPORT == 'true' && needs.sync.outputs.prs || 'off' }}
         run: |
           set -euo pipefail
           # line <outcome> <script> <what its failure means>
           line() {
             case $1 in
-            success) ;;
+            success | off) ;;
             failure) echo "- \`$2\`: $3" ;;
             *) echo "- \`$2\`: did not run (${1:-no outcome})" ;;
             esac
@@ -170,10 +193,12 @@ jobs:
             line "$TOKENS" scripts/check_tokens.sh "a token is unset, unreadable or within two weeks of expiry"
             line "$PROTECTION" scripts/check_protection.sh "a target's main or dev is not protected from its token"
             line "$DRIFT" "scripts/sync_remote.sh --drift" "a target differs from files/ with no sync pull request open, or could not be read"
+            line "$RULESETS" "scripts/rulesets.sh diff" "a target's rulesets differ from rulesets/, or could not be read"
+            line "$PRS" scripts/sync_prs.sh "a sync pull request has a failed check, no checks or has been open over two weeks, or could not be read"
           } >"$RUNNER_TEMP/issue.md"
           ok=true
-          for outcome in "$TOKENS" "$PROTECTION" "$DRIFT"; do
-            [ "$outcome" = success ] || ok=false
+          for outcome in "$TOKENS" "$PROTECTION" "$DRIFT" "$RULESETS" "$PRS"; do
+            [ "$outcome" = success ] || [ "$outcome" = off ] || ok=false
           done
           echo "resolved=$ok" >>"$GITHUB_OUTPUT"
 

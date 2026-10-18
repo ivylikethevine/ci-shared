@@ -61,7 +61,9 @@ test_render_refuses_bad_arguments() {
 }
 
 # The live rulesets are a's, rendered and dressed as GitHub returns them, with
-# DRIFT changing one rule and MISSING dropping dev's.
+# DRIFT changing one rule, MISSING dropping dev's, HIDDEN leaving out main's
+# bypass_actors as GitHub does for a token that cannot edit it, and READ_ERROR
+# failing stable's read. $T/tokens.log gets "token endpoint" per call.
 fake_github() {
   local kind id=0
   for kind in main dev stable; do
@@ -73,6 +75,7 @@ fake_github() {
       | .rules |= reverse | .conditions.ref_name.include |= reverse' >"$T/live-$kind.json"
   done
   t_fake_gh <<'EOF'
+echo "${GH_TOKEN:-} $ep" >>"$T/tokens.log"
 case $ep in
 */rulesets\?includes_parents=false)
   [ -z "${LIST_ERROR:-}" ] || fail
@@ -82,12 +85,17 @@ case $ep in
 */rulesets/1)
   if [ -n "${DRIFT:-}" ]; then
     jq '.rules |= map(select(.type != "code_quality"))' "$T/live-main.json"
+  elif [ -n "${HIDDEN:-}" ]; then
+    jq 'del(.bypass_actors)' "$T/live-main.json"
   else
     cat "$T/live-main.json"
   fi
   ;;
 */rulesets/2) cat "$T/live-dev.json" ;;
-*/rulesets/3) cat "$T/live-stable.json" ;;
+*/rulesets/3)
+  [ -z "${READ_ERROR:-}" ] || fail
+  cat "$T/live-stable.json"
+  ;;
 *) fail "unexpected $ep" ;;
 esac
 EOF
@@ -110,6 +118,37 @@ test_diff_shows_drift_and_missing_rulesets() {
   t_run env GH_TOKEN=t DRIFT=1 MISSING=1 "$SCRIPTS/rulesets.sh" diff a
   t_rc 2
   t_out "--- a main (live)" "+++ a main (shared)" '"type": "code_quality"' "a: no protect-dev ruleset"
+}
+
+test_diff_compares_hidden_bypass_actors_without_them() {
+  fixture
+  fake_github
+  t_run env GH_TOKEN=t HIDDEN=1 "$SCRIPTS/rulesets.sh" diff a
+  t_rc 0
+  t_out "a main: bypass_actors hidden from this token; compared without them"
+  t_no_out "a dev: bypass_actors hidden"
+  t_run env GH_TOKEN=t HIDDEN=1 DRIFT=1 "$SCRIPTS/rulesets.sh" diff a
+  t_rc 1
+  t_out '"type": "code_quality"'
+}
+
+test_diff_counts_a_ruleset_it_cannot_read() {
+  fixture
+  fake_github
+  t_run env GH_TOKEN=t READ_ERROR=1 "$SCRIPTS/rulesets.sh" diff a
+  t_rc 1
+  t_out "a: cannot read its protect-stable ruleset"
+}
+
+test_diff_reads_each_target_with_its_own_token() {
+  fixture
+  fake_github
+  t_run env GH_TOKEN=shared SYNC_TOKEN_A=own "$SCRIPTS/rulesets.sh" diff
+  t_in "$T/tokens.log" "own repos/owner/a/rulesets?includes_parents=false" "shared repos/owner/b/rulesets?includes_parents=false"
+  t_not_in "$T/tokens.log" "shared repos/owner/a/" "own repos/owner/b/"
+  t_run env SYNC_TOKEN_A=own "$SCRIPTS/rulesets.sh" diff
+  t_rc 1
+  t_out "no token: SYNC_TOKEN_B is not set"
 }
 
 test_diff_counts_each_target_it_cannot_read() {

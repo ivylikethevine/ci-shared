@@ -7,8 +7,9 @@
 # gitleaks over the history, then each template as every target receives it:
 # actionlint and lint_workflows.sh for a workflow, markdownlint for Markdown,
 # prettier for what it has a parser for, and no `__key__` left that a target
-# sets. USAGE.md must be current and every tracked file carry an SPDX license
-# comment. CI's checks workflow runs the same script.
+# sets. USAGE.md and the workflows scripts/own_workflows.sh writes must be
+# current, and every tracked file carry an SPDX license comment. CI's checks
+# workflow runs the same script.
 #
 #   scripts/check.sh
 #
@@ -72,6 +73,7 @@ run typos typos
 run gitleaks gitleaks git --redact --no-banner .
 run usage "$CI_SCRIPTS_DIR/usage.sh" --check
 run spdx "$CI_SCRIPTS_DIR/spdx.sh" --check
+run own-workflows "$CI_SCRIPTS_DIR/own_workflows.sh" --check
 
 # Each template rendered for every target that receives it, so a placeholder or
 # block that breaks only one repository's copy still fails here.

@@ -23,7 +23,8 @@ EOF
 }
 
 # Target a receives a template workflow (values and a block), a plain
-# workflow and a non-workflow file; target b receives the template alone.
+# workflow and a non-workflow file; target b receives the template alone. The
+# tree runs its own copies of codeql.yml, link-check.yml and scorecard.yml.
 fixture() {
   local t
   for t in shellcheck shfmt constricter actionlint zizmor typos gitleaks; do tool "$t"; done
@@ -42,6 +43,8 @@ fixture() {
   printf '# shared:unless language\nactions-only: true\n# shared:endif\n' |
     t_shared .github/workflows/marked.yml
   echo 'on: push' | t_shared .github/workflows/plain.yml
+  echo 'on: push' | t_shared .github/workflows/link-check.yml
+  echo 'on: push' | t_shared .github/workflows/scorecard.yml
   echo 'x' | t_shared .github/actions/a/action.yml
   echo 'true' | t_shared .github/scripts/shared.sh
   t_target a dev .github/workflows/codeql.yml .github/workflows/plain.yml .github/actions/a/action.yml
@@ -52,6 +55,7 @@ Language = "Rust"
 EOF
   t_target b dev .github/workflows/marked.yml
   "$SCRIPTS/usage.sh"
+  "$SCRIPTS/own_workflows.sh"
   # nothing tracked, so spdx.sh passes
   t_git "$T/tree" init -q
 }
@@ -60,14 +64,15 @@ test_runs_every_check_over_the_tree() {
   fixture
   t_run "$SCRIPTS/check.sh"
   t_rc 0
-  t_out "== shellcheck" "== markdownlint" "== typos" "== gitleaks" "== usage" "== spdx" "== config" "== lint-workflows-rendered"
+  t_out "== shellcheck" "== markdownlint" "== typos" "== gitleaks" "== usage" "== spdx" "== own-workflows" "== config" \
+    "== lint-workflows-rendered"
   t_no_out "::error"
   t_in -x "$T/tools.log" 'shellcheck -x files/.github/scripts/shared.sh scratch/x.sh scripts/s.sh tests/t_test.sh' \
     'constricter scripts tests scratch' \
     'typos ' 'gitleaks git --redact --no-banner .' \
     'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' \
     'prettier --check .' \
-    'lint_workflows.sh .github/workflows/own.yml files/.github/workflows/plain.yml files/.github/actions/a/action.yml'
+    'lint_workflows.sh .github/workflows/codeql.yml .github/workflows/link-check.yml .github/workflows/own.yml .github/workflows/scorecard.yml files/.github/workflows/link-check.yml files/.github/workflows/plain.yml files/.github/workflows/scorecard.yml files/.github/actions/a/action.yml'
   grep -q '^prettier --check --config .prettierrc.yaml .*/ci-render\.' "$T/tools.log" ||
     t_fail "prettier did not run on the renderings with the shared config"
   # prettier, actionlint and lint_workflows.sh each see every rendering
@@ -176,6 +181,14 @@ test_counts_and_annotates_each_failure() {
   t_out "::error title=shellcheck::shellcheck failed" "::error title=zizmor::zizmor failed"
   grep -qxF 'zizmor --config .github/zizmor.yml .github/workflows files/.github' "$T/tools.log" ||
     t_fail "zizmor ran offline with a token"
+}
+
+test_a_stale_own_workflow_fails() {
+  fixture
+  echo 'on: pull_request' | t_shared .github/workflows/scorecard.yml
+  t_run "$SCRIPTS/check.sh"
+  t_rc 1
+  t_out ".github/workflows/scorecard.yml is out of date" "::error title=own-workflows::own-workflows failed"
 }
 
 test_an_invalid_config_fails_and_renders_nothing() {

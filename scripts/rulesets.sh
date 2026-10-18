@@ -7,12 +7,16 @@
 # code scanning tools, the coverage floor and whether code quality is gated.
 #
 #   scripts/rulesets.sh render NAME main|dev|stable
+#   SYNC_TOKEN_<NAME>=<token>... scripts/rulesets.sh diff [NAME...]
 #   GH_TOKEN=<token> scripts/rulesets.sh diff [NAME...]
 #
 # `render` prints JSON that GitHub's ruleset import takes (Settings → Rules →
 # Rulesets → New ruleset → Import a ruleset). `diff` prints a unified diff per
 # ruleset that differs, reads only, and exits with the number that differ or
-# could not be read.
+# could not be read. Each target is read with its own SYNC_TOKEN_<NAME>, else
+# with GH_TOKEN. GitHub returns a ruleset's bypass_actors only to a token that
+# can edit it, so a ruleset read without them is compared without them, and
+# says so.
 set -euo pipefail
 
 # shellcheck source=./lib.sh
@@ -54,7 +58,7 @@ normalize() {
   jq -S '
     del(.id, .node_id, .source, .source_type, ._links, .created_at, .updated_at,
       .current_user_can_bypass)
-    | .bypass_actors |= sort_by(.actor_type, .actor_id)
+    | if has("bypass_actors") then .bypass_actors |= sort_by(.actor_type, .actor_id) else . end
     | .conditions.ref_name |= with_entries(.value |= sort)
     | .rules |= (sort_by(.type) | map(
         if .parameters.required_status_checks then .parameters.required_status_checks |= sort_by(.context) else . end
@@ -63,7 +67,7 @@ normalize() {
 }
 
 diff_repo() {
-  local slug=$1 name=${1#*/} kind want live title id differs=0
+  local slug=$1 name=${1#*/} kind want live title id got differs=0
   live="$(gh api "repos/$slug/rulesets?includes_parents=false")" || {
     echo "$name: cannot list its rulesets"
     return 1
@@ -77,8 +81,16 @@ diff_repo() {
       differs=$((differs + 1))
       continue
     fi
-    if ! diff -u --label "$name $kind (live)" --label "$name $kind (shared)" \
-      <(gh api "repos/$slug/rulesets/$id" | normalize) <(echo "$want"); then
+    got="$(gh api "repos/$slug/rulesets/$id" | normalize)" || {
+      echo "$name: cannot read its $title ruleset"
+      differs=$((differs + 1))
+      continue
+    }
+    if ! jq -e 'has("bypass_actors")' <<<"$got" >/dev/null; then
+      echo "$name $kind: bypass_actors hidden from this token; compared without them"
+      want="$(jq -S 'del(.bypass_actors)' <<<"$want")"
+    fi
+    if ! diff -u --label "$name $kind (live)" --label "$name $kind (shared)" <(echo "$got") <(echo "$want"); then
       differs=$((differs + 1))
     fi
   done
@@ -103,6 +115,8 @@ diff)
     set +e
     (
       set -e
+      GH_TOKEN="$(ci_token "${slug#*/}")"
+      export GH_TOKEN
       diff_repo "$slug"
     )
     rc=$?

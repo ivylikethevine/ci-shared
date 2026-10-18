@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-name: Checks
+name: CI
 
 # The checks this repository ships, run over the repository itself and the
 # shared copies in files/: scripts/check.sh, the same command a local run uses.
