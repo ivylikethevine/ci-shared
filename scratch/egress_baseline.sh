@@ -15,7 +15,7 @@
 # land in local/egress_baseline/<repo>-<workflow>.tsv.
 set -euo pipefail
 repo=$1 wf=$2 runs=${3:-5} labels=${4:-macos|windows}
-here="$(dirname "$0")/.."
+here="${CI_SHARED_DIR:-$(dirname "$0")/..}"
 api="https://agent.api.stepsecurity.io/v1/github/$repo/actions/runs"
 dir="$here/local/egress_baseline"
 mkdir -p "$dir"
@@ -23,11 +23,14 @@ raw="$dir/${repo#*/}-${wf%.*}.tsv"
 : >"$raw"
 
 ids=$(gh run list -R "$repo" -w "$wf" -s success -L "$runs" --json databaseId --jq '.[].databaseId')
-[[ -n $ids ]] || { echo "no successful $wf runs in $repo" >&2; exit 1; }
+[[ -n $ids ]] || {
+  echo "no successful $wf runs in $repo" >&2
+  exit 1
+}
 n=0
 for id in $ids; do
-	n=$((n + 1))
-	curl -fsS -m 60 "$api/$id" | jq -r --arg id "$id" --arg labels "$labels" '
+  n=$((n + 1))
+  curl -fsS -m 60 "$api/$id" | jq -r --arg id "$id" --arg labels "$labels" '
 		(.jobs // [])[] | select(any(.labels[]?; test($labels; "i"))) as $j
 		| ($j.name | gsub("(?<a>shard |\\()[0-9]+(/[0-9]+)?"; "\(.a)N")) as $job
 		| ($j.steps // [])[] as $s | ($s.tools // [])[] as $t | ($t.endpoints // [])[]
@@ -44,4 +47,4 @@ jq -rRn --argjson total "$n" '
 		os: all(.[]; .proc | test("^(/System/|/usr/libexec/|/usr/sbin/|/Library/Apple/|C:\\\\Windows\\\\|(svchost|firefox|pingsender)\\.exe$)"; "i")),
 		steps: ([.[].step] | unique | join(" | "))}
 	| [.job, .label, .ep, "\(.runs)/\($total)", (if .os then "os" else "" end), .steps] | @tsv' <"$raw" |
-	sort -t$'\t' -k1,1 -k5,5 -k3,3 | column -t -s $'\t'
+  sort -t$'\t' -k1,1 -k5,5 -k3,3 | column -t -s $'\t'

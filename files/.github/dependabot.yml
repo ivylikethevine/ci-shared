@@ -1,0 +1,328 @@
+# SPDX-License-Identifier: MIT
+# shared:if repo=say-hi
+# Names what dependabot could move: the SHA-pinned `uses:` in the workflows
+# and composite actions, the Markdown tools' npm lock, and the digest-pinned
+# base images in tests/dockerfiles.
+#
+# What this file cannot cover, and what covers it instead:
+#
+#   * The CI tools in .github/actions/setup-tool/tools.txt and the inline pins
+#     in .github/scripts/check_tool_versions.local.sh (bashcov, vhs, the
+#     just-the-docs theme): tool-versions.yml reports their drift in the same
+#     tracking issue, with the same 7-day cooldown.
+#   * The same base images run outside a Dockerfile (packaging/mkrepo.sh,
+#     ci.yml's packaging smoke): check_tool_versions.local.sh reports them
+#     parting from the tests/dockerfiles digests, and tests/lint/drift_test.sh
+#     keeps every plain image tag one of those pins.
+#   * Whether an image bump fixes anything: the docker ecosystem is
+#     version-updates-only (GHSA has no container ecosystem), and a digest is
+#     just a digest. image-scan.yml measures that with trivy.
+#
+# shared:endif
+# shared:if repo=sharerr-rs
+# Names what dependabot could move: the SHA-pinned `uses:` in the workflows
+# and composite actions, the Markdown tools' npm lock, Cargo.lock, the
+# digest-pinned images in docker/Dockerfile and every compose file, and the
+# Terraform providers.
+#
+# What this file cannot cover, and what covers it instead:
+#
+#   * The CI tools in .github/actions/setup-tool/tools.txt and the inline pins
+#     in .github/scripts/check_tool_versions.local.sh (CARGO_CHEF_VERSION, the
+#     .mcp.json server, the just-the-docs theme): tool-versions.yml reports
+#     their drift in the same tracking issue, with the same 7-day cooldown.
+#   * Whether an image bump fixes anything: the docker ecosystems are
+#     version-updates-only (GHSA has no container ecosystem), and a digest is
+#     just a digest. image-scan.yml measures that with trivy.
+#   * The MSRV toolchain: ignored below on purpose.
+#
+# The docker-compose ecosystem only fetches files matching
+# `(docker-)?compose(-\w+)?(\.[\w-]+)?\.ya?ml`, so a new file holding an image
+# pin must match it (hence compose.gluetun.reference.yaml) or go unmanaged.
+#
+# shared:endif
+# shared:if repo=instadroid
+# Names what dependabot could move: the SHA-pinned `uses:` in the workflows
+# and composite actions, the Markdown tools' npm lock, the hashed pip locks,
+# and the digest-pinned images.
+#
+# What this file cannot cover, and what covers it instead:
+#
+#   * The CI tools in .github/actions/setup-tool/tools.txt and the inline pins
+#     in .github/scripts/check_tool_versions.local.sh (apkeep's ADD URL, the
+#     just-the-docs theme): tool-versions.yml reports their drift in the same
+#     tracking issue, with the same 7-day cooldown. It also checks the Python
+#     version agrees across pyproject.toml, app/Dockerfile and every
+#     setup-python, and that x-redroid-image matches the redroid service's
+#     pinned image.
+#   * Whether an image bump fixes anything: the docker ecosystems are
+#     version-updates-only (GHSA has no container ecosystem), and a digest is
+#     just a digest. image-scan.yml measures that with trivy.
+#   * The language lines (setup-python's python-version, setup-node's
+#     node-version): moved by hand.
+#
+# shared:endif
+# shared:if repo=python-constricter
+# Names what dependabot could move: the SHA-pinned `uses:` in the workflows,
+# the composite actions and the published action.yml, the Markdown tools' npm
+# lock, and uv.lock.
+#
+# What this file cannot cover, and what covers it instead:
+#
+#   * The inline pins in .github/scripts/check_tool_versions.local.sh (the
+#     actionlint, gitleaks and lychee release URLs, and uv in the setup action
+#     and action.yml): tool-versions.yml reports their drift in the same
+#     tracking issue, with the same 7-day cooldown.
+#   * The language lines (setup-python's python-version): moved by hand.
+#
+# shared:endif
+# shared:if repo=homebrew-tap
+# Names what dependabot could move: the SHA-pinned `uses:` in the workflows
+# and composite actions.
+#
+# What this file cannot cover, and what covers it instead:
+#
+#   * Formula/: say-hi's release workflow opens its pull requests, and
+#     drift.yml reports a formula behind say-hi's latest release.
+#
+# shared:endif
+# Renovate was weighed and declined: it would cover the pins this file cannot,
+# but costs a second bot, its own config dialect, and a PR stream where
+# tool-versions.yml keeps one tracking issue.
+#
+# Each entry sets `open-pull-requests-limit: 0`, so no version-update pull
+# request opens: tool-versions.yml reports the same drift in one tracking
+# issue, and every bump is a hand edit made from it. Deleting the limits turns
+# the pull requests back on, with the schedule, cooldown and ignores they
+# need. Dependabot security updates, if enabled in the repository settings,
+# are not bound by the limit and still open their own pull requests.
+version: 2
+
+updates:
+  # the composite actions under .github/actions/ pin their own `uses:`
+  - package-ecosystem: github-actions
+    directories:
+      - "/"
+      - "/.github/actions/*"
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    # let a release age before its bump: a compromised release's window is its
+    # first days (zizmor: dependabot-cooldown)
+    cooldown:
+      default-days: 7
+  # shared:unless repo=homebrew-tap
+
+  # .github/package.json -> package-lock.json (markdownlint-cli2, prettier)
+  - package-ecosystem: npm
+    directory: /.github
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+  # shared:endif
+  # shared:if repo=say-hi
+
+  # the fixtures' digest-pinned base images, tests/dockerfiles/*.Dockerfile
+  - package-ecosystem: docker
+    directory: /tests/dockerfiles
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+    # Each ignore protects a shell floor or ceiling a fixture exists to pin
+    # (docs/COMPATIBILITY.md); check_tool_versions.local.sh reports an ignore
+    # that no longer matches a fixture pin. Only semver update-types are
+    # ignored, so a digest refresh would still arrive.
+    ignore:
+      # zshusers/zsh:5.5.1 is the zsh floor (zsh55.Dockerfile)
+      - dependency-name: zshusers/zsh
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+      # bash:3.2 is the bash floor, what macOS ships (sshd-bash32.Dockerfile)
+      - dependency-name: bash
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+      # ohmyfish/fish:3.4.1 is the fish floor (fish34.Dockerfile)
+      - dependency-name: ohmyfish/fish
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+      # ubuntu 26.04 is the fish ceiling (fish4.Dockerfile) and 24.04 the apt
+      # client CI's runners match (apt-client.Dockerfile); one ignore cannot
+      # tell them apart, so both stay put and moving either is a hand edit
+      - dependency-name: ubuntu
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+  # shared:endif
+  # shared:if repo=sharerr-rs
+
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+    ignore:
+      # sharerr-store and sharerr-testkit must resolve a single libsqlite3-sys,
+      # and `seed-arr` writes to Sonarr's and Radarr's own databases: a sqlx
+      # major is a migration, not an update
+      - dependency-name: sqlx
+        update-types: ["version-update:semver-major"]
+
+  # docker/Dockerfile, building both the sharerr and lighthouse images
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+    ignore:
+      # The builder stage is pinned to the MSRV (1.98), which makes
+      # `docker build` the MSRV check. Only semver update-types are ignored,
+      # so a digest refresh of rust:1.98-trixie is still an update.
+      - dependency-name: rust
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+
+  # the hosted-lighthouse modules' providers; nothing in CI applies them
+  - package-ecosystem: terraform
+    directories:
+      - "/docker/deploy/lighthouse/terraform/aws"
+      - "/docker/deploy/lighthouse/terraform/azure"
+      - "/docker/deploy/lighthouse/terraform/fly"
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+
+  # The tier-2 test stacks under /docker and the deployment examples under
+  # /docker/deploy. The fetcher does not recurse, so every directory holding a
+  # compose file is named; `/docker/deploy/*` does not match deploy itself,
+  # where compose.gluetun.reference.yaml sits.
+  - package-ecosystem: docker-compose
+    directories:
+      - "/docker"
+      - "/docker/deploy"
+      - "/docker/deploy/*"
+      - "/docker/deploy/dual-vpn/*"
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+  # shared:endif
+  # shared:if repo=instadroid
+
+  # app/requirements.in -> the hashed app/requirements.txt the image installs
+  - package-ecosystem: pip
+    directory: /app
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+
+  # requirements-dev.in -> the hashed requirements-dev.txt (ruff, basedpyright, ...)
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+
+  # app/Dockerfile's digest-pinned python base image
+  - package-ecosystem: docker
+    directory: /app
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+
+  # docker-compose.yml's digest-pinned redroid and freshrss images
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+    ignore:
+      # A new Android major needs its own /data volume and validation
+      # (CLAUDE.md): a migration, not an update. A digest refresh is still one.
+      - dependency-name: erstt/redroid
+        update-types: ["version-update:semver-major"]
+  # shared:endif
+  # shared:if repo=python-constricter
+
+  # pyproject.toml -> uv.lock
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+# shared:endif

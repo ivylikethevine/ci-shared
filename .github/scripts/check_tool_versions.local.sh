@@ -7,9 +7,11 @@
 # shellcheck disable=SC2034 # read by check_tool_versions.sh
 CI_IMAGE_GLOBS=''
 
-# The Markdown tools' npm manifest, the shared copy every target receives.
+# The Markdown tools' npm manifest, the shared copy every target receives, and
+# the Python dev tools' pip-compile input.
 # shellcheck disable=SC2034 # read by check_tool_versions.sh
-CI_MANIFESTS='npm|.github/package.json'
+CI_MANIFESTS='npm|.github/package.json
+pip|requirements-dev.in'
 
 # The shared workflows and actions as well: `grep -r` does not follow this repository's symlinks
 # into files/, and files/.github/workflows holds templates no symlink reaches.

@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: MIT
 # Adds an SPDX MIT license comment to each tracked file that lacks one: after
 # the shebang, else on line 1 (`<!-- -->` in Markdown, `#` elsewhere).
-# Symlinks are skipped (their targets are tracked too), as are license texts,
+# Symlinks are skipped (their targets are tracked too), as are files deleted
+# from the working tree and license texts,
 # which stay verbatim, and JSON, which has no comment syntax: REUSE.toml covers
 # both.
 #
@@ -24,7 +25,7 @@ spdx="$tag: MIT"
 missing=0
 while IFS= read -r -d '' path; do
   f="$CI_SHARED_DIR/$path"
-  [ ! -L "$f" ] || continue
+  [ ! -L "$f" ] && [ -e "$f" ] || continue
   case "$path" in *.json | LICENSE* | */LICENSE*) continue ;; esac
   ! grep -q "$tag:" "$f" || continue
   missing=$((missing + 1))

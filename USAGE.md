@@ -18,11 +18,13 @@ Which repositories receive each shared file, written by
 | `.github/actions/setup-tool/action.yml`            | x            | x          |                    | x      | x          | 4     |
 | `.github/actions/setup-tool/install.sh`            | x            | x          |                    | x      | x          | 4     |
 | `.github/actions/setup-tool/lib.sh`                | x            | x          |                    | x      | x          | 4     |
+| `.github/actions/setup-tool/tools.txt`             |              | x          |                    | x      | x          | 3     |
 | `.github/actions/setup-tools/action.yml`           | x            | x          |                    | x      | x          | 4     |
 | `.github/actions/setup-tools/install-missing.sh`   | x            | x          |                    | x      | x          | 4     |
 | `.github/actions/setup-tools/resolve.sh`           | x            | x          |                    | x      | x          | 4     |
 | `.github/actions/upsert-tracking-issue/action.yml` | x            | x          | x                  | x      | x          | 5     |
 | `.github/allowed_signers`                          |              | x          |                    | x      | x          | 3     |
+| `.github/dependabot.yml`                           | x            | x          | x                  | x      | x          | 5     |
 | `.github/osv-scanner.toml`                         |              | x          | x                  | x      | x          | 4     |
 | `.github/package-lock.json`                        |              | x          | x                  | x      | x          | 4     |
 | `.github/package.json`                             |              | x          | x                  | x      | x          | 4     |
@@ -55,7 +57,7 @@ Which repositories receive each shared file, written by
 | `_config.yml`                                      |              | x          |                    | x      | x          | 3     |
 | `docs/CODE_OF_CONDUCT.md`                          | x            | x          | x                  | x      | x          | 5     |
 | `lychee.toml`                                      |              | x          | x                  | x      | x          | 4     |
-| **Files per repository**                           | 20           | 46         | 28                 | 45     | 48         | 48    |
+| **Files per repository**                           | 21           | 48         | 29                 | 47     | 50         | 50    |
 
 ## Template values
 

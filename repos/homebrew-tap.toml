@@ -16,6 +16,7 @@ files = [
   ".github/actions/setup-tools/install-missing.sh",
   ".github/actions/setup-tools/resolve.sh",
   ".github/actions/upsert-tracking-issue/action.yml",
+  ".github/dependabot.yml",
   ".github/scripts/check_tool_versions.sh",
   ".github/scripts/lib.sh",
   ".github/scripts/lint_workflows.sh",
