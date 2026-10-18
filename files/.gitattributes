@@ -12,3 +12,8 @@
 *.jpeg binary
 *.webp binary
 *.apk binary
+# shared:if repo=python-constricter
+# GitHub fills in the tag for a tarball of a commit, as when a workflow uses the action: its
+# version without git history.
+.git_archival.txt export-subst
+# shared:endif
