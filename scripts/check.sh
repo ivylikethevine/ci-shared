@@ -42,9 +42,13 @@ while IFS= read -r f; do scripts+=("$f"); done < <(
 )
 workflows=(.github/workflows/*.yml files/.github/workflows/*.yml)
 bin=.github/node_modules/.bin
-# zizmor reads GH_TOKEN itself for its online audits
+# zizmor reads GH_TOKEN itself for its online audits, and refuses an empty
+# one, so an empty token is unset rather than left for it to find
 offline=()
-[ -n "${GH_TOKEN:-}" ] || offline=(--offline)
+[ -n "${GH_TOKEN:-}" ] || {
+  unset GH_TOKEN
+  offline=(--offline)
+}
 
 # A template workflow's blocks can hold a value a target chooses (an egress
 # policy), so lint_workflows.sh reads it rendered below, not raw
@@ -60,8 +64,11 @@ run actionlint actionlint "${workflows[@]}"
 run lint-workflows .github/scripts/lint_workflows.sh "${raw_lint_workflows[@]}" files/.github/actions/*/action.yml
 run zizmor zizmor --config .github/zizmor.yml ${offline[@]+"${offline[@]}"} .github/workflows files/.github
 # A Markdown template's markers break the lists around them, and a JSON
-# template's are not JSON, so the raw copies are formatted rendered below instead
-raw_prettier=(.) raw_markdownlint=('**/*.md' '#**/node_modules')
+# template's are not JSON, so the raw copies are formatted rendered below
+# instead. .claude/ and local/ are untracked (agent state, which a session may
+# mount as unreadable devices, and this machine's output), as lychee.toml
+# excludes them too.
+raw_prettier=(.) raw_markdownlint=('**/*.md' '#**/node_modules' '#.claude' '#local')
 while IFS= read -r f; do
   ci_is_template "${f#files/}" || continue
   raw_prettier+=("!$f")

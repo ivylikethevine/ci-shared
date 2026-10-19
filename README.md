@@ -108,21 +108,9 @@ target whose workflows run only for `main` loses a point on both.
 
 ## Roadmap
 
-- This repository's own `main` under `rulesets/` and
-  `scripts/check_protection.sh`: a push to it opens a pull request in every
-  target, so it needs the protection it checks there.
-- Renovate, self-hosted through `renovatebot/github-action` on this
-  repository alone, as the bump step after `check_tool_versions.sh`: one
-  grouped pull request for the action SHAs and the npm lock under `files/`,
-  held by `minimumReleaseAge` to the same 7-day cooldown, which the sync then
-  carries to every target. The `tools.txt` rows need a regex custom manager
-  for `pin` and a `postUpgradeTasks` command to recompute `sha256`, which
-  Renovate cannot update; `allowedPostUpgradeCommands` is self-hosted only.
-  It needs a token with `workflow` scope (a classic PAT or a GitHub App),
-  `ignorePaths` for the root symlinks into `files/`, a Renovate of at least
-  44.3.1 (CVE-2026-88884: digest updates skipped `minimumReleaseAge`), and its
-  endpoints in harden-runner. Targets keep Dependabot: a `renovate.json`
-  extending a preset here would name this repository.
+[docs/ROADMAP.md](docs/ROADMAP.md): fixes, dated platform changes, candidate
+integrations and replacements, files that could join `files/`, and checks this
+repository could run on itself, each with what to verify first.
 
 ## Templates
 

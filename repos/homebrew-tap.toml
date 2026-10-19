@@ -12,6 +12,7 @@ files = [
   ".github/actions/setup-tool/action.yml",
   ".github/actions/setup-tool/install.sh",
   ".github/actions/setup-tool/lib.sh",
+  ".github/actions/setup-tool/tools.txt",
   ".github/actions/setup-tools/action.yml",
   ".github/actions/setup-tools/install-missing.sh",
   ".github/actions/setup-tools/resolve.sh",

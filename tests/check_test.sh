@@ -101,7 +101,7 @@ test_lints_a_markdown_template_rendered_not_raw() {
   t_out "== markdownlint-rendered"
   t_no_out "actionlint-rendered"
   # the raw template is kept from prettier and markdownlint
-  t_in -x "$T/tools.log" 'prettier --check . !files/docs/t.md' 'markdownlint-cli2 **/*.md #**/node_modules #files/docs/t.md'
+  t_in -x "$T/tools.log" 'prettier --check . !files/docs/t.md' 'markdownlint-cli2 **/*.md #**/node_modules #.claude #local #files/docs/t.md'
   grep -q '^markdownlint-cli2 --config .markdownlint.yaml .*/a/docs/t.md .*/b/docs/t.md$' "$T/tools.log" ||
     t_fail "markdownlint did not run on the renderings: $(grep '^markdownlint' "$T/tools.log")"
   # every rendering, a file prettier has no parser for included: --ignore-unknown skips it
@@ -140,7 +140,7 @@ test_lints_a_json_template_rendered_not_raw() {
   t_run "$SCRIPTS/check.sh"
   t_rc 0
   # the raw template is kept from prettier; markdownlint's raw list is unchanged
-  t_in -x "$T/tools.log" 'prettier --check . !files/.vscode/settings.json' 'markdownlint-cli2 **/*.md #**/node_modules'
+  t_in -x "$T/tools.log" 'prettier --check . !files/.vscode/settings.json' 'markdownlint-cli2 **/*.md #**/node_modules #.claude #local'
   grep -q '^prettier --check --config .prettierrc.yaml --ignore-unknown .*/a/.vscode/settings.json .*/b/.vscode/settings.json$' "$T/tools.log" ||
     t_fail "prettier did not run on the renderings: $(grep '^prettier --check --config' "$T/tools.log")"
   t_file "$T/rendered.log" "$(
@@ -181,6 +181,19 @@ test_counts_and_annotates_each_failure() {
   t_out "::error title=shellcheck::shellcheck failed" "::error title=zizmor::zizmor failed"
   grep -qxF 'zizmor --config .github/zizmor.yml .github/workflows files/.github' "$T/tools.log" ||
     t_fail "zizmor ran offline with a token"
+}
+
+test_an_empty_token_is_unset_for_zizmor() {
+  fixture
+  # zizmor reads GH_TOKEN itself and refuses an empty one
+  t_fake zizmor <<'EOF'
+#!/usr/bin/env bash
+[ -z "${GH_TOKEN+set}" ] || { echo "GH_TOKEN is set to '$GH_TOKEN'"; exit 1; }
+echo "zizmor $*" >>"$T/tools.log"
+EOF
+  t_run env GH_TOKEN= "$SCRIPTS/check.sh"
+  t_rc 0
+  t_in -x "$T/tools.log" 'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github'
 }
 
 test_a_stale_own_workflow_fails() {
