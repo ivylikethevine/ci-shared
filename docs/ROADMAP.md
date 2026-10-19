@@ -99,11 +99,12 @@ and this repository). What moves under them, from GitHub's image comparison
   (`ImageOS`), so a kcov built on 24.04 is not restored on 26.04 against
   libraries it was not linked to; `checks.yml` takes a `runner` input on
   dispatch.
-- **Left:** one dispatch of `checks.yml` with `runner=ubuntu-26.04` before
-  2026-11-19 (`gh workflow run checks.yml -f runner=ubuntu-26.04`), reading
-  the harden-runner log for new endpoints; the other shared workflows run
-  on the image once `latest` moves, each advisory or weekly. The targets'
-  own `ci.yml` jobs are each repository's to test.
+- **Run:** `checks.yml` on `ubuntu-26.04` (run 39189568504): both jobs
+  green, kcov 43 built from source in under a minute on a cold cache keyed
+  `ubuntu26`, the checks and the 100% coverage gate as on 24.04.
+- **Left:** the other shared workflows meet the image once `latest` moves,
+  each advisory or weekly; the targets' own `ci.yml` jobs are each
+  repository's to test.
 - **Still exposed:** `checks.yml` and `coverage` build their venv on the
   system python3 (3.14: fine for constricter's `min-python = "3.11"` and
   coverage 7.16); `image-scan.yml` meets docker 29.
