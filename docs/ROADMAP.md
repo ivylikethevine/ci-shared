@@ -11,38 +11,34 @@ _batch_ are shared CI items: they go to every repository as one hand-run batch
 
 ## 1. Fixes in this repository
 
-### 1.1 `scorecard-action` 2.5.0 is required, not a routine bump (_batch_)
+### 1.1 The `$/` rewrite and zizmor `self-repository` (_batch_)
 
-- **What:** Scorecard's hosted services moved; `ossf/scorecard-action` before
-  v2.5.0 pulls its image from `gcr.io`, which is retired, so the pinned v2.4.4
-  will fail. v2.5.0 (2026-10-12) leaves the 7-day cooldown on 2026-10-19.
-- **How:** bump the SHA in `files/.github/workflows/scorecard.yml`, run
-  `scripts/own_workflows.sh`, and take the rest of the held batch with it:
-  zizmor `self-repository` back on (Scorecard v5.6.0 reads `$/` as local),
-  the `uses: ./.github/...` lines rewritten to `$/`, harden-runner `block` on
-  macOS and Windows jobs, and the pins below.
-- **Verify:** Scorecard v5.6.0 also reads YAML aliases in workflows; none of
-  the shared workflows uses one, so no new Pinned-Dependencies findings are
-  expected.
+- **What:** Scorecard v5.6.0, which `ossf/scorecard-action` v2.5.0 ships,
+  reads `uses: $/...` as a local action, so the rewrite of every
+  `uses: ./.github/...` to `$/.github/...` and `self-repository` back on in
+  `.github/zizmor.yml` could follow. Blocked: actionlint 1.7.12, the newest,
+  rejects `$/` ("ref is missing"), and no actionlint issue or pull request
+  tracks it. Every repository's lint gate runs actionlint.
+- **How, once actionlint accepts it:** rewrite the shared workflows and each
+  target's own, extend `lint_workflows.sh` rule 7 to `$/` (it checks the
+  sparse-checkout list for `./` refs only), re-enable the rule, and update
+  each target's disabled-rules note. The harden-runner `block` move for the
+  macOS and Windows jobs is the other open batch item; it lives in the
+  targets' own workflows, one session per repository.
 
 ### 1.2 Pins behind upstream (_batch_)
 
-From `.github/scripts/check_tool_versions.sh` on 2026-10-18:
+From `.github/scripts/check_tool_versions.sh` on 2026-10-18, each still
+inside the 7-day cooldown:
 
-| Pin                      | Pinned | Latest | Note                                           |
-| ------------------------ | ------ | ------ | ---------------------------------------------- |
-| prettier                 | 3.9.9  | 3.9.10 | outdated now                                   |
-| coverage                 | 7.16.1 | 7.16.2 | outdated now                                   |
-| katex (npm override)     | 0.18.9 | 0.19.0 | outdated now; hidden until overrides were read |
-| smol-toml (npm override) | 1.9.0  | 1.9.1  | outdated now; hidden until overrides were read |
-| zizmor                   | 1.30.1 | 1.31.1 | cooling; new `cache-poisoning` cases, see 2.4  |
-| trivy                    | 0.75.0 | 0.76.0 | cooling                                        |
-| github/codeql-action     | 4.38.3 | 4.39.0 | cooling; needs CodeQL bundle 2.20.7 or later   |
-| ossf/scorecard-action    | 2.4.4  | 2.5.0  | cooling; see 1.1                               |
-| nfpm (say-hi)            | 2.47.0 | 2.48.0 | cooling                                        |
-| terraform (sharerr-rs)   | 1.16.5 | 1.16.6 | cooling                                        |
-| python-constricter       | 0.3.5  | 0.3.6  | cooling                                        |
-| node (`checks.yml`)      | 22     | 24     | not drift-checked; see 2.2                     |
+| Pin                    | Pinned | Latest | Note                                          |
+| ---------------------- | ------ | ------ | --------------------------------------------- |
+| zizmor                 | 1.30.1 | 1.31.1 | cooling; new `cache-poisoning` cases, see 2.4 |
+| trivy                  | 0.75.0 | 0.76.0 | cooling                                       |
+| github/codeql-action   | 4.38.3 | 4.39.0 | cooling; needs CodeQL bundle 2.20.7 or later  |
+| nfpm (say-hi)          | 2.47.0 | 2.48.0 | cooling                                       |
+| terraform (sharerr-rs) | 1.16.5 | 1.16.6 | cooling                                       |
+| python-constricter     | 0.3.5  | 0.3.6  | cooling                                       |
 
 ### 1.3 This repository's own policy files
 
@@ -96,28 +92,29 @@ and this repository). What moves under them, from GitHub's image comparison
 | gcc            | 12 to 14 | 13 to 15                                                        |
 | removed        |          | miniconda, julia, mercurial, pulumi, fastlane, global npm tools |
 
-- **Exposed here:** `checks.yml` and `coverage` build their venv on the
+- **Done ahead of it:** kcov 43 builds under cmake 4.4 and gcc 16, newer
+  than the image's; `apt/lib.sh` now drops vendor `*.sources` files as well
+  as `*.list`, so a deb822 vendor repository on 26.04 cannot fail
+  `apt-get update`; `setup-tool`'s cache keys carry the image name
+  (`ImageOS`), so a kcov built on 24.04 is not restored on 26.04 against
+  libraries it was not linked to; `checks.yml` takes a `runner` input on
+  dispatch.
+- **Left:** one dispatch of `checks.yml` with `runner=ubuntu-26.04` before
+  2026-11-19 (`gh workflow run checks.yml -f runner=ubuntu-26.04`), reading
+  the harden-runner log for new endpoints; the other shared workflows run
+  on the image once `latest` moves, each advisory or weekly. The targets'
+  own `ci.yml` jobs are each repository's to test.
+- **Still exposed:** `checks.yml` and `coverage` build their venv on the
   system python3 (3.14: fine for constricter's `min-python = "3.11"` and
-  coverage 7.16); the kcov 43 source build meets a newer cmake and gcc 15;
-  `apt/lib.sh`'s `_ci_apt_drop_vendor_lists` removes `*.list` files, which is
-  only right while the vendor repositories stay `.list` and Ubuntu's own stay
-  deb822 `.sources`; `image-scan.yml` meets docker 29.
-- **How:** before the window closes, run `checks.yml` (both jobs) and the
-  shared workflows this repository carries with `runs-on: ubuntu-26.04` once,
-  from a branch, and read the harden-runner audit for new endpoints. Then let
-  `latest` roll rather than pinning `ubuntu-24.04`: a pin is a second thing to
-  move later. The targets' own `ci.yml` jobs are each repository's to test.
-- **Verify first:** the apt source layout on the 26.04 image, and that kcov
-  43 builds there; if 26.04's archive carries kcov 43 or later, the apt
-  package replaces the source build (see 5.3).
+  coverage 7.16); `image-scan.yml` meets docker 29.
 
-### 2.2 Node 24 in `checks.yml` and say-hi's lint job (_batch_)
+### 2.2 Node 24 in say-hi's lint job (_batch_)
 
-- **What:** `actions/setup-node` pins `node-version: "22"`, in maintenance
-  since October 2025 and end-of-life 2027-04-30; 26.04 ships 24 by default.
-  Only markdownlint-cli2 and prettier run on it.
-- **How:** `"24"` in `checks.yml` here and in say-hi's `ci.yml`, in the same
-  batch, and the `node` line of `tools.txt`'s floating-tools note.
+- **What:** `checks.yml` here is on `node-version: "24"`; say-hi's `ci.yml`
+  lint job still pins 22, in maintenance since October 2025 and end-of-life
+  2027-04-30. Only markdownlint-cli2 and prettier run on it.
+- **How:** `"24"` in say-hi's `ci.yml`, with the next batch, and the `node`
+  line of `tools.txt`'s floating-tools note.
 
 ### 2.3 Dependabot's default cooldown
 
