@@ -46,7 +46,7 @@ concurrency:
 jobs:
   sync:
     name: Sync
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     # SYNC_TOKEN_<NAME> and SYNC_SIGNING_KEY are secrets of this environment,
     # whose deployment branches are main alone, so no other ref's run reads them
@@ -148,7 +148,7 @@ jobs:
     name: Sync health
     needs: sync
     if: ${{ !cancelled() && github.event_name == 'schedule' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       issues: write # upsert (and close) its own tracking issue

@@ -128,7 +128,9 @@ if [ ${#templates[@]} -gt 0 ]; then
   run prettier-rendered "$bin/prettier" --check --config .prettierrc.yaml --ignore-unknown "${templates[@]}"
 fi
 if [ ${#workflows_rendered[@]} -gt 0 ]; then
-  run actionlint-rendered actionlint "${workflows_rendered[@]}"
+  # named: a rendering sits outside this tree, where actionlint would not find
+  # the runner labels it is told of
+  run actionlint-rendered actionlint -config-file .github/actionlint.yaml "${workflows_rendered[@]}"
   run lint-workflows-rendered .github/scripts/lint_workflows.sh "${workflows_rendered[@]}"
 fi
 if [ ${#md_rendered[@]} -gt 0 ]; then

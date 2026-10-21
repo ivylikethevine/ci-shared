@@ -10,6 +10,7 @@ files = [
   ".gitattributes",
   ".github/CODEOWNERS",
   ".github/ISSUE_TEMPLATE/config.yml",
+  ".github/actionlint.yaml",
   ".github/actions/advisory-note/action.yml",
   ".github/actions/apt/lib.sh",
   ".github/actions/fetch-latest-artifact/action.yml",

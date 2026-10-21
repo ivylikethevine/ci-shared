@@ -79,8 +79,11 @@ inside the 7-day cooldown:
 
 ### 2.1 `ubuntu-latest` becomes Ubuntu 26.04 between 2026-10-19 and 2026-11-19
 
-Every shared workflow job runs on `ubuntu-latest` (20 jobs across `files/`
-and this repository). What moves under them, from GitHub's image comparison
+Every shared workflow job, and this repository's own, now names
+`ubuntu-26.04` rather than `ubuntu-latest`, so the next image change is a
+commit and not the label moving under a run. `.github/actionlint.yaml`, shared
+with every target, tells actionlint 1.7.12 the label; drop it once a release
+knows 26.04. What changed under them, from GitHub's image comparison
 (`actions/runner-images#14226`):
 
 | Tool           | 24.04    | 26.04                                                           |
@@ -102,9 +105,13 @@ and this repository). What moves under them, from GitHub's image comparison
 - **Run:** `checks.yml` on `ubuntu-26.04` (run 39189568504): both jobs
   green, kcov 43 built from source in under a minute on a cold cache keyed
   `ubuntu26`, the checks and the 100% coverage gate as on 24.04.
-- **Left:** the other shared workflows meet the image once `latest` moves,
-  each advisory or weekly; the targets' own `ci.yml` jobs are each
-  repository's to test.
+- **Left:** the first run on the image of each other shared workflow and of
+  every target's own, all now named `ubuntu-26.04` too. say-hi's two Linux
+  suite jobs are renamed `fast suites (ubuntu-26.04)` and
+  `lint suites (ubuntu-26.04)`, and its `[rulesets.main]` checks with them:
+  re-import `scripts/rulesets.sh render say-hi main` on GitHub when the
+  renamed jobs reach `main`, or pull requests wait on checks that never
+  report.
 - **Still exposed:** `checks.yml` and `coverage` build their venv on the
   system python3 (3.14: fine for constricter's `min-python = "3.11"` and
   coverage 7.16); `image-scan.yml` meets docker 29.

@@ -11,17 +11,18 @@ Which repositories receive each shared file, written by
 | `.gitattributes`                                   |              | x          | x                  | x      | x          | 4     |
 | `.github/CODEOWNERS`                               | x            | x          | x                  | x      | x          | 5     |
 | `.github/ISSUE_TEMPLATE/config.yml`                |              | x          | x                  | x      | x          | 4     |
+| `.github/actionlint.yaml`                          | x            | x          | x                  | x      | x          | 5     |
 | `.github/actions/advisory-note/action.yml`         |              | x          |                    | x      | x          | 3     |
-| `.github/actions/apt/lib.sh`                       | x            | x          |                    | x      | x          | 4     |
+| `.github/actions/apt/lib.sh`                       | x            | x          | x                  | x      | x          | 5     |
 | `.github/actions/fetch-latest-artifact/action.yml` |              | x          |                    | x      | x          | 3     |
 | `.github/actions/mark-tree/action.yml`             |              |            |                    | x      | x          | 2     |
-| `.github/actions/setup-tool/action.yml`            | x            | x          |                    | x      | x          | 4     |
-| `.github/actions/setup-tool/install.sh`            | x            | x          |                    | x      | x          | 4     |
-| `.github/actions/setup-tool/lib.sh`                | x            | x          |                    | x      | x          | 4     |
-| `.github/actions/setup-tool/tools.txt`             | x            | x          |                    | x      | x          | 4     |
-| `.github/actions/setup-tools/action.yml`           | x            | x          |                    | x      | x          | 4     |
-| `.github/actions/setup-tools/install-missing.sh`   | x            | x          |                    | x      | x          | 4     |
-| `.github/actions/setup-tools/resolve.sh`           | x            | x          |                    | x      | x          | 4     |
+| `.github/actions/setup-tool/action.yml`            | x            | x          | x                  | x      | x          | 5     |
+| `.github/actions/setup-tool/install.sh`            | x            | x          | x                  | x      | x          | 5     |
+| `.github/actions/setup-tool/lib.sh`                | x            | x          | x                  | x      | x          | 5     |
+| `.github/actions/setup-tool/tools.txt`             | x            | x          | x                  | x      | x          | 5     |
+| `.github/actions/setup-tools/action.yml`           | x            | x          | x                  | x      | x          | 5     |
+| `.github/actions/setup-tools/install-missing.sh`   | x            | x          | x                  | x      | x          | 5     |
+| `.github/actions/setup-tools/resolve.sh`           | x            | x          | x                  | x      | x          | 5     |
 | `.github/actions/upsert-tracking-issue/action.yml` | x            | x          | x                  | x      | x          | 5     |
 | `.github/allowed_signers`                          |              | x          |                    | x      | x          | 3     |
 | `.github/dependabot.yml`                           | x            | x          | x                  | x      | x          | 5     |
@@ -38,9 +39,9 @@ Which repositories receive each shared file, written by
 | `.github/scripts/trivy_scan.sh`                    |              | x          |                    |        | x          | 2     |
 | `.github/workflows/advisories.yml`                 |              | x          |                    |        | x          | 2     |
 | `.github/workflows/cancel-closed-pr.yml`           |              | x          | x                  | x      | x          | 4     |
-| `.github/workflows/codeql.yml`                     |              | x          |                    | x      | x          | 3     |
+| `.github/workflows/codeql.yml`                     |              | x          | x                  | x      | x          | 4     |
 | `.github/workflows/image-scan.yml`                 |              | x          |                    | x      | x          | 3     |
-| `.github/workflows/link-check.yml`                 |              | x          |                    | x      | x          | 3     |
+| `.github/workflows/link-check.yml`                 |              | x          | x                  | x      | x          | 4     |
 | `.github/workflows/pages.yml`                      |              | x          |                    |        | x          | 2     |
 | `.github/workflows/release-note.yml`               |              | x          | x                  | x      | x          | 4     |
 | `.github/workflows/scorecard.yml`                  |              | x          | x                  | x      | x          | 4     |
@@ -57,7 +58,7 @@ Which repositories receive each shared file, written by
 | `_config.yml`                                      |              | x          |                    | x      | x          | 3     |
 | `docs/CODE_OF_CONDUCT.md`                          | x            | x          | x                  | x      | x          | 5     |
 | `lychee.toml`                                      |              | x          | x                  | x      | x          | 4     |
-| **Files per repository**                           | 22           | 48         | 29                 | 47     | 50         | 50    |
+| **Files per repository**                           | 23           | 49         | 40                 | 48     | 51         | 51    |
 
 ## Template values
 
@@ -69,6 +70,7 @@ Which repositories receive each shared file, written by
 - `.vscode/settings.json` in instadroid: `python=true`
 - `.zed/settings.json` in instadroid: `python=true`
 - `_config.yml` in instadroid: `title=instadroid description=A real, logged-in Instagram Android app running in redroid, publishing the chronological Following feed as Atom for FreshRSS.`
+- `.github/workflows/codeql.yml` in python-constricter: `language=python`
 - `.gitignore` in python-constricter: `stray_files=true`
 - `.vscode/settings.json` in python-constricter: `python=true`
 - `.zed/settings.json` in python-constricter: `python=true`

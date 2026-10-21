@@ -73,6 +73,8 @@ test_runs_every_check_over_the_tree() {
     'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' \
     'prettier --check .' \
     'lint_workflows.sh .github/workflows/codeql.yml .github/workflows/link-check.yml .github/workflows/own.yml .github/workflows/scorecard.yml files/.github/workflows/link-check.yml files/.github/workflows/plain.yml files/.github/workflows/scorecard.yml files/.github/actions/a/action.yml'
+  grep -q '^actionlint -config-file .github/actionlint.yaml .*/ci-render\.' "$T/tools.log" ||
+    t_fail "actionlint did not read the shared runner labels for the renderings"
   grep -q '^prettier --check --config .prettierrc.yaml .*/ci-render\.' "$T/tools.log" ||
     t_fail "prettier did not run on the renderings with the shared config"
   # prettier, actionlint and lint_workflows.sh each see every rendering
