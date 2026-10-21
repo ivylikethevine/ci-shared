@@ -8,6 +8,7 @@ sync_branch = "dev"
 files = [
   ".editorconfig",
   ".github/CODEOWNERS",
+  ".github/actionlint.yaml",
   ".github/actions/apt/lib.sh",
   ".github/actions/setup-tool/action.yml",
   ".github/actions/setup-tool/install.sh",

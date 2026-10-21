@@ -110,20 +110,34 @@
 #   none. The three rows below are the whole roster.
 
 # shared:endif
+# shared:if repo=python-constricter
+#   node   ci.yml's docs job (actions/setup-node, `node-version: "22"`)
+#          only runs markdownlint-cli2 and prettier, which
+#          ../../package-lock.json pins (CI_MANIFESTS)
+#   Pinned elsewhere, not floating: uv in .github/scripts/
+#   check_tool_versions.local.sh's roster, and the Python tools (zizmor,
+#   typos, pip-audit and the rest) in uv.lock. tool-versions.yml reports
+#   every one. The three rows below are the whole roster.
+
+# shared:endif
+# shared:unless repo=python-constricter
 # Installed rather than taken from the runner image, whose copy moves when the
 # image does and would change what shellcheck reports with no commit here.
 shellcheck|0.11.0|tar.xz|https://github.com/koalaman/shellcheck/releases/download/v%v/shellcheck-v%v.%a.tar.xz|--version|github:koalaman/shellcheck||linux-x86_64:linux.x86_64=8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198,darwin-aarch64:darwin.aarch64=56affdd8de5527894dca6dc3d7e0a99a873b0f004d7aabc30ae407d3f48b0a79
+# shared:endif
 actionlint|1.7.12|tar.gz|https://github.com/rhysd/actionlint/releases/download/v%v/actionlint_%v_linux_amd64.tar.gz|--version|github:rhysd/actionlint||8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
-# shared:unless repo=instadroid
+# shared:unless repo=instadroid,python-constricter
 zizmor|1.30.1|tar.gz|https://github.com/zizmorcore/zizmor/releases/download/v%v/zizmor-x86_64-unknown-linux-gnu.tar.gz|--version|github:zizmorcore/zizmor||e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1a
 # shared:endif
-# shared:unless repo=homebrew-tap
+# shared:unless repo=homebrew-tap,python-constricter
 # A pin, not `releases/latest`: new rules arrive as a reviewed bump instead of
 # changing what an unrelated PR's lint reports.
 hadolint|2.15.1|raw|https://github.com/hadolint/hadolint/releases/download/v%v/hadolint-linux-x86_64|--version|github:hadolint/hadolint||c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507
 # Pinning the binary does not stale the scan: trivy downloads its vulnerability
 # database on every run, whatever this pin is.
 trivy|0.75.0|tar.gz|https://github.com/aquasecurity/trivy/releases/download/v%v/trivy_%v_Linux-64bit.tar.gz|--version|github:aquasecurity/trivy||c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f
+# shared:endif
+# shared:unless repo=homebrew-tap
 # Tags are "lychee-v<version>"; the tag-prefix column strips that so the drift
 # check compares versions, not strings.
 lychee|0.24.2|tar.gz|https://github.com/lycheeverse/lychee/releases/download/lychee-v%v/lychee-x86_64-unknown-linux-gnu.tar.gz|--version|github:lycheeverse/lychee|lychee-v|1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a
@@ -131,6 +145,8 @@ lychee|0.24.2|tar.gz|https://github.com/lycheeverse/lychee/releases/download/lyc
 # shared:unless repo=instadroid,homebrew-tap
 # `version` is a subcommand, not a flag.
 gitleaks|8.30.1|tar.gz|https://github.com/gitleaks/gitleaks/releases/download/v%v/gitleaks_%v_linux_x64.tar.gz|version|github:gitleaks/gitleaks||551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+# shared:endif
+# shared:unless repo=instadroid,homebrew-tap,python-constricter
 typos|1.51.1|tar.gz|https://github.com/crate-ci/typos/releases/download/v%v/typos-v%v-x86_64-unknown-linux-musl.tar.gz|--version|github:crate-ci/typos||93c301fd4120ff076e2cc2a6d6a61cab4a4bdb81899287c0938b452e56d1f454
 # shared:endif
 # shared:if repo=say-hi

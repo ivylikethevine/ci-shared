@@ -10,6 +10,15 @@ files = [
   ".gitattributes",
   ".github/CODEOWNERS",
   ".github/ISSUE_TEMPLATE/config.yml",
+  ".github/actionlint.yaml",
+  ".github/actions/apt/lib.sh",
+  ".github/actions/setup-tool/action.yml",
+  ".github/actions/setup-tool/install.sh",
+  ".github/actions/setup-tool/lib.sh",
+  ".github/actions/setup-tool/tools.txt",
+  ".github/actions/setup-tools/action.yml",
+  ".github/actions/setup-tools/install-missing.sh",
+  ".github/actions/setup-tools/resolve.sh",
   ".github/actions/upsert-tracking-issue/action.yml",
   ".github/dependabot.yml",
   ".github/osv-scanner.toml",
@@ -21,6 +30,8 @@ files = [
   ".github/scripts/lint_workflows.sh",
   ".github/scripts/release_notes.sh",
   ".github/workflows/cancel-closed-pr.yml",
+  ".github/workflows/codeql.yml",
+  ".github/workflows/link-check.yml",
   ".github/workflows/release-note.yml",
   ".github/workflows/scorecard.yml",
   ".github/workflows/tool-versions.yml",
@@ -40,6 +51,9 @@ files = [
 # the values a template takes, by path
 [templates.".gitignore"]
 stray_files = "true"
+
+[templates.".github/workflows/codeql.yml"]
+language = "python"
 
 [templates.".vscode/settings.json"]
 python = "true"
