@@ -8,9 +8,11 @@ accept = ["200..=299", "429"]
 
 # Regexes over URLs, never checked - counted as excluded, not as an error or
 # a warning. gnu.org times out often enough that a sweep would flag a slow
-# server, not a dead link.
+# server, not a dead link. A `__key__` placeholder appears only in an
+# unrendered shared template, whose rendered copies each repository checks.
 exclude = [
   '^https?://(www\.)?gnu\.org/',
+  '__[A-Za-z_]+__',
 ]
 
 # Regexes over input paths. Agent config and scratch, git's own files, build
