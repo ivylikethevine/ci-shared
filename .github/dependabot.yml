@@ -1,0 +1,71 @@
+# Names what dependabot could move: the SHA-pinned `uses:` in this
+# repository's workflows and composite actions and in the shared ones under
+# files/, the Markdown tools' npm lock, and the hashed requirements-dev.txt.
+#
+# What this file cannot cover, and what covers it instead:
+#
+#   * The CI tools in files/.github/actions/setup-tool/tools.txt and the inline
+#     pin in .github/scripts/check_tool_versions.local.sh (the just-the-docs
+#     theme): tool-versions.yml reports their drift in the same tracking
+#     issue, with the same 7-day cooldown.
+#
+# Renovate was weighed and declined: it would cover the pins this file cannot,
+# but costs a second bot, its own config dialect, and a PR stream where
+# tool-versions.yml keeps one tracking issue.
+#
+# Each entry sets `open-pull-requests-limit: 0`, so no version-update pull
+# request opens: tool-versions.yml reports the same drift in one tracking
+# issue, and every bump is a hand edit made from it. Deleting the limits turns
+# the pull requests back on, with the schedule, cooldown and ignores they
+# need. Dependabot security updates, if enabled in the repository settings,
+# are not bound by the limit and still open their own pull requests.
+version: 2
+
+updates:
+  # the composite actions under .github/actions/ pin their own `uses:`
+  - package-ecosystem: github-actions
+    directories:
+      - "/"
+      - "/.github/actions/*"
+      # the shipped workflows and actions; two of .github/actions/* are
+      # symlinks into files/
+      - "/files"
+      - "/files/.github/actions/*"
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    # let a release age before its bump: a compromised release's window is its
+    # first days (zizmor: dependabot-cooldown)
+    cooldown:
+      default-days: 7
+
+  # .github/package.json -> package-lock.json (markdownlint-cli2, prettier)
+  - package-ecosystem: npm
+    directory: /.github
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+
+  # requirements-dev.in -> the hashed requirements-dev.txt (constricter,
+  # coverage, pip-audit, reuse)
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7

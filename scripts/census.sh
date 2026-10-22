@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # Groups the CI and tooling files that two or more local checkouts track by
 # content, to find what can move into files/ and which copies have drifted.
 #

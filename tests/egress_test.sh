@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # scratch/egress_census.sh and scratch/egress_baseline.sh: the census lists
 # each macOS or Windows job with its harden-runner policy, and the baseline
 # folds StepSecurity's recorded endpoints into one row per job and endpoint.

@@ -1,5 +1,3 @@
-<!-- SPDX-License-Identifier: MIT -->
-
 # Roadmap
 
 What this repository and the files it ships could take next, from a reading of
@@ -25,70 +23,6 @@ _batch_ are shared CI items: they go to every repository as one hand-run batch
   each target's disabled-rules note. The harden-runner `block` move for the
   macOS and Windows jobs is the other open batch item; it lives in the
   targets' own workflows, one session per repository.
-
-### 1.2 Pins behind upstream (_batch_)
-
-From `.github/scripts/check_tool_versions.sh` on 2026-10-18, each still
-inside the 7-day cooldown:
-
-| Pin                    | Pinned | Latest | Note                                          |
-| ---------------------- | ------ | ------ | --------------------------------------------- |
-| zizmor                 | 1.30.1 | 1.31.1 | cooling; new `cache-poisoning` cases, see 2.4 |
-| trivy                  | 0.75.0 | 0.76.0 | cooling                                       |
-| github/codeql-action   | 4.38.3 | 4.39.0 | cooling; needs CodeQL bundle 2.20.7 or later  |
-| nfpm (say-hi)          | 2.47.0 | 2.48.0 | cooling                                       |
-| terraform (sharerr-rs) | 1.16.5 | 1.16.6 | cooling                                       |
-| python-constricter     | 0.3.5  | 0.3.6  | cooling                                       |
-
-### 1.3 This repository's own policy files
-
-- **What:** ci-shared ships `dependabot.yml`, an issue-template `config.yml`
-  linking `docs/SECURITY.md` and `docs/SUPPORT.md`, and `CODEOWNERS` to every
-  target, and has none of them itself: no Dependabot (Scorecard's
-  Dependency-Update-Tool scores 0 and its security updates for the npm lock
-  and `requirements-dev.txt` are off), no security policy, no `docs/`.
-- **How:** `scripts/own_workflows.sh` grows into `own_files.sh` and renders
-  `dependabot.yml` for a target named `ci-shared` (its block: github-actions
-  over `/` and `/.github/actions/*`, npm under `/.github`, pip at `/`), and
-  `check.sh --check`s it like the workflows. `docs/SECURITY.md` is a short
-  file of this repository's own: a compromised shared file reaches five
-  repositories, which is worth a private-report channel.
-
-### 1.4 README step 3 still copies into the checkouts
-
-- **What:** "Changing a shared file" step 3 describes `scripts/sync_local.sh`
-  writing into the sibling checkouts; the working rule is that the push to
-  `main` opens the sync pull requests and local checkouts are left alone,
-  with `--check` for a look.
-- **How:** reword step 3 to the `--check` form and move the writing form to
-  the script's own header, where a first setup of a new machine still needs
-  it.
-
-### 1.5 The per-file SPDX headers come out (_batch_)
-
-- **What:** `scripts/spdx.sh` puts an `SPDX-License-Identifier` comment at
-  the top of every tracked file here and under `files/`, and `check.sh` fails
-  without it. Neither reader needs it: Scorecard's License check asks the
-  GitHub License API, else looks for `LICENSE.md`, and REUSE is met by
-  `REUSE.toml` (`path = "**"`) with `LICENSES/MIT.txt`, which `files/` now
-  carries to every target. A regenerated file (`requirements-dev.txt`) loses
-  the line on every compile and fails the check until it is put back.
-- **How:** delete `scripts/spdx.sh`, its suite, the `spdx` check, the README
-  row and the `&& scripts/spdx.sh` note in `requirements-dev.in`; strip the
-  comment from every file here and under `files/`, which the sync carries to
-  the targets (each target's roadmap holds the item for its own files); run
-  5.2's `reuse lint` once to confirm the TOML alone passes.
-
-### 1.6 Two triggers that never fire as described
-
-- **`scorecard.yml`'s `branch_protection_rule`:** the event exists for classic
-  branch protection only; GitHub Actions has no event for ruleset changes, and
-  every target is on rulesets. Harmless (the weekly cron re-grades), but the
-  header promises a re-grade "the moment a rule changes". Drop the trigger and
-  the sentence, or keep it with the caveat.
-- **`sync.yml` on a `rulesets/` push:** the push trigger lists `files/**` and
-  `repos/**`, so a ruleset edit waits for the weekly `rulesets.sh diff`. Add
-  `rulesets/**` to the paths and run the diff step on a push that touched it.
 
 ## 2. Platform changes with a date
 
@@ -131,31 +65,12 @@ knows 26.04. What changed under them, from GitHub's image comparison
   system python3 (3.14: fine for constricter's `min-python = "3.11"` and
   coverage 7.16); `image-scan.yml` meets docker 29.
 
-### 2.2 Node 24 in say-hi's lint job (_batch_)
-
-- **What:** `checks.yml` here is on `node-version: "24"`; say-hi's `ci.yml`
-  lint job still pins 22, in maintenance since October 2025 and end-of-life
-  2027-04-30. Only markdownlint-cli2 and prettier run on it.
-- **How:** `"24"` in say-hi's `ci.yml`, with the next batch, and the `node`
-  line of `tools.txt`'s floating-tools note.
-
-### 2.3 Dependabot's default cooldown
+### 2.2 Dependabot's default cooldown
 
 - **What:** since 2026-07-14 Dependabot waits three days by default; the
   shared `dependabot.yml` sets seven explicitly on every entry, which wins.
   Nothing to change; the `COOLDOWN_DAYS` comment in `check_tool_versions.sh`
   still mirrors it.
-
-### 2.4 zizmor 1.31 and CodeQL action 4.39
-
-- **zizmor 1.31.0:** `dangerous-triggers` now treats `issue_comment` as
-  dangerous (unused here); `cache-poisoning` flags `cache-mode: write` under
-  dangerous triggers and skips `cache-mode: none` (nothing sets either);
-  `unpinned-images` and `self-hosted-runner` are more precise. Expect no new
-  findings, but run `check.sh` with the new pin before the batch merges.
-- **codeql-action 4.39.0:** minimum CodeQL bundle 2.20.7, which the hosted
-  runners' bundle meets; `analyze` now warns on a wrong `checkout_path`
-  (unset here).
 
 ## 3. Integrations and replacements
 
@@ -274,13 +189,7 @@ Add `lychee --offline --include-fragments --config lychee.toml` over the
 tracked `*.md` (the pin is in `tools.txt`), so a renamed heading in the
 README fails here first.
 
-### 5.2 `reuse lint`
-
-`REUSE.toml` and `scripts/spdx.sh` exist, and nothing validates the result.
-`reuse` from PyPI, pinned in `requirements-dev.in`, run as `reuse lint` in
-`check.sh`, confirms every file is covered and the `LICENSES/` text matches.
-
-### 5.3 kcov from apt once 26.04 ships 43
+### 5.2 kcov from apt once 26.04 ships 43
 
 `tests/coverage.sh` needs kcov 43, built from source on a cache miss (a
 minute of cmake and its build deps). Ubuntu 24.04 packages 42; if 26.04
@@ -288,7 +197,7 @@ packages 43 or later, `_ci_apt_install kcov` replaces the `cmake` row for
 this repository, and the row stays for say-hi only if it still needs the
 source build.
 
-### 5.4 `pinact run --check`
+### 5.3 `pinact run --check`
 
 If 3.2 adopts pinact for action SHAs, its check mode joins `check.sh` beside
 `lint_workflows.sh`: it also verifies that each SHA is reachable from the

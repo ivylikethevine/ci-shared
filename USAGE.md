@@ -1,5 +1,3 @@
-<!-- SPDX-License-Identifier: MIT -->
-
 # Usage
 
 Which repositories receive each shared file, written by
@@ -55,12 +53,13 @@ Which repositories receive each shared file, written by
 | `.vscode/settings.json`                            | x            | x          | x                  | x      | x          | 5     |
 | `.zed/settings.json`                               |              | x          | x                  | x      | x          | 4     |
 | `LICENSE.md`                                       | x            | x          | x                  | x      | x          | 5     |
+| `LICENSES/CC-BY-4.0.txt`                           | x            | x          | x                  | x      | x          | 5     |
 | `LICENSES/MIT.txt`                                 | x            | x          | x                  | x      | x          | 5     |
 | `REUSE.toml`                                       | x            | x          | x                  | x      | x          | 5     |
 | `_config.yml`                                      |              | x          |                    | x      | x          | 3     |
 | `docs/CODE_OF_CONDUCT.md`                          | x            | x          | x                  | x      | x          | 5     |
 | `lychee.toml`                                      |              | x          | x                  | x      | x          | 4     |
-| **Files per repository**                           | 25           | 51         | 42                 | 50     | 53         | 53    |
+| **Files per repository**                           | 26           | 52         | 43                 | 51     | 54         | 54    |
 
 ## Template values
 

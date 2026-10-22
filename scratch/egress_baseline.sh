@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # Collects the outbound endpoints harden-runner recorded for a workflow's
 # macOS and Windows jobs over its last successful runs, from StepSecurity's
 # public run API (public repositories only), and prints one row per job and

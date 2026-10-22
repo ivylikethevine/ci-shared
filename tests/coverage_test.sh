@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # tests/coverage.py: each rule that judges a statement from kcov's lines, the
 # figures it prints, and its exit status.
 # shellcheck disable=SC2329 # t_main calls the test_* functions by name

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # Fails unless each repos/<name>.toml repository has a `main` and a `dev` that
 # its sync token cannot change except through a pull request: both block force
 # pushes and deletion, `main` requires a pull request, and `dev` requires a

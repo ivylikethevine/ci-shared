@@ -1,5 +1,3 @@
-<!-- SPDX-License-Identifier: MIT -->
-
 # ci-shared
 
 The one source for the CI files several repositories carry byte-identical:
@@ -38,29 +36,29 @@ them, or make the repository a target.
 
 ## Layout
 
-| Path                          | Holds                                                                           |
-| ----------------------------- | ------------------------------------------------------------------------------- |
-| `files/`                      | the master copies, at the path they have in a target                            |
-| `repos/<name>.toml`           | one target: its repository, sync branch, files, template and ruleset values     |
-| `USAGE.md`                    | each file against the repositories receiving it, written from `repos/`          |
-| `scripts/check.sh`            | the shipped checks, run over this repository and `files/`                       |
-| `scripts/config.py`           | validates `repos/` and prints it as JSON, for the scripts to read               |
-| `scripts/usage.sh`            | writes `USAGE.md`; `--check` fails when it is stale                             |
-| `scripts/spdx.sh`             | adds the SPDX license comment; `--check` fails when a file lacks it             |
-| `scripts/census.sh`           | groups the CI and tooling files local checkouts share by content, to find drift |
-| `scripts/sync_local.sh`       | copies `files/` into the checkouts beside this one                              |
-| `scripts/sync_remote.sh`      | opens or updates a pull request per target through the GitHub API               |
-| `scripts/check_protection.sh` | fails unless each target's `main` and `dev` are protected from its token        |
-| `scripts/check_tokens.sh`     | prints when each target's sync token expires, failing within two weeks          |
-| `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets         |
-| `scripts/sync_prs.sh`         | reports each target's open sync pull request: its age and its checks            |
-| `scripts/own_workflows.sh`    | writes this repository's copies of the shared workflows it runs                 |
-| `rulesets/`                   | the rulesets every target shares, in GitHub's import format                     |
-| `scratch/`                    | analysis scripts kept for reuse, each with its suite under `tests/`             |
-| `tests/`                      | a suite per script, run against fixtures and a fake `gh`                        |
-| `requirements-dev.in`         | the Python dev tools, constricter and coverage.py; `.txt` is its hashed lock    |
-| `pyproject.toml`              | those tools' settings                                                           |
-| `.github/workflows/`          | `sync.yml`, `checks.yml`, `tool-versions.yml` and copies of three shared ones   |
+| Path                          | Holds                                                                                        |
+| ----------------------------- | -------------------------------------------------------------------------------------------- |
+| `files/`                      | the master copies, at the path they have in a target                                         |
+| `repos/<name>.toml`           | one target: its repository, sync branch, files, template and ruleset values                  |
+| `USAGE.md`                    | each file against the repositories receiving it, written from `repos/`                       |
+| `scripts/check.sh`            | the shipped checks, run over this repository and `files/`                                    |
+| `scripts/config.py`           | validates `repos/` and prints it as JSON, for the scripts to read                            |
+| `scripts/usage.sh`            | writes `USAGE.md`; `--check` fails when it is stale                                          |
+| `scripts/census.sh`           | groups the CI and tooling files local checkouts share by content, to find drift              |
+| `scripts/sync_local.sh`       | copies `files/` into the checkouts beside this one                                           |
+| `scripts/sync_remote.sh`      | opens or updates a pull request per target through the GitHub API                            |
+| `scripts/check_protection.sh` | fails unless each target's `main` and `dev` are protected from its token                     |
+| `scripts/check_tokens.sh`     | prints when each target's sync token expires, failing within two weeks                       |
+| `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets                      |
+| `scripts/sync_prs.sh`         | reports each target's open sync pull request: its age and its checks                         |
+| `scripts/own_files.sh`        | writes this repository's own copies of the shared files it uses                              |
+| `docs/SECURITY.md`            | what is in scope here and how to report a vulnerability privately                            |
+| `rulesets/`                   | the rulesets every target shares, in GitHub's import format                                  |
+| `scratch/`                    | analysis scripts kept for reuse, each with its suite under `tests/`                          |
+| `tests/`                      | a suite per script, run against fixtures and a fake `gh`                                     |
+| `requirements-dev.in`         | the Python dev tools (constricter, coverage.py, pip-audit, reuse); `.txt` is its hashed lock |
+| `pyproject.toml`              | those tools' settings                                                                        |
+| `.github/workflows/`          | `sync.yml`, `checks.yml`, `tool-versions.yml` and copies of three shared ones                |
 
 A file belongs here once two targets hold it byte-identical. Per-repository
 files stay in their repository: `check_tool_versions.local.sh`, the
@@ -74,11 +72,11 @@ here.
 1. Edit it under `files/`. To share a new file, copy it in, add its path to
    the `files` list of each `repos/<name>.toml` that should receive it, and run
    `scripts/usage.sh`. After a change to `codeql.yml`, `link-check.yml` or
-   `scorecard.yml`, run `scripts/own_workflows.sh`.
+   `scorecard.yml` or `dependabot.yml`, run `scripts/own_files.sh`.
 2. Run `scripts/check.sh`.
-3. `scripts/sync_local.sh --check` lists the checkouts that differ;
-   `scripts/sync_local.sh` copies the change into them, leaving any path with
-   uncommitted changes alone.
+3. `scripts/sync_local.sh --check` lists the checkouts that differ. The
+   checkouts themselves are left alone: the sync pull requests of step 4 carry
+   the change.
 4. Once this repository is on GitHub, a push to `main` that changes `files/`
    or `repos/` opens one pull request per target on branch `ci-sync`, and
    re-pushes update it. A change to the scripts alone, `ci_render` included,
@@ -152,9 +150,11 @@ Markdown tools' and Python tools' manifests and the action pins under `files/`.
 
 It runs three of the workflows it ships, as its targets do: `codeql.yml` (the
 `actions` language alone), `scorecard.yml` and `link-check.yml`, the last two
-following `checks.yml`, which is named `CI` for them. A workflow cannot be a
-symlink, so `scripts/own_workflows.sh` writes each as a copy, `files/`
-rendered with no values, and `scripts/check.sh` fails when one is stale.
+following `checks.yml`, which is named `CI` for them, and its own
+`dependabot.yml`, the template rendered for `repo=ci-shared`. A workflow cannot
+be a symlink, and a template's markers must not reach a copy, so
+`scripts/own_files.sh` writes each as a copy, the workflows rendered with no
+values, and `scripts/check.sh` fails when one is stale.
 
 Every script and Python file here, `scratch/` included, has a test suite with
 100% coverage, and the Python passes constricter at `suffocate`. A scratch
@@ -163,12 +163,11 @@ kept.
 
 - `scripts/check.sh` runs shellcheck, shfmt, constricter, actionlint,
   `lint_workflows.sh`, zizmor, prettier, markdownlint, typos, gitleaks over the
-  history, pip-audit over `requirements-dev.txt` and npm audit over the
+  history, `reuse lint`, pip-audit over `requirements-dev.txt` and npm audit over the
   Markdown tools' lock (less the advisories `files/.github/osv-scanner.toml`
   accepts, as `advisories.yml` reads it), `scripts/usage.sh --check`,
-  `scripts/spdx.sh --check`, `scripts/own_workflows.sh --check`, and a check
-  that `files/.gitignore` (every target's block active here) ignores no
-  shared file;
+  `scripts/own_files.sh --check`, and a check that `files/.gitignore`
+  (every target's block active here) ignores no shared file;
   `checks.yml` runs it on every push and pull request. Locally it needs the
   `tools.txt` pins on `PATH`, `npm ci --prefix .github` once, and
   `requirements-dev.txt` in a virtual environment whose `bin/` is on `PATH`:

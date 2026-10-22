@@ -1,19 +1,17 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # Runs the checks this repository ships over the repository itself, files/
 # included, with the shared configs: shellcheck and shfmt (.shellcheckrc,
 # .editorconfig), constricter over the Python (pyproject.toml), actionlint, lint_workflows.sh, zizmor (.github/zizmor.yml),
 # prettier and markdownlint (.prettierrc.yaml, .markdownlint.yaml), typos,
-# gitleaks over the history, pip-audit over requirements-dev.txt and npm audit
-# over .github/package-lock.json (less the advisories
+# gitleaks over the history, reuse lint (REUSE.toml, LICENSES/), pip-audit over
+# requirements-dev.txt and npm audit over .github/package-lock.json (less the advisories
 # files/.github/osv-scanner.toml accepts), then each template as every target
 # receives it:
 # actionlint and lint_workflows.sh for a workflow, markdownlint for Markdown,
 # prettier for what it has a parser for, and no `__key__` left that a target
-# sets. USAGE.md and the workflows scripts/own_workflows.sh writes must be
-# current, every tracked file carry an SPDX license comment, and no shared
-# file be ignored by files/.gitignore. CI's checks workflow runs the same
-# script.
+# sets. USAGE.md and the copies scripts/own_files.sh writes must be
+# current, and no shared file be ignored by files/.gitignore. CI's checks
+# workflow runs the same script.
 #
 #   scripts/check.sh
 #
@@ -82,6 +80,7 @@ run prettier "$bin/prettier" --check "${raw_prettier[@]}"
 run markdownlint "$bin/markdownlint-cli2" "${raw_markdownlint[@]}"
 run typos typos
 run gitleaks gitleaks git --redact --no-banner .
+run reuse reuse --no-multiprocessing lint
 
 # The locks, as advisories.yml reads them: npm audit exits non-zero on a
 # finding and on a failure alike, and its JSON carries a count only when the
@@ -111,8 +110,7 @@ audit() {
 }
 run audit audit
 run usage "$CI_SCRIPTS_DIR/usage.sh" --check
-run spdx "$CI_SCRIPTS_DIR/spdx.sh" --check
-run own-workflows "$CI_SCRIPTS_DIR/own_workflows.sh" --check
+run own-files "$CI_SCRIPTS_DIR/own_files.sh" --check
 
 # Each template rendered for every target that receives it, so a placeholder or
 # block that breaks only one repository's copy still fails here.

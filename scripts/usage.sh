@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # Writes USAGE.md: each file in files/, the repositories whose targets list
 # it, and how many there are, with a total per repository; then each
 # template's values per repository.
@@ -23,9 +22,7 @@ render() {
     lists+=($'\n'"$(ci_targets "${slug#*/}" | cut -d' ' -f1)"$'\n')
   done < <(ci_repos)
 
-  # REUSE-IgnoreStart
-  printf '<!-- SPDX-License-Identifier: MIT -->\n\n# Usage\n\n'
-  # REUSE-IgnoreEnd
+  printf '# Usage\n\n'
   printf 'Which repositories receive each shared file, written by\n'
   # shellcheck disable=SC2016 # the backticks are Markdown
   printf '`scripts/usage.sh` from `repos/`; run it after changing a file list there.\n\n'

@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: MIT
 name: Sync
 
 # Opens or updates a pull request in each repos/ repository whose copies of
@@ -17,13 +16,15 @@ name: Sync
 # has a failed check or has stayed open too long, and keeps the `sync-health`
 # issue open until a weekly run passes them all.
 on:
-  # only a push that changes what a target receives; a change to the scripts
-  # alone (ci_render's included) reaches the targets on the next dispatch
+  # only a push that changes what a target receives, or the rulesets it should
+  # have; a change to the scripts alone (ci_render's included) reaches the
+  # targets on the next dispatch
   push:
     branches: [main]
     paths:
       - files/**
       - repos/**
+      - rulesets/**
   schedule:
     - cron: "41 14 * * 1"
   workflow_dispatch:
@@ -105,10 +106,17 @@ jobs:
           SOURCE_SHA: ${{ github.sha }}
         run: scripts/sync_remote.sh --drift
 
-      # the weekly run: a ruleset edited by hand on a target
+      # the weekly run: a ruleset edited by hand on a target. A push that
+      # changed rulesets/ runs it too, so the edit's diff against the live
+      # rulesets shows the same day.
       - id: rulesets
         name: Compare the targets' rulesets with rulesets/
-        if: ${{ !cancelled() && github.event_name == 'schedule' }}
+        if: >-
+          ${{ !cancelled() && (github.event_name == 'schedule' ||
+          (github.event_name == 'push' &&
+          (contains(toJSON(github.event.commits.*.added), '"rulesets/') ||
+          contains(toJSON(github.event.commits.*.modified), '"rulesets/') ||
+          contains(toJSON(github.event.commits.*.removed), '"rulesets/')))) }}
         run: scripts/rulesets.sh diff
 
       # the weekly run: a shared file that breaks a target fails the checks on

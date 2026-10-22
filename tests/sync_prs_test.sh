@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # scripts/sync_prs.sh against a fake GitHub: each target's open sync pull
 # request with its age and checks, failing one with a failed check, no checks
 # or too great an age, and one it cannot read, each with its own token.

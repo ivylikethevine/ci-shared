@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # scripts/sync_remote.sh against a fake GitHub: one commit and one pull request
 # per target that differs, each written with its own token, nothing written on
 # a dry run, and nothing to a target that fails its protection check or a

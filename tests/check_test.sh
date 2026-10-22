@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # scripts/check.sh over a fixture tree with every tool faked: each check runs
 # on the right paths, a failure is counted and annotated, and each template is
 # linted as every target receives it.
@@ -39,7 +38,7 @@ EOF
 # tree runs its own copies of codeql.yml, link-check.yml and scorecard.yml.
 fixture() {
   local t
-  for t in shellcheck shfmt constricter actionlint zizmor typos gitleaks pip-audit; do tool "$t"; done
+  for t in shellcheck shfmt constricter actionlint zizmor typos gitleaks reuse pip-audit; do tool "$t"; done
   npm_fake
   mkdir -p "$T/tree/scripts" "$T/tree/tests" "$T/tree/scratch" "$T/tree/.github/scripts" \
     "$T/tree/.github/workflows" "$T/tree/.github/node_modules/.bin"
@@ -60,6 +59,7 @@ fixture() {
   echo 'on: push' | t_shared .github/workflows/plain.yml
   echo 'on: push' | t_shared .github/workflows/link-check.yml
   echo 'on: push' | t_shared .github/workflows/scorecard.yml
+  echo 'version: 2' | t_shared .github/dependabot.yml
   echo 'x' | t_shared .github/actions/a/action.yml
   echo 'true' | t_shared .github/scripts/shared.sh
   t_target a dev .github/workflows/codeql.yml .github/workflows/plain.yml .github/actions/a/action.yml
@@ -70,8 +70,7 @@ Language = "Rust"
 EOF
   t_target b dev .github/workflows/marked.yml
   "$SCRIPTS/usage.sh"
-  "$SCRIPTS/own_workflows.sh"
-  # nothing tracked, so spdx.sh passes
+  "$SCRIPTS/own_files.sh"
   t_git "$T/tree" init -q
 }
 
@@ -79,12 +78,12 @@ test_runs_every_check_over_the_tree() {
   fixture
   t_run "$SCRIPTS/check.sh"
   t_rc 0
-  t_out "== shellcheck" "== markdownlint" "== typos" "== gitleaks" "== audit" "== usage" "== spdx" "== own-workflows" \
+  t_out "== shellcheck" "== markdownlint" "== typos" "== gitleaks" "== reuse" "== audit" "== usage" "== own-files" \
     "== config" "== lint-workflows-rendered"
   t_no_out "::error"
   t_in -x "$T/tools.log" 'shellcheck -x files/.github/scripts/shared.sh scratch/x.sh scripts/s.sh tests/t_test.sh' \
     'constricter scripts tests scratch' \
-    'typos ' 'gitleaks git --redact --no-banner .' \
+    'typos ' 'gitleaks git --redact --no-banner .' 'reuse --no-multiprocessing lint' \
     'pip-audit --strict --require-hashes --disable-pip -r requirements-dev.txt' 'npm audit --prefix .github --json' \
     'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' \
     'prettier --check .' \
@@ -207,8 +206,7 @@ test_a_shared_file_the_template_gitignore_swallows_fails() {
   # a target's blanket rule in the shared .gitignore applies to files/ here
   printf '# shared:if repo=a\n*.toml\n# shared:endif\n' | t_shared .gitignore
   echo 'x = 1' | t_shared tool.toml
-  # tracked below, so it carries the SPDX comment spdx.sh asks of tracked files
-  printf '# SPDX-License-Identifier: MIT\nx = 1\n' | t_shared .github/kept.toml
+  echo 'x = 1' | t_shared .github/kept.toml
   t_target b dev tool.toml .github/kept.toml
   "$SCRIPTS/usage.sh"
   t_run "$SCRIPTS/check.sh"
@@ -271,12 +269,12 @@ EOF
   t_in -x "$T/tools.log" 'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github'
 }
 
-test_a_stale_own_workflow_fails() {
+test_a_stale_own_file_fails() {
   fixture
   echo 'on: pull_request' | t_shared .github/workflows/scorecard.yml
   t_run "$SCRIPTS/check.sh"
   t_rc 1
-  t_out ".github/workflows/scorecard.yml is out of date" "::error title=own-workflows::own-workflows failed"
+  t_out ".github/workflows/scorecard.yml is out of date" "::error title=own-files::own-files failed"
 }
 
 test_an_invalid_config_fails_and_renders_nothing() {
