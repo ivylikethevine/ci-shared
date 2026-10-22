@@ -202,6 +202,28 @@ test_counts_and_annotates_each_failure() {
     t_fail "zizmor ran offline with a token"
 }
 
+test_a_shared_file_the_template_gitignore_swallows_fails() {
+  fixture
+  # a target's blanket rule in the shared .gitignore applies to files/ here
+  printf '# shared:if repo=a\n*.toml\n# shared:endif\n' | t_shared .gitignore
+  echo 'x = 1' | t_shared tool.toml
+  # tracked below, so it carries the SPDX comment spdx.sh asks of tracked files
+  printf '# SPDX-License-Identifier: MIT\nx = 1\n' | t_shared .github/kept.toml
+  t_target b dev tool.toml .github/kept.toml
+  "$SCRIPTS/usage.sh"
+  t_run "$SCRIPTS/check.sh"
+  t_rc 1
+  t_out "files/tool.toml is ignored by files/.gitignore: negate the rule in the template" \
+    "files/.github/kept.toml is ignored" "::error title=ignored::ignored failed"
+  # negated in the template, the file reaches a commit again; one already
+  # tracked is past the rules
+  printf '# shared:if repo=a\n*.toml\n!tool.toml\n# shared:endif\n' | t_shared .gitignore
+  t_git "$T/tree" add -f files/.github/kept.toml
+  t_run "$SCRIPTS/check.sh"
+  t_rc 0
+  t_no_out "is ignored"
+}
+
 test_an_npm_advisory_fails_unless_accepted() {
   fixture
   # one accepted id and one not, the second reached through a dependency name

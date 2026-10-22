@@ -11,8 +11,9 @@
 # actionlint and lint_workflows.sh for a workflow, markdownlint for Markdown,
 # prettier for what it has a parser for, and no `__key__` left that a target
 # sets. USAGE.md and the workflows scripts/own_workflows.sh writes must be
-# current, and every tracked file carry an SPDX license comment. CI's checks
-# workflow runs the same script.
+# current, every tracked file carry an SPDX license comment, and no shared
+# file be ignored by files/.gitignore. CI's checks workflow runs the same
+# script.
 #
 #   scripts/check.sh
 #
@@ -116,6 +117,22 @@ run own-workflows "$CI_SCRIPTS_DIR/own_workflows.sh" --check
 # Each template rendered for every target that receives it, so a placeholder or
 # block that breaks only one repository's copy still fails here.
 run config ci_load
+
+# files/.gitignore is the template with every target's block active, so git
+# applies a target's blanket rule (*.toml, *.txt) to files/ here, and a new
+# shared file it matches never reaches a commit unless the template negates
+# it. Tracked files are past the rules, so this catches the one not yet added.
+# shellcheck disable=SC2329 # run calls it by name
+ignored() {
+  local found=0 path
+  while read -r path; do
+    git check-ignore -q -- "files/$path" || continue
+    echo "files/$path is ignored by files/.gitignore: negate the rule in the template"
+    found=1
+  done < <(while read -r slug _; do ci_targets "${slug#*/}"; done < <(ci_repos) | cut -d' ' -f1 | LC_ALL=C sort -u)
+  [ "$found" = 0 ]
+}
+run ignored ignored
 rendered="$(mktemp -d "${TMPDIR:-/tmp}/ci-render.XXXXXX")"
 trap 'case "$rendered" in */ci-render.??????) rm -r "$rendered" ;; esac' EXIT
 templates=() workflows_rendered=() md_rendered=()
