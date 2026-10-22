@@ -64,7 +64,22 @@ inside the 7-day cooldown:
   the script's own header, where a first setup of a new machine still needs
   it.
 
-### 1.5 Two triggers that never fire as described
+### 1.5 The per-file SPDX headers come out (_batch_)
+
+- **What:** `scripts/spdx.sh` puts an `SPDX-License-Identifier` comment at
+  the top of every tracked file here and under `files/`, and `check.sh` fails
+  without it. Neither reader needs it: Scorecard's License check asks the
+  GitHub License API, else looks for `LICENSE.md`, and REUSE is met by
+  `REUSE.toml` (`path = "**"`) with `LICENSES/MIT.txt`, which `files/` now
+  carries to every target. A regenerated file (`requirements-dev.txt`) loses
+  the line on every compile and fails the check until it is put back.
+- **How:** delete `scripts/spdx.sh`, its suite, the `spdx` check, the README
+  row and the `&& scripts/spdx.sh` note in `requirements-dev.in`; strip the
+  comment from every file here and under `files/`, which the sync carries to
+  the targets (each target's roadmap holds the item for its own files); run
+  5.2's `reuse lint` once to confirm the TOML alone passes.
+
+### 1.6 Two triggers that never fire as described
 
 - **`scorecard.yml`'s `branch_protection_rule`:** the event exists for classic
   branch protection only; GitHub Actions has no event for ruleset changes, and

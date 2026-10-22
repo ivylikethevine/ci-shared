@@ -55,10 +55,12 @@ Which repositories receive each shared file, written by
 | `.vscode/settings.json`                            | x            | x          | x                  | x      | x          | 5     |
 | `.zed/settings.json`                               |              | x          | x                  | x      | x          | 4     |
 | `LICENSE.md`                                       | x            | x          | x                  | x      | x          | 5     |
+| `LICENSES/MIT.txt`                                 | x            | x          | x                  | x      | x          | 5     |
+| `REUSE.toml`                                       | x            | x          | x                  | x      | x          | 5     |
 | `_config.yml`                                      |              | x          |                    | x      | x          | 3     |
 | `docs/CODE_OF_CONDUCT.md`                          | x            | x          | x                  | x      | x          | 5     |
 | `lychee.toml`                                      |              | x          | x                  | x      | x          | 4     |
-| **Files per repository**                           | 23           | 49         | 40                 | 48     | 51         | 51    |
+| **Files per repository**                           | 25           | 51         | 42                 | 50     | 53         | 53    |
 
 ## Template values
 

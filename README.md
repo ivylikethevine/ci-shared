@@ -163,8 +163,10 @@ kept.
 
 - `scripts/check.sh` runs shellcheck, shfmt, constricter, actionlint,
   `lint_workflows.sh`, zizmor, prettier, markdownlint, typos, gitleaks over the
-  history, `scripts/usage.sh --check`, `scripts/spdx.sh --check` and
-  `scripts/own_workflows.sh --check`;
+  history, pip-audit over `requirements-dev.txt` and npm audit over the
+  Markdown tools' lock (less the advisories `files/.github/osv-scanner.toml`
+  accepts, as `advisories.yml` reads it), `scripts/usage.sh --check`,
+  `scripts/spdx.sh --check` and `scripts/own_workflows.sh --check`;
   `checks.yml` runs it on every push and pull request. Locally it needs the
   `tools.txt` pins on `PATH`, `npm ci --prefix .github` once, and
   `requirements-dev.txt` in a virtual environment whose `bin/` is on `PATH`:

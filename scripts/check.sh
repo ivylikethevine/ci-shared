@@ -4,7 +4,10 @@
 # included, with the shared configs: shellcheck and shfmt (.shellcheckrc,
 # .editorconfig), constricter over the Python (pyproject.toml), actionlint, lint_workflows.sh, zizmor (.github/zizmor.yml),
 # prettier and markdownlint (.prettierrc.yaml, .markdownlint.yaml), typos,
-# gitleaks over the history, then each template as every target receives it:
+# gitleaks over the history, pip-audit over requirements-dev.txt and npm audit
+# over .github/package-lock.json (less the advisories
+# files/.github/osv-scanner.toml accepts), then each template as every target
+# receives it:
 # actionlint and lint_workflows.sh for a workflow, markdownlint for Markdown,
 # prettier for what it has a parser for, and no `__key__` left that a target
 # sets. USAGE.md and the workflows scripts/own_workflows.sh writes must be
@@ -78,6 +81,34 @@ run prettier "$bin/prettier" --check "${raw_prettier[@]}"
 run markdownlint "$bin/markdownlint-cli2" "${raw_markdownlint[@]}"
 run typos typos
 run gitleaks gitleaks git --redact --no-banner .
+
+# The locks, as advisories.yml reads them: npm audit exits non-zero on a
+# finding and on a failure alike, and its JSON carries a count only when the
+# audit ran. An advisory is its GHSA id, the last segment of the url npm
+# reports it under.
+# shellcheck disable=SC2329 # run calls it by name
+audit() {
+  local ok=0 report open
+  pip-audit --strict --require-hashes --disable-pip -r requirements-dev.txt || ok=1
+  report="$(mktemp "${TMPDIR:-/tmp}/ci-npm-audit.XXXXXX")"
+  npm audit --prefix .github --json >"$report" 2>&1 || true
+  if ! jq -e '.metadata.vulnerabilities.total' "$report" >/dev/null 2>&1; then
+    cat "$report"
+    echo "npm audit did not run"
+    ok=1
+  else
+    open="$(jq -r '[.vulnerabilities[]?.via[] | objects | .url | sub(".*/"; "")] | unique[]' "$report" |
+      grep -vxFf <(sed -n 's/^id = "\(GHSA[-0-9a-z]*\)"$/\1/p' files/.github/osv-scanner.toml) || true)"
+    [ -z "$open" ] || {
+      echo "npm audit reports advisories files/.github/osv-scanner.toml does not accept:"
+      echo "$open"
+      ok=1
+    }
+  fi
+  rm "$report"
+  return "$ok"
+}
+run audit audit
 run usage "$CI_SCRIPTS_DIR/usage.sh" --check
 run spdx "$CI_SCRIPTS_DIR/spdx.sh" --check
 run own-workflows "$CI_SCRIPTS_DIR/own_workflows.sh" --check

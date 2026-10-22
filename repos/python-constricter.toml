@@ -44,6 +44,8 @@ files = [
   ".vscode/settings.json",
   ".zed/settings.json",
   "LICENSE.md",
+  "LICENSES/MIT.txt",
+  "REUSE.toml",
   "docs/CODE_OF_CONDUCT.md",
   "lychee.toml",
 ]
