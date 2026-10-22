@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs the checks this repository ships over the repository itself, files/
-# included, with the shared configs: shellcheck and shfmt (.shellcheckrc,
+# included, with the shared configs: that every tools.txt tool checks.yml
+# installs is its pinned version here, shellcheck and shfmt (.shellcheckrc,
 # .editorconfig), constricter over the Python (pyproject.toml), actionlint, lint_workflows.sh, zizmor (.github/zizmor.yml),
 # prettier and markdownlint (.prettierrc.yaml, .markdownlint.yaml), typos,
 # gitleaks over the history, reuse lint (REUSE.toml, LICENSES/), pip-audit over
@@ -44,6 +45,32 @@ while IFS= read -r f; do scripts+=("$f"); done < <(
 )
 workflows=(.github/workflows/*.yml files/.github/workflows/*.yml)
 bin=.github/node_modules/.bin
+
+# The tools.txt tools checks.yml installs must be their pins on PATH too: a
+# local run on another version can pass where CI fails, or the reverse.
+CI_TOOLS_TXT="${CI_TOOLS_TXT:-$CI_SHARED_DIR/files/.github/actions/setup-tool/tools.txt}"
+# shellcheck source=../files/.github/actions/setup-tool/lib.sh
+source "$CI_SCRIPTS_DIR/../files/.github/actions/setup-tool/lib.sh"
+# shellcheck disable=SC2329 # run calls it by name
+pins() {
+  local ok=0 tool row pin verify out tools=()
+  read -ra tools <<<"$(sed -n 's/^ *tools: //p' .github/workflows/checks.yml)"
+  for tool in "${tools[@]}"; do
+    row="$(_ci_tool_row "$tool")" || {
+      ok=1
+      continue
+    }
+    IFS='|' read -r _ pin _ _ verify _ <<<"$row"
+    # shellcheck disable=SC2086 # the verify column is flags, split on purpose
+    out="$("$tool" $verify 2>&1)"
+    grep -qE "(^|[^0-9.])v?${pin//./\\.}([^0-9.]|\$)" <<<"$out" || {
+      echo "$tool is not the pinned $pin: $(grep -m1 . <<<"$out")"
+      ok=1
+    }
+  done
+  return "$ok"
+}
+run pins pins
 # zizmor reads GH_TOKEN itself for its online audits, and refuses an empty
 # one, so an empty token is unset rather than left for it to find
 offline=()

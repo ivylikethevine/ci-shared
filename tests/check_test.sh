@@ -8,10 +8,16 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 # A fake tool logging "<name> <args>" to $T/tools.log, copying any rendered
 # template it is handed to $T/rendered.log, and failing when FAIL names it.
+# Asked its version, it is 1.0.0, or 0.9.0 when STALE names it.
 tool() {
   t_fake "$1" <<'EOF'
 #!/usr/bin/env bash
 name="$(basename "$0")"
+case $* in --version | version)
+  case " ${STALE:-} " in *" $name "*) echo "$name 0.9.0" ;; *) echo "$name v1.0.0" ;; esac
+  exit 0
+  ;;
+esac
 echo "$name $*" >>"$T/tools.log"
 for f; do
   case $f in */ci-render.*) { echo "== ${f#*/ci-render.??????/}" && cat "$f"; } >>"$T/rendered.log" ;; esac
@@ -46,6 +52,9 @@ fixture() {
   echo 'true' >"$T/tree/tests/t_test.sh"
   echo 'true' >"$T/tree/scratch/x.sh"
   echo 'on: push' >"$T/tree/.github/workflows/own.yml"
+  printf 'on: push\n# the setup-tools step\n          tools: shellcheck gitleaks\n' >"$T/tree/.github/workflows/checks.yml"
+  printf '# a comment\nshellcheck|1.0.0|raw|u|--version|g||%s\ngitleaks|1.0.0|raw|u|version|g||%s\n' \
+    "$(printf 'a%.0s' {1..64})" "$(printf 'b%.0s' {1..64})" | t_shared .github/actions/setup-tool/tools.txt
   echo '{}' >"$T/tree/.github/zizmor.yml"
   : >"$T/tree/requirements-dev.txt"
   printf '[[IgnoredVulns]]\nid = "GHSA-vfj7-8cjw-p6xm"\n' | t_shared .github/osv-scanner.toml
@@ -78,7 +87,7 @@ test_runs_every_check_over_the_tree() {
   fixture
   t_run "$SCRIPTS/check.sh"
   t_rc 0
-  t_out "== shellcheck" "== markdownlint" "== typos" "== gitleaks" "== reuse" "== audit" "== usage" "== own-files" \
+  t_out "== pins" "== shellcheck" "== markdownlint" "== typos" "== gitleaks" "== reuse" "== audit" "== usage" "== own-files" \
     "== config" "== lint-workflows-rendered"
   t_no_out "::error"
   t_in -x "$T/tools.log" 'shellcheck -x files/.github/scripts/shared.sh scratch/x.sh scripts/s.sh tests/t_test.sh' \
@@ -87,7 +96,7 @@ test_runs_every_check_over_the_tree() {
     'pip-audit --strict --require-hashes --disable-pip -r requirements-dev.txt' 'npm audit --prefix .github --json' \
     'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' \
     'prettier --check .' \
-    'lint_workflows.sh .github/workflows/codeql.yml .github/workflows/link-check.yml .github/workflows/own.yml .github/workflows/scorecard.yml files/.github/workflows/link-check.yml files/.github/workflows/plain.yml files/.github/workflows/scorecard.yml files/.github/actions/a/action.yml'
+    'lint_workflows.sh .github/workflows/checks.yml .github/workflows/codeql.yml .github/workflows/link-check.yml .github/workflows/own.yml .github/workflows/scorecard.yml files/.github/workflows/link-check.yml files/.github/workflows/plain.yml files/.github/workflows/scorecard.yml files/.github/actions/a/action.yml'
   grep -q '^actionlint -config-file .github/actionlint.yaml .*/ci-render\.' "$T/tools.log" ||
     t_fail "actionlint did not read the shared runner labels for the renderings"
   grep -q '^prettier --check --config .prettierrc.yaml .*/ci-render\.' "$T/tools.log" ||
@@ -199,6 +208,23 @@ test_counts_and_annotates_each_failure() {
     "::error title=audit::audit failed"
   grep -qxF 'zizmor --config .github/zizmor.yml .github/workflows files/.github' "$T/tools.log" ||
     t_fail "zizmor ran offline with a token"
+}
+
+test_a_tool_off_its_pin_fails() {
+  fixture
+  t_run env STALE=gitleaks "$SCRIPTS/check.sh"
+  t_rc 1
+  t_out "gitleaks is not the pinned 1.0.0: gitleaks 0.9.0" "::error title=pins::pins failed"
+  t_no_out "shellcheck is not the pinned"
+}
+
+test_a_tool_missing_or_without_a_row_fails() {
+  fixture
+  printf 'on: push\n          tools: shellcheck nosuchtool typos\n' >"$T/tree/.github/workflows/checks.yml"
+  echo "nosuchtool|1.0.0|raw|u|--version|g||$(printf 'c%.0s' {1..64})" >>"$T/tree/files/.github/actions/setup-tool/tools.txt"
+  t_run "$SCRIPTS/check.sh"
+  t_rc 1
+  t_out "nosuchtool is not the pinned 1.0.0: " "setup-tool: no row for 'typos'" "::error title=pins::pins failed"
 }
 
 test_a_shared_file_the_template_gitignore_swallows_fails() {
