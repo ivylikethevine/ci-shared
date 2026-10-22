@@ -22,12 +22,25 @@ exit 0
 EOF
 }
 
+# A fake npm whose audit answers $T/npm-audit.json, exiting 1 as npm does on a
+# finding, else a clean report; FAIL names it to fail before any report.
+npm_fake() {
+  t_fake npm <<'EOF'
+#!/usr/bin/env bash
+echo "npm $*" >>"$T/tools.log"
+case " ${FAIL:-} " in *" npm "*) echo "npm ERR! registry unreachable" >&2 && exit 1 ;; esac
+cat "$T/npm-audit.json" 2>/dev/null || echo '{"metadata":{"vulnerabilities":{"total":0}},"vulnerabilities":{}}'
+[ ! -e "$T/npm-audit.json" ]
+EOF
+}
+
 # Target a receives a template workflow (values and a block), a plain
 # workflow and a non-workflow file; target b receives the template alone. The
 # tree runs its own copies of codeql.yml, link-check.yml and scorecard.yml.
 fixture() {
   local t
-  for t in shellcheck shfmt constricter actionlint zizmor typos gitleaks; do tool "$t"; done
+  for t in shellcheck shfmt constricter actionlint zizmor typos gitleaks pip-audit; do tool "$t"; done
+  npm_fake
   mkdir -p "$T/tree/scripts" "$T/tree/tests" "$T/tree/scratch" "$T/tree/.github/scripts" \
     "$T/tree/.github/workflows" "$T/tree/.github/node_modules/.bin"
   echo 'true' >"$T/tree/scripts/s.sh"
@@ -35,6 +48,8 @@ fixture() {
   echo 'true' >"$T/tree/scratch/x.sh"
   echo 'on: push' >"$T/tree/.github/workflows/own.yml"
   echo '{}' >"$T/tree/.github/zizmor.yml"
+  : >"$T/tree/requirements-dev.txt"
+  printf '[[IgnoredVulns]]\nid = "GHSA-vfj7-8cjw-p6xm"\n' | t_shared .github/osv-scanner.toml
   ln -s "$T/bin/actionlint" "$T/tree/.github/scripts/lint_workflows.sh"
   ln -s "$T/bin/actionlint" "$T/tree/.github/node_modules/.bin/prettier"
   ln -s "$T/bin/actionlint" "$T/tree/.github/node_modules/.bin/markdownlint-cli2"
@@ -64,12 +79,13 @@ test_runs_every_check_over_the_tree() {
   fixture
   t_run "$SCRIPTS/check.sh"
   t_rc 0
-  t_out "== shellcheck" "== markdownlint" "== typos" "== gitleaks" "== usage" "== spdx" "== own-workflows" "== config" \
-    "== lint-workflows-rendered"
+  t_out "== shellcheck" "== markdownlint" "== typos" "== gitleaks" "== audit" "== usage" "== spdx" "== own-workflows" \
+    "== config" "== lint-workflows-rendered"
   t_no_out "::error"
   t_in -x "$T/tools.log" 'shellcheck -x files/.github/scripts/shared.sh scratch/x.sh scripts/s.sh tests/t_test.sh' \
     'constricter scripts tests scratch' \
     'typos ' 'gitleaks git --redact --no-banner .' \
+    'pip-audit --strict --require-hashes --disable-pip -r requirements-dev.txt' 'npm audit --prefix .github --json' \
     'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' \
     'prettier --check .' \
     'lint_workflows.sh .github/workflows/codeql.yml .github/workflows/link-check.yml .github/workflows/own.yml .github/workflows/scorecard.yml files/.github/workflows/link-check.yml files/.github/workflows/plain.yml files/.github/workflows/scorecard.yml files/.github/actions/a/action.yml'
@@ -178,11 +194,68 @@ EOF
 
 test_counts_and_annotates_each_failure() {
   fixture
-  t_run env FAIL="shellcheck zizmor" GH_TOKEN=t "$SCRIPTS/check.sh"
-  t_rc 2
-  t_out "::error title=shellcheck::shellcheck failed" "::error title=zizmor::zizmor failed"
+  t_run env FAIL="shellcheck zizmor pip-audit" GH_TOKEN=t "$SCRIPTS/check.sh"
+  t_rc 3
+  t_out "::error title=shellcheck::shellcheck failed" "::error title=zizmor::zizmor failed" \
+    "::error title=audit::audit failed"
   grep -qxF 'zizmor --config .github/zizmor.yml .github/workflows files/.github' "$T/tools.log" ||
     t_fail "zizmor ran offline with a token"
+}
+
+test_a_shared_file_the_template_gitignore_swallows_fails() {
+  fixture
+  # a target's blanket rule in the shared .gitignore applies to files/ here
+  printf '# shared:if repo=a\n*.toml\n# shared:endif\n' | t_shared .gitignore
+  echo 'x = 1' | t_shared tool.toml
+  # tracked below, so it carries the SPDX comment spdx.sh asks of tracked files
+  printf '# SPDX-License-Identifier: MIT\nx = 1\n' | t_shared .github/kept.toml
+  t_target b dev tool.toml .github/kept.toml
+  "$SCRIPTS/usage.sh"
+  t_run "$SCRIPTS/check.sh"
+  t_rc 1
+  t_out "files/tool.toml is ignored by files/.gitignore: negate the rule in the template" \
+    "files/.github/kept.toml is ignored" "::error title=ignored::ignored failed"
+  # negated in the template, the file reaches a commit again; one already
+  # tracked is past the rules
+  printf '# shared:if repo=a\n*.toml\n!tool.toml\n# shared:endif\n' | t_shared .gitignore
+  t_git "$T/tree" add -f files/.github/kept.toml
+  t_run "$SCRIPTS/check.sh"
+  t_rc 0
+  t_no_out "is ignored"
+}
+
+test_an_npm_advisory_fails_unless_accepted() {
+  fixture
+  # one accepted id and one not, the second reached through a dependency name
+  # as well as its url
+  cat >"$T/npm-audit.json" <<'EOF'
+{"metadata":{"vulnerabilities":{"total":2}},"vulnerabilities":{
+  "braces":{"via":[{"url":"https://github.com/advisories/GHSA-vfj7-8cjw-p6xm"}]},
+  "micromatch":{"via":["braces",{"url":"https://github.com/advisories/GHSA-0000-open-0000"}]}}}
+EOF
+  t_run "$SCRIPTS/check.sh"
+  t_rc 1
+  t_out "npm audit reports advisories files/.github/osv-scanner.toml does not accept:" "GHSA-0000-open-0000" \
+    "::error title=audit::audit failed"
+  t_no_out "GHSA-vfj7-8cjw-p6xm"
+}
+
+test_an_accepted_npm_advisory_alone_passes() {
+  fixture
+  cat >"$T/npm-audit.json" <<'EOF'
+{"metadata":{"vulnerabilities":{"total":1}},"vulnerabilities":{
+  "braces":{"via":[{"url":"https://github.com/advisories/GHSA-vfj7-8cjw-p6xm"}]}}}
+EOF
+  t_run "$SCRIPTS/check.sh"
+  t_rc 0
+  t_no_out "npm audit reports"
+}
+
+test_an_npm_audit_that_did_not_run_fails() {
+  fixture
+  t_run env FAIL=npm "$SCRIPTS/check.sh"
+  t_rc 1
+  t_out "npm ERR! registry unreachable" "npm audit did not run" "::error title=audit::audit failed"
 }
 
 test_an_empty_token_is_unset_for_zizmor() {

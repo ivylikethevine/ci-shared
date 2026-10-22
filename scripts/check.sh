@@ -4,12 +4,16 @@
 # included, with the shared configs: shellcheck and shfmt (.shellcheckrc,
 # .editorconfig), constricter over the Python (pyproject.toml), actionlint, lint_workflows.sh, zizmor (.github/zizmor.yml),
 # prettier and markdownlint (.prettierrc.yaml, .markdownlint.yaml), typos,
-# gitleaks over the history, then each template as every target receives it:
+# gitleaks over the history, pip-audit over requirements-dev.txt and npm audit
+# over .github/package-lock.json (less the advisories
+# files/.github/osv-scanner.toml accepts), then each template as every target
+# receives it:
 # actionlint and lint_workflows.sh for a workflow, markdownlint for Markdown,
 # prettier for what it has a parser for, and no `__key__` left that a target
 # sets. USAGE.md and the workflows scripts/own_workflows.sh writes must be
-# current, and every tracked file carry an SPDX license comment. CI's checks
-# workflow runs the same script.
+# current, every tracked file carry an SPDX license comment, and no shared
+# file be ignored by files/.gitignore. CI's checks workflow runs the same
+# script.
 #
 #   scripts/check.sh
 #
@@ -78,6 +82,34 @@ run prettier "$bin/prettier" --check "${raw_prettier[@]}"
 run markdownlint "$bin/markdownlint-cli2" "${raw_markdownlint[@]}"
 run typos typos
 run gitleaks gitleaks git --redact --no-banner .
+
+# The locks, as advisories.yml reads them: npm audit exits non-zero on a
+# finding and on a failure alike, and its JSON carries a count only when the
+# audit ran. An advisory is its GHSA id, the last segment of the url npm
+# reports it under.
+# shellcheck disable=SC2329 # run calls it by name
+audit() {
+  local ok=0 report open
+  pip-audit --strict --require-hashes --disable-pip -r requirements-dev.txt || ok=1
+  report="$(mktemp "${TMPDIR:-/tmp}/ci-npm-audit.XXXXXX")"
+  npm audit --prefix .github --json >"$report" 2>&1 || true
+  if ! jq -e '.metadata.vulnerabilities.total' "$report" >/dev/null 2>&1; then
+    cat "$report"
+    echo "npm audit did not run"
+    ok=1
+  else
+    open="$(jq -r '[.vulnerabilities[]?.via[] | objects | .url | sub(".*/"; "")] | unique[]' "$report" |
+      grep -vxFf <(sed -n 's/^id = "\(GHSA[-0-9a-z]*\)"$/\1/p' files/.github/osv-scanner.toml) || true)"
+    [ -z "$open" ] || {
+      echo "npm audit reports advisories files/.github/osv-scanner.toml does not accept:"
+      echo "$open"
+      ok=1
+    }
+  fi
+  rm "$report"
+  return "$ok"
+}
+run audit audit
 run usage "$CI_SCRIPTS_DIR/usage.sh" --check
 run spdx "$CI_SCRIPTS_DIR/spdx.sh" --check
 run own-workflows "$CI_SCRIPTS_DIR/own_workflows.sh" --check
@@ -85,6 +117,22 @@ run own-workflows "$CI_SCRIPTS_DIR/own_workflows.sh" --check
 # Each template rendered for every target that receives it, so a placeholder or
 # block that breaks only one repository's copy still fails here.
 run config ci_load
+
+# files/.gitignore is the template with every target's block active, so git
+# applies a target's blanket rule (*.toml, *.txt) to files/ here, and a new
+# shared file it matches never reaches a commit unless the template negates
+# it. Tracked files are past the rules, so this catches the one not yet added.
+# shellcheck disable=SC2329 # run calls it by name
+ignored() {
+  local found=0 path
+  while read -r path; do
+    git check-ignore -q -- "files/$path" || continue
+    echo "files/$path is ignored by files/.gitignore: negate the rule in the template"
+    found=1
+  done < <(while read -r slug _; do ci_targets "${slug#*/}"; done < <(ci_repos) | cut -d' ' -f1 | LC_ALL=C sort -u)
+  [ "$found" = 0 ]
+}
+run ignored ignored
 rendered="$(mktemp -d "${TMPDIR:-/tmp}/ci-render.XXXXXX")"
 trap 'case "$rendered" in */ci-render.??????) rm -r "$rendered" ;; esac' EXIT
 templates=() workflows_rendered=() md_rendered=()

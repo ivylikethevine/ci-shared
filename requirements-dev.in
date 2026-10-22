@@ -2,7 +2,9 @@
 # The Python dev tools: scripts/check.sh's constricter and tests/coverage.sh's
 # coverage. requirements-dev.txt is the hashed lock compiled from this file;
 # regenerate it after editing here (from the repository root):
-#   pip-compile --allow-unsafe --generate-hashes --strip-extras requirements-dev.in
+#   pip-compile --allow-unsafe --generate-hashes --strip-extras requirements-dev.in && scripts/spdx.sh
 coverage==7.16.2
 # Every variable annotated where it's first bound (pyproject.toml's [tool.constricter]).
 python-constricter==0.3.5
+# scripts/check.sh's audit of requirements-dev.txt.
+pip-audit==2.10.1
