@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: MIT
 # shellcheck shell=bash
 # Helpers shared by the scripts in this directory; sourced, not run.
 

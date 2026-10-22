@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # scripts/check.sh over a fixture tree with every tool faked: each check runs
 # on the right paths, a failure is counted and annotated, and each template is
 # linted as every target receives it.
@@ -9,10 +8,16 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 # A fake tool logging "<name> <args>" to $T/tools.log, copying any rendered
 # template it is handed to $T/rendered.log, and failing when FAIL names it.
+# Asked its version, it is 1.0.0, or 0.9.0 when STALE names it.
 tool() {
   t_fake "$1" <<'EOF'
 #!/usr/bin/env bash
 name="$(basename "$0")"
+case $* in --version | version)
+  case " ${STALE:-} " in *" $name "*) echo "$name 0.9.0" ;; *) echo "$name v1.0.0" ;; esac
+  exit 0
+  ;;
+esac
 echo "$name $*" >>"$T/tools.log"
 for f; do
   case $f in */ci-render.*) { echo "== ${f#*/ci-render.??????/}" && cat "$f"; } >>"$T/rendered.log" ;; esac
@@ -39,7 +44,7 @@ EOF
 # tree runs its own copies of codeql.yml, link-check.yml and scorecard.yml.
 fixture() {
   local t
-  for t in shellcheck shfmt constricter actionlint zizmor typos gitleaks pip-audit; do tool "$t"; done
+  for t in shellcheck shfmt constricter actionlint zizmor typos gitleaks reuse pip-audit; do tool "$t"; done
   npm_fake
   mkdir -p "$T/tree/scripts" "$T/tree/tests" "$T/tree/scratch" "$T/tree/.github/scripts" \
     "$T/tree/.github/workflows" "$T/tree/.github/node_modules/.bin"
@@ -47,6 +52,9 @@ fixture() {
   echo 'true' >"$T/tree/tests/t_test.sh"
   echo 'true' >"$T/tree/scratch/x.sh"
   echo 'on: push' >"$T/tree/.github/workflows/own.yml"
+  printf 'on: push\n# the setup-tools step\n          tools: shellcheck gitleaks\n' >"$T/tree/.github/workflows/checks.yml"
+  printf '# a comment\nshellcheck|1.0.0|raw|u|--version|g||%s\ngitleaks|1.0.0|raw|u|version|g||%s\n' \
+    "$(printf 'a%.0s' {1..64})" "$(printf 'b%.0s' {1..64})" | t_shared .github/actions/setup-tool/tools.txt
   echo '{}' >"$T/tree/.github/zizmor.yml"
   : >"$T/tree/requirements-dev.txt"
   printf '[[IgnoredVulns]]\nid = "GHSA-vfj7-8cjw-p6xm"\n' | t_shared .github/osv-scanner.toml
@@ -60,6 +68,7 @@ fixture() {
   echo 'on: push' | t_shared .github/workflows/plain.yml
   echo 'on: push' | t_shared .github/workflows/link-check.yml
   echo 'on: push' | t_shared .github/workflows/scorecard.yml
+  echo 'version: 2' | t_shared .github/dependabot.yml
   echo 'x' | t_shared .github/actions/a/action.yml
   echo 'true' | t_shared .github/scripts/shared.sh
   t_target a dev .github/workflows/codeql.yml .github/workflows/plain.yml .github/actions/a/action.yml
@@ -70,8 +79,7 @@ Language = "Rust"
 EOF
   t_target b dev .github/workflows/marked.yml
   "$SCRIPTS/usage.sh"
-  "$SCRIPTS/own_workflows.sh"
-  # nothing tracked, so spdx.sh passes
+  "$SCRIPTS/own_files.sh"
   t_git "$T/tree" init -q
 }
 
@@ -79,16 +87,16 @@ test_runs_every_check_over_the_tree() {
   fixture
   t_run "$SCRIPTS/check.sh"
   t_rc 0
-  t_out "== shellcheck" "== markdownlint" "== typos" "== gitleaks" "== audit" "== usage" "== spdx" "== own-workflows" \
+  t_out "== pins" "== shellcheck" "== markdownlint" "== typos" "== gitleaks" "== reuse" "== audit" "== usage" "== own-files" \
     "== config" "== lint-workflows-rendered"
   t_no_out "::error"
   t_in -x "$T/tools.log" 'shellcheck -x files/.github/scripts/shared.sh scratch/x.sh scripts/s.sh tests/t_test.sh' \
     'constricter scripts tests scratch' \
-    'typos ' 'gitleaks git --redact --no-banner .' \
+    'typos ' 'gitleaks git --redact --no-banner .' 'reuse --no-multiprocessing lint' \
     'pip-audit --strict --require-hashes --disable-pip -r requirements-dev.txt' 'npm audit --prefix .github --json' \
     'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' \
     'prettier --check .' \
-    'lint_workflows.sh .github/workflows/codeql.yml .github/workflows/link-check.yml .github/workflows/own.yml .github/workflows/scorecard.yml files/.github/workflows/link-check.yml files/.github/workflows/plain.yml files/.github/workflows/scorecard.yml files/.github/actions/a/action.yml'
+    'lint_workflows.sh .github/workflows/checks.yml .github/workflows/codeql.yml .github/workflows/link-check.yml .github/workflows/own.yml .github/workflows/scorecard.yml files/.github/workflows/link-check.yml files/.github/workflows/plain.yml files/.github/workflows/scorecard.yml files/.github/actions/a/action.yml'
   grep -q '^actionlint -config-file .github/actionlint.yaml .*/ci-render\.' "$T/tools.log" ||
     t_fail "actionlint did not read the shared runner labels for the renderings"
   grep -q '^prettier --check --config .prettierrc.yaml .*/ci-render\.' "$T/tools.log" ||
@@ -202,13 +210,29 @@ test_counts_and_annotates_each_failure() {
     t_fail "zizmor ran offline with a token"
 }
 
+test_a_tool_off_its_pin_fails() {
+  fixture
+  t_run env STALE=gitleaks "$SCRIPTS/check.sh"
+  t_rc 1
+  t_out "gitleaks is not the pinned 1.0.0: gitleaks 0.9.0" "::error title=pins::pins failed"
+  t_no_out "shellcheck is not the pinned"
+}
+
+test_a_tool_missing_or_without_a_row_fails() {
+  fixture
+  printf 'on: push\n          tools: shellcheck nosuchtool typos\n' >"$T/tree/.github/workflows/checks.yml"
+  echo "nosuchtool|1.0.0|raw|u|--version|g||$(printf 'c%.0s' {1..64})" >>"$T/tree/files/.github/actions/setup-tool/tools.txt"
+  t_run "$SCRIPTS/check.sh"
+  t_rc 1
+  t_out "nosuchtool is not the pinned 1.0.0: " "setup-tool: no row for 'typos'" "::error title=pins::pins failed"
+}
+
 test_a_shared_file_the_template_gitignore_swallows_fails() {
   fixture
   # a target's blanket rule in the shared .gitignore applies to files/ here
   printf '# shared:if repo=a\n*.toml\n# shared:endif\n' | t_shared .gitignore
   echo 'x = 1' | t_shared tool.toml
-  # tracked below, so it carries the SPDX comment spdx.sh asks of tracked files
-  printf '# SPDX-License-Identifier: MIT\nx = 1\n' | t_shared .github/kept.toml
+  echo 'x = 1' | t_shared .github/kept.toml
   t_target b dev tool.toml .github/kept.toml
   "$SCRIPTS/usage.sh"
   t_run "$SCRIPTS/check.sh"
@@ -271,12 +295,12 @@ EOF
   t_in -x "$T/tools.log" 'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github'
 }
 
-test_a_stale_own_workflow_fails() {
+test_a_stale_own_file_fails() {
   fixture
   echo 'on: pull_request' | t_shared .github/workflows/scorecard.yml
   t_run "$SCRIPTS/check.sh"
   t_rc 1
-  t_out ".github/workflows/scorecard.yml is out of date" "::error title=own-workflows::own-workflows failed"
+  t_out ".github/workflows/scorecard.yml is out of date" "::error title=own-files::own-files failed"
 }
 
 test_an_invalid_config_fails_and_renders_nothing() {

@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: MIT
 # shellcheck shell=bash
 # The harness every tests/*_test.sh sources: a fixture tree per test, fake
 # commands on PATH, and assertions. A suite defines test_* functions and ends

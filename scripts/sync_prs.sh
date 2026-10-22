@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # Reports each target's open sync pull request: its age and the checks on its
 # head, so a shared file that breaks a target shows up here. Fails a target
 # whose pull request has a failed check, has no checks, or has been open more

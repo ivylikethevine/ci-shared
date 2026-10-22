@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: MIT
 """Statement coverage of shell scripts from kcov runs, judged per statement.
 
     python3 -I tests/coverage.py <kcov cobertura.xml>... <script.sh>...

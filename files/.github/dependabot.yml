@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: MIT
 # shared:if repo=say-hi
 # Names what dependabot could move: the SHA-pinned `uses:` in the workflows
 # and composite actions, the Markdown tools' npm lock, and the digest-pinned
@@ -86,6 +85,19 @@
 #     drift.yml reports a formula behind say-hi's latest release.
 #
 # shared:endif
+# shared:if repo=ci-shared
+# Names what dependabot could move: the SHA-pinned `uses:` in this
+# repository's workflows and composite actions and in the shared ones under
+# files/, the Markdown tools' npm lock, and the hashed requirements-dev.txt.
+#
+# What this file cannot cover, and what covers it instead:
+#
+#   * The CI tools in files/.github/actions/setup-tool/tools.txt and the inline
+#     pin in .github/scripts/check_tool_versions.local.sh (the just-the-docs
+#     theme): tool-versions.yml reports their drift in the same tracking
+#     issue, with the same 7-day cooldown.
+#
+# shared:endif
 # Renovate was weighed and declined: it would cover the pins this file cannot,
 # but costs a second bot, its own config dialect, and a PR stream where
 # tool-versions.yml keeps one tracking issue.
@@ -104,6 +116,12 @@ updates:
     directories:
       - "/"
       - "/.github/actions/*"
+      # shared:if repo=ci-shared
+      # the shipped workflows and actions; two of .github/actions/* are
+      # symlinks into files/
+      - "/files"
+      - "/files/.github/actions/*"
+      # shared:endif
     schedule:
       interval: weekly
       day: monday
@@ -315,6 +333,22 @@ updates:
 
   # pyproject.toml -> uv.lock
   - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+  # shared:endif
+  # shared:if repo=ci-shared
+
+  # requirements-dev.in -> the hashed requirements-dev.txt (constricter,
+  # coverage, pip-audit, reuse)
+  - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly

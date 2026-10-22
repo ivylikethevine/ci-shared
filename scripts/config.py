@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: MIT
 """Reads and validates every repos/<name>.toml, and prints them as one JSON list.
 
     python3 -I scripts/config.py [ROOT]

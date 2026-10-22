@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # scripts/config.py: a valid repos/ prints as JSON with every optional key
 # filled in; each kind of mistake prints its own line and nothing on stdout.
 # shellcheck disable=SC2329 # t_main calls the test_* functions by name

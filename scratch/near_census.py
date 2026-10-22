@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: MIT
 """Lists every tracked path two or more local checkouts hold at the same place
 and how alike their copies are, to find files that could become shared or
 templated.

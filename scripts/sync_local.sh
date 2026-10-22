@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # Copies files/ into the local checkouts, each receiving the paths its
 # repos/<name>.toml lists, templates rendered with the values it gives them.
+# The writing form is for setting up a new machine's checkouts; otherwise the
+# sync pull requests carry a change, and --check is the look.
 #
 #   scripts/sync_local.sh [--check] [ROOT]
 #

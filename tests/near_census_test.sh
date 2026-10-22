@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # scratch/near_census.py: groups each path's copies across the checkouts,
 # skips what --min and files/ rule out, scores each copy against the largest
 # group's, and with --normalize ignores the project names.

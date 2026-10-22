@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # Lists every workflow job in the checkouts beside this repository that runs
 # on macOS or Windows, with its harden-runner egress policy and the number of
 # allowed endpoints, as TSV: repo, workflow, job, runners, policy, endpoints.

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # Runs every suite under kcov and coverage.py, and fails unless every
 # statement of scripts/*.sh and scratch/*.sh ran (tests/coverage.py says how a
 # statement is judged from kcov's lines) and every line and branch of the

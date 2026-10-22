@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: MIT
 name: Tool versions
 
 # Every pin here and in files/ against the newest upstream release past the

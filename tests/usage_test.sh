@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
 # scripts/usage.sh: writes USAGE.md's table of files against targets and the
 # template values, and --check fails when it is stale.
 # shellcheck disable=SC2329 # t_main calls the test_* functions by name
@@ -19,8 +18,6 @@ test_writes_the_table_and_check_agrees() {
   t_rc 0
   t_file "$T/tree/USAGE.md" "$(
     cat <<'EOF'
-<!-- SPDX-License-Identifier: MIT -->
-
 # Usage
 
 Which repositories receive each shared file, written by
