@@ -293,3 +293,32 @@ source build.
 If 3.2 adopts pinact for action SHAs, its check mode joins `check.sh` beside
 `lint_workflows.sh`: it also verifies that each SHA is reachable from the
 tag its comment names, which rule 5 does not.
+
+## 6. Known issues
+
+### 6.1 harden-runner `block` drops allowlisted hosts on some westus2 runners
+
+- **What:** GitHub runs an experiment on some westus2 hosted runners that adds
+  its own DNS resolver (`egress-dns-resolver.service`, on `127.0.0.100:53`).
+  On those runners harden-runner's Community-tier agent sees the DNS queries
+  but not the answers, so it never maps an allowlisted host to its IP and
+  drops the connection. Here it fails `checks.yml` at zizmor's
+  `known-vulnerable-actions` audit: `api.github.com` resolves to
+  `20.29.134.x`, the connection is dropped, and zizmor reports
+  `error sending request for url (https://api.github.com/advisories?...)`.
+  Seen on `ubuntu-26.04` image `20261012.163.1` (runs 39797240128 and
+  39828192413); any repository with a `block` job is exposed.
+- **Upstream:**
+  [actions/runner-images#14925](https://github.com/actions/runner-images/issues/14925)
+  is open, with no answer from GitHub on the DNS-observation part.
+  [step-security/harden-runner#705](https://github.com/step-security/harden-runner/issues/705)
+  covers the earlier port conflict on `127.0.0.1:53`, fixed. harden-runner
+  v2.22.2 changes DNS tracing for the Enterprise tier only.
+- **Until then:** rerun the job; a runner outside the experiment passes. Two
+  stopgaps, not taken: retry zizmor with `--offline` when its online audit
+  cannot reach GitHub (skips `known-vulnerable-actions` on that run), or
+  `egress-policy: audit` (_batch_).
+- **Recognize it:** `Region: westus2` in the job's set-up log, and in
+  harden-runner's post step every `endpoint called` line has an empty
+  `domain:`, with `ip address dropped` for an allowlisted host's IP. Close
+  this once #14925 reports a fix and a westus2 run passes.
