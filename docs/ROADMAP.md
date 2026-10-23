@@ -231,3 +231,20 @@ tag its comment names, which rule 5 does not.
   harden-runner's post step every `endpoint called` line has an empty
   `domain:`, with `ip address dropped` for an allowlisted host's IP. Close
   this once #14925 reports a fix and a westus2 run passes.
+
+### 6.2 shfmt and `brew style` disagree on homebrew-tap's shell layout
+
+- **What:** homebrew-tap's `brew style` runs Homebrew's shfmt wrapper over
+  every `*.sh` in the tap, which wants `then` and `do` on their own line and
+  `case` items indented. Plain shfmt with the shared `.editorconfig` (an
+  editor's format-on-save, a format-on-write hook) rewrites both back, so
+  `docs/demo/fixtures.sh` fails `brew style` after any such save. No
+  EditorConfig key gives Homebrew's `do` placement.
+- **How:** a `shared:if repo=homebrew-tap` block in `files/.editorconfig`
+  setting `ignore = true` for `[docs/demo/*.sh]`, so `brew style` alone owns
+  that layout. Not enough by itself: shfmt 3.14.1 honors `ignore` only when
+  it walks a directory (`shfmt -l <dir>` skips the file, `shfmt -d <file>`
+  still reformats it), so whatever formats one file on save must also skip a
+  file `shfmt -f <dir>` leaves out.
+- **Until then:** `brew style --fix`'s diff from the CI log, applied by hand
+  and not reformatted afterwards.
