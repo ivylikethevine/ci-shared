@@ -187,6 +187,14 @@ kept.
   above; `tests/coverage.py` explains how
   kcov's line counts are mapped to statements.
 
+### Syntax
+
+Spellings the coverage job needs, each learned from a failed run.
+
+| Write                   | Not                                           | Breaks on                                                                                                                                  | Caught by                                                     |
+| ----------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| `a=(x y z)` on one line | an array assignment spread over several lines | Ubuntu's kcov `43+dfsg-2`: no line of the assignment records a hit, so `tests/coverage.py` reports it not run; upstream kcov 43 records it | the coverage job; learned from `scripts/own_files.sh`'s `OWN` |
+
 ## The sync tokens
 
 Each target has its own token, in a secret of this repository's `sync`
