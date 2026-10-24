@@ -60,7 +60,13 @@ case "$method $ep" in
   reply "{\"sha\":\"$sha\",\"verification\":{\"verified\":$v}}"
   ;;
 "PATCH "*/git/refs/heads/ci-sync | "POST "*/git/refs) printf '%s\n' "${fields[@]}" >"$T/ref.txt" ;;
-"GET "*/pulls\?*) [ "$s" = pr-open ] && reply '[{"number":7,"html_url":"https://example.invalid/pull/7"}]' || reply '[]' ;;
+"GET "*/pulls\?*)
+  case $s in
+  pr-open | pr-draft) reply "[{\"number\":7,\"node_id\":\"PR_7\",\"draft\":$([ "$s" = pr-draft ] && echo true || echo false),\"html_url\":\"https://example.invalid/pull/7\"}]" ;;
+  *) reply '[]' ;;
+  esac
+  ;;
+"POST graphql") printf '%s\n' "${fields[@]}" >"$T/graphql.txt" ;;
 "PATCH "*/pulls/7) printf '%s\n' "${fields[@]}" >"$T/pr.txt" ;;
 "POST "*/pulls)
   printf '%s\n' "${fields[@]}" >"$T/pr.txt"
@@ -107,7 +113,7 @@ test_opens_a_pull_request_for_what_differs() {
   t_logged '^POST repos/owner/a/git/refs$'
   t_file "$T/ref.txt" "$(printf 'ref=refs/heads/ci-sync\nsha=%s' "$(cat "$T/commit.sha")")"
   # shellcheck disable=SC2016 # literal text
-  t_in "$T/pr.txt" head=ci-sync base=dev '- `new.sh`'
+  t_in "$T/pr.txt" head=ci-sync base=dev draft=true '- `new.sh`'
 }
 
 test_moves_the_branch_and_updates_an_open_pull_request() {
@@ -120,6 +126,15 @@ test_moves_the_branch_and_updates_an_open_pull_request() {
   t_rc 0
   t_out "a: updated pull request #7"
   t_logged '^PATCH repos/owner/a/pulls/7$'
+  # marked ready: back to draft before the branch moves
+  t_in "$T/graphql.txt" id=PR_7 convertPullRequestToDraft
+  t_eq "$(grep -n -E '^(POST graphql|POST repos/owner/a/git/refs)$' "$GH_LOG" | cut -d' ' -f2)" \
+    "graphql"$'\n'"repos/owner/a/git/refs" "draft before the branch"
+  : >"$GH_LOG"
+  t_run env GH_TOKEN=t SCENARIO=pr-draft "$SCRIPTS/sync_remote.sh" a
+  t_rc 0
+  t_out "a: updated pull request #7"
+  t_not_logged graphql
   : >"$GH_LOG"
   echo '[]' >"$T/listing.json"
   t_run env GH_TOKEN=t SCENARIO=branch-exists "$SCRIPTS/sync_remote.sh" b

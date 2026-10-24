@@ -2,12 +2,16 @@
 """Reads and validates every repos/<name>.toml, and prints them as one JSON list.
 
     python3 -I scripts/config.py [ROOT]
+    python3 -I scripts/config.py --self [ROOT]
 
 ROOT is the tree holding repos/ and files/ (default: this checkout). Each entry is the file's table with `name` (the file's stem) and `token_secret`
 (SYNC_TOKEN_<NAME>, the secret holding its sync token) added and every
-optional key filled in, sorted by name. Any problem in any file, an unknown key
-included, prints one line per problem to stderr and exits 1 with nothing on
-stdout, so no caller acts on a partial or misread config. Needs Python 3.11+.
+optional key filled in, sorted by name. --self prints instead the entry of
+rulesets/self.toml, this repository's own values in the shared main ruleset,
+named after its repository, or null without one; it is no target. Any problem
+in any file, an unknown key included, prints one line per problem to stderr and
+exits 1 with nothing on stdout, so no caller acts on a partial or misread
+config. Needs Python 3.11+.
 """
 
 import json
@@ -22,7 +26,9 @@ from typing import BinaryIO, TypeAlias
 Toml: TypeAlias = "str | int | float | bool | date | datetime | time | list[Toml] | dict[str, Toml]"
 Table: TypeAlias = dict[str, Toml]
 
-ROOT: Path = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent
+SELF: bool = sys.argv[1:2] == ["--self"]
+ARGS: list[str] = sys.argv[2:] if SELF else sys.argv[1:]
+ROOT: Path = Path(ARGS[0]).resolve() if ARGS else Path(__file__).resolve().parent.parent
 SLUG: re.Pattern[str] = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")
 TEMPLATE_KEY: re.Pattern[str] = re.compile(r"[A-Za-z_]+")
 # ci_targets spells a value's spaces %20, so none holds a %; awk's gsub reads
@@ -41,18 +47,23 @@ def check_keys(where: str, table: Table, allowed: set[str], errors: list[str]) -
         errors.append(f"{where}: unknown key {key!r}")
 
 
-def read(path: Path, errors: list[str]) -> Table | None:
-    where: str = str(path.relative_to(ROOT))
-    data: Table
+def load(path: Path, where: str, errors: list[str]) -> Table | None:
     f: BinaryIO
     try:
         with path.open("rb") as f:
-            data = tomllib.load(f)
+            return tomllib.load(f)
     except (OSError, tomllib.TOMLDecodeError) as e:
         errors.append(f"{where}: {e}")
         return None
+
+
+def read(path: Path, errors: list[str]) -> Table | None:
+    where: str = str(path.relative_to(ROOT))
+    data: Table | None = load(path, where, errors)
+    if data is None:
+        return None
     name: str = path.stem
-    check_keys(where, data, {"repository", "sync_branch", "files", "templates", "rulesets"}, errors)
+    check_keys(where, data, {"repository", "sync_branch", "files", "templates", "rulesets", "immutable_releases"}, errors)
 
     repository: Toml | None = data.get("repository")
     if not isinstance(repository, str) or not SLUG.fullmatch(repository):
@@ -95,6 +106,30 @@ def read(path: Path, errors: list[str]) -> Table | None:
             if not isinstance(v, str) or not TEMPLATE_VALUE.fullmatch(v):
                 errors.append(f"{where}: templates.{p!r}.{k} must be a string of single-spaced words without %, & or \\")
 
+    read_settings(where, data, errors)
+    return {"name": name, "token_secret": token_secret(name), **data}
+
+
+def read_self(path: Path, errors: list[str]) -> Table | None:
+    where: str = str(path.relative_to(ROOT))
+    data: Table | None = load(path, where, errors)
+    if data is None:
+        return None
+    check_keys(where, data, {"repository", "rulesets", "immutable_releases"}, errors)
+    repository: Toml | None = data.get("repository")
+    if not isinstance(repository, str) or not SLUG.fullmatch(repository):
+        errors.append(f"{where}: repository must be 'owner/name'")
+        return None
+    read_settings(where, data, errors)
+    name: str = repository.split("/")[1]
+    return {"name": name, "token_secret": token_secret(name), **data}
+
+
+# The repository settings scripts/rulesets.sh compares: the main ruleset's own
+# values, and whether releases are immutable.
+def read_settings(where: str, data: Table, errors: list[str]) -> None:
+    if not isinstance(data.setdefault("immutable_releases", False), bool):
+        errors.append(f"{where}: immutable_releases must be true or false")
     rulesets: Toml = data.setdefault("rulesets", {})
     if not isinstance(rulesets, dict):
         errors.append(f"{where}: rulesets must be a table")
@@ -138,8 +173,6 @@ def read(path: Path, errors: list[str]) -> Table | None:
     ):
         errors.append(f"{where}: rulesets.main.code_coverage must set minimum_coverage and max_coverage_drop")
 
-    return {"name": name, "token_secret": token_secret(name), **data}
-
 
 def token_secret(name: str) -> str:
     return "SYNC_TOKEN_" + re.sub(r"[^A-Za-z0-9]", "_", name).upper()
@@ -151,19 +184,26 @@ def main() -> int:
     if not paths:
         errors.append("repos/ holds no <name>.toml")
     configs: list[Table] = [c for c in (read(p, errors) for p in paths) if c is not None]
-    # repositories cannot collide: each ends in its file's name
+    self_path: Path = ROOT / "rulesets" / "self.toml"
+    own: Table | None = read_self(self_path, errors) if self_path.exists() else None
+    # repositories cannot collide: each target ends in its file's name, and
+    # this repository's name is no target's
+    owners: list[tuple[str, str]] = [(f"repos/{c['name']}.toml", str(c["token_secret"])) for c in configs]
+    if own is not None:
+        owners.append(("rulesets/self.toml", str(own["token_secret"])))
     secrets: dict[str, str] = {}
-    c: Table
-    for c in configs:
-        if c["token_secret"] in secrets:
-            errors.append(f"repos/{c['name']}.toml: its token secret {c['token_secret']} is also repos/{secrets[c['token_secret']]}.toml's")
-        secrets.setdefault(c["token_secret"], c["name"])
+    where: str
+    secret: str
+    for where, secret in owners:
+        if secret in secrets:
+            errors.append(f"{where}: its token secret {secret} is also {secrets[secret]}'s")
+        secrets.setdefault(secret, where)
     if errors:
         e: str
         for e in errors:
             print(e, file=sys.stderr)
         return 1
-    json.dump(configs, sys.stdout)
+    json.dump(own if SELF else configs, sys.stdout)
     print()
     return 0
 

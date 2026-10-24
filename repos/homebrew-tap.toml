@@ -1,7 +1,7 @@
 # What ci-shared syncs into homebrew-tap, and its own values in the shared rulesets.
 repository = "ivylikethevine/homebrew-tap"
 # the branch sync pull requests go to: main or dev
-sync_branch = "dev"
+sync_branch = "main"
 
 # paths from files/, each at the path it has in this repository
 files = [

@@ -9,7 +9,8 @@
 #
 # Works through the Git data API, so nothing is cloned: one commit on the base
 # branch's head, on branch `ci-sync` (force-moved each run), and one pull
-# request from it, updated in place while open. A repository already in line
+# request from it, opened as a draft and updated in place while open, turned
+# back into a draft first if it was marked ready. A repository already in line
 # gets nothing. NAME limits the run to those repositories; --dry-run reports
 # what differs and writes nothing. --drift is a dry run that also fails each
 # repository differing with no sync pull request open: one edited by hand, or
@@ -82,10 +83,10 @@ if [ "$dry" = 0 ]; then
   fi
 fi
 
-# open_pr <slug> <base> - prints "number url" of the open sync pull request
-# into base, if any
+# open_pr <slug> <base> - prints "number node_id draft url" of the open sync
+# pull request into base, if any
 open_pr() {
-  gh api "repos/$1/pulls?head=${1%%/*}:$BRANCH&base=$2&state=open" --jq '.[0] | select(. != null) | "\(.number) \(.html_url)"'
+  gh api "repos/$1/pulls?head=${1%%/*}:$BRANCH&base=$2&state=open" --jq '.[0] | select(. != null) | "\(.number) \(.node_id) \(.draft) \(.html_url)"'
 }
 
 # Uploads one file as a blob and checks GitHub stored the bytes git hashes.
@@ -170,7 +171,7 @@ sync_repo() {
       summary "### $name" '' "Drifted on \`$base\`, with no sync pull request open:" '' "$files"
     else
       echo "$name: differs; sync pull request #${pr%% *} is open"
-      summary "### $name" '' "Differs on \`$base\`; pull request [#${pr%% *}](${pr#* }) is open:" '' "$files"
+      summary "### $name" '' "Differs on \`$base\`; pull request [#${pr%% *}](${pr##* }) is open:" '' "$files"
     fi
     return 0
   fi
@@ -179,12 +180,21 @@ sync_repo() {
     return 0
   fi
 
-  local new_tree commit url verb body
+  local new_tree commit number node draft url verb body
   # one `path<TAB>mode<TAB>sha` line per entry
   new_tree="$(printf '%s' "$entries" | jq -Rn --arg b "$tree" \
     '{base_tree: $b, tree: [inputs | split("\t") | {path: .[0], mode: .[1], type: "blob", sha: .[2]}]}' |
     gh api "repos/$slug/git/trees" --input - --jq .sha)"
   commit="$(create_commit "$slug" "$new_tree" "$head" "$TITLE"$'\n\n'"Source: $source_sha")"
+  # an open pull request marked ready goes back to draft before the branch
+  # moves, so the push starts no CI until it is marked ready again
+  pr="$(open_pr "$slug" "$base")"
+  if [ -n "$pr" ]; then
+    read -r number node draft url <<<"$pr"
+    # shellcheck disable=SC2016 # $id is the query's variable
+    [ "$draft" = true ] || gh api graphql -f id="$node" \
+      -f query='mutation($id: ID!) { convertPullRequestToDraft(input: {pullRequestId: $id}) { clientMutationId } }' >/dev/null
+  fi
   if gh api "repos/$slug/git/ref/heads/$BRANCH" >/dev/null 2>&1; then
     gh api -X PATCH "repos/$slug/git/refs/heads/$BRANCH" -f sha="$commit" -F force=true >/dev/null
   else
@@ -192,17 +202,17 @@ sync_repo() {
   fi
 
   body="Brings the shared CI files in line with source commit \`$source_sha\`. Change the source copy, not this branch: the next sync overwrites it."$'\n\n'"$files"
-  pr="$(open_pr "$slug" "$base")"
   if [ -n "$pr" ]; then
     verb=updated
-    gh api -X PATCH "repos/$slug/pulls/${pr%% *}" -f body="$body" >/dev/null
+    gh api -X PATCH "repos/$slug/pulls/$number" -f body="$body" >/dev/null
   else
     verb=opened
-    pr="$(gh api "repos/$slug/pulls" -f title="$TITLE" -f head="$BRANCH" -f base="$base" -f body="$body" --jq '"\(.number) \(.html_url)"')"
+    # a draft, so the target's CI waits until it is marked ready
+    pr="$(gh api "repos/$slug/pulls" -f title="$TITLE" -f head="$BRANCH" -f base="$base" -f body="$body" -F draft=true --jq '"\(.number) \(.html_url)"')"
+    number="${pr%% *}" url="${pr#* }"
   fi
-  url="${pr#* }" pr="${pr%% *}"
-  echo "$name: $verb pull request #$pr"
-  summary "### $name" '' "Pull request [#$pr]($url) into \`$base\` $verb:" '' "$files"
+  echo "$name: $verb pull request #$number"
+  summary "### $name" '' "Pull request [#$number]($url) into \`$base\` $verb:" '' "$files"
 }
 
 failed=0

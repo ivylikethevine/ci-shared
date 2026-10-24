@@ -14,13 +14,9 @@ set -euo pipefail
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-# each path, then the key=value pairs it is rendered with
-OWN=(
-  .github/workflows/codeql.yml
-  .github/workflows/link-check.yml
-  .github/workflows/scorecard.yml
-  ".github/dependabot.yml repo=ci-shared"
-)
+# each path, then the key=value pairs it is rendered with; one line, since
+# Ubuntu's kcov 43+dfsg-2 records no hit for a multi-line array assignment
+OWN=(.github/workflows/codeql.yml .github/workflows/link-check.yml .github/workflows/scorecard.yml ".github/dependabot.yml repo=ci-shared")
 
 stale=0
 for row in "${OWN[@]}"; do

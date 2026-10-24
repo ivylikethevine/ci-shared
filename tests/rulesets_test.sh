@@ -62,7 +62,10 @@ test_render_refuses_bad_arguments() {
 # The live rulesets are a's, rendered and dressed as GitHub returns them, with
 # DRIFT changing one rule, MISSING dropping dev's, HIDDEN leaving out main's
 # bypass_actors as GitHub does for a token that cannot edit it, and READ_ERROR
-# failing stable's read. $T/tokens.log gets "token endpoint" per call.
+# failing stable's read. Actions require SHA pins and releases are not
+# immutable, unless UNPINNED or IMMUTABLE says otherwise; SETTINGS is `hidden`
+# (403) or `error` (500) for both. $T/tokens.log gets "token endpoint" per
+# call.
 fake_github() {
   local kind id=0
   for kind in main dev stable; do
@@ -94,6 +97,19 @@ case $ep in
 */rulesets/3)
   [ -z "${READ_ERROR:-}" ] || fail
   cat "$T/live-stable.json"
+  ;;
+*/actions/permissions | */immutable-releases)
+  case ${SETTINGS:-} in
+  hidden) fail "Resource not accessible by personal access token (HTTP 403)" ;;
+  error) fail ;;
+  esac
+  case $ep in
+  */actions/permissions) reply "{\"enabled\":true,\"sha_pinning_required\":$([ -n "${UNPINNED:-}" ] && echo false || echo true)}" ;;
+  *)
+    [ -n "${IMMUTABLE:-}" ] || fail "Not Found (HTTP 404)"
+    reply '{"enabled":true,"enforced_by_owner":false}'
+    ;;
+  esac
   ;;
 *) fail "unexpected $ep" ;;
 esac
@@ -148,6 +164,67 @@ test_diff_reads_each_target_with_its_own_token() {
   t_run env SYNC_TOKEN_A=own "$SCRIPTS/rulesets.sh" diff
   t_rc 1
   t_out "no token: SYNC_TOKEN_B is not set"
+}
+
+test_diff_checks_sha_pinning_and_immutable_releases() {
+  fixture
+  fake_github
+  t_run env GH_TOKEN=t UNPINNED=1 IMMUTABLE=1 "$SCRIPTS/rulesets.sh" diff a
+  t_rc 2
+  t_out "a: actions are not required to be pinned to a full-length commit SHA" \
+    "a: immutable releases enabled is true, but immutable_releases is false"
+  echo 'immutable_releases = true' | t_toml b
+  t_run env GH_TOKEN=t "$SCRIPTS/rulesets.sh" diff b
+  t_out "b: immutable releases enabled is false, but immutable_releases is true"
+  t_run env GH_TOKEN=t IMMUTABLE=1 "$SCRIPTS/rulesets.sh" diff b
+  t_no_out "immutable releases enabled"
+}
+
+test_diff_names_settings_hidden_from_the_token() {
+  fixture
+  fake_github
+  t_run env GH_TOKEN=t SETTINGS=hidden "$SCRIPTS/rulesets.sh" diff a
+  t_rc 0
+  t_out "a: Actions settings hidden from this token; SHA pinning not compared" \
+    "a: immutable releases hidden from this token; not compared"
+  t_run env GH_TOKEN=t SETTINGS=error "$SCRIPTS/rulesets.sh" diff a
+  t_rc 2
+  t_out "a: cannot read its Actions settings" "a: cannot read whether its releases are immutable"
+}
+
+# rulesets/self.toml: this repository's main alone, with its own token
+test_diff_covers_its_own_main_alone() {
+  fixture
+  t_self own <<'EOF'
+[rulesets.main]
+required_status_checks = [{ context = "tests", integration_id = 1 }]
+code_scanning_tools = ["CodeQL"]
+code_quality = true
+code_coverage = { minimum_coverage = 80, max_coverage_drop = 2 }
+EOF
+  fake_github
+  t_run "$SCRIPTS/rulesets.sh" render own main
+  t_rc 0
+  t_eq "$(jq -c '.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks' "$T/out")" \
+    '[{"context":"tests","integration_id":1}]' "own's checks"
+  t_run env SYNC_TOKEN_OWN=o "$SCRIPTS/rulesets.sh" diff own
+  t_rc 0
+  t_logged 'repos/owner/own/rulesets/1$'
+  t_not_logged 'repos/owner/own/rulesets/[23]$'
+  t_not_logged owner/a
+  t_in "$T/tokens.log" "o repos/owner/own/rulesets?includes_parents=false"
+  : >"$GH_LOG"
+  t_run env GH_TOKEN=t "$SCRIPTS/rulesets.sh" diff a own
+  t_rc 0
+  t_logged owner/a/
+  t_logged owner/own/
+  t_not_logged owner/b/
+  # every repository: b's main alone differs from the fake's
+  : >"$GH_LOG"
+  t_run env GH_TOKEN=t "$SCRIPTS/rulesets.sh" diff
+  t_rc 1
+  t_out "--- b main (live)"
+  t_logged owner/own/
 }
 
 test_diff_counts_each_target_it_cannot_read() {

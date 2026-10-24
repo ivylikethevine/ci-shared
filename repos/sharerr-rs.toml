@@ -1,7 +1,10 @@
 # What ci-shared syncs into sharerr-rs, and its own values in the shared rulesets.
 repository = "ivylikethevine/sharerr-rs"
 # the branch sync pull requests go to: main or dev
-sync_branch = "dev"
+sync_branch = "main"
+# GitHub's immutable releases (Settings → General → Releases), compared by
+# scripts/rulesets.sh diff where the token can read it
+immutable_releases = true
 
 # paths from files/, each at the path it has in this repository
 files = [
@@ -49,6 +52,7 @@ files = [
   ".markdownlint.yaml",
   ".moxide.toml",
   ".prettierrc.yaml",
+  ".scorecard.yml",
   ".shellcheckrc",
   ".vscode/settings.json",
   ".zed/settings.json",

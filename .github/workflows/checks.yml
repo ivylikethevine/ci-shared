@@ -5,7 +5,10 @@ name: CI
 on:
   push:
     branches: [main]
+  # drafts check nothing (the jobs' `if`) until ready_for_review; a PR turned
+  # back into a draft cancels its run
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   workflow_dispatch:
     inputs:
       # a runner image to try before the pin below moves to it, e.g.
@@ -24,6 +27,7 @@ concurrency:
 jobs:
   checks:
     name: Checks
+    if: github.event.pull_request.draft != true
     runs-on: ${{ inputs.runner || 'ubuntu-26.04' }}
     timeout-minutes: 10
     # job-scoped, not workflow-level, for Scorecard's Token-Permissions check
@@ -54,7 +58,7 @@ jobs:
 
       - uses: ./.github/actions/setup-tools
         with:
-          tools: shellcheck shfmt actionlint zizmor yq typos gitleaks
+          tools: shellcheck shfmt actionlint zizmor yq typos gitleaks lychee
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -80,20 +84,19 @@ jobs:
 
   coverage:
     name: Coverage
+    if: github.event.pull_request.draft != true
     runs-on: ${{ inputs.runner || 'ubuntu-26.04' }}
     timeout-minutes: 15
     permissions:
       contents: read
     steps:
       # block: the checkout, the cache service, the pinned tools' release
-      # downloads, kcov's source tarball, PyPI, and the Ubuntu archive for
-      # kcov's libraries and build deps.
+      # downloads, PyPI, and the Ubuntu archive for kcov.
       - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: >
             github.com:443
-            codeload.github.com:443
             results-receiver.actions.githubusercontent.com:443
             release-assets.githubusercontent.com:443
             objects.githubusercontent.com:443
@@ -109,20 +112,17 @@ jobs:
         with:
           persist-credentials: false
 
-      # built from source on a cache miss (tools.txt's cmake kind)
       - uses: ./.github/actions/setup-tools
         with:
-          tools: shfmt kcov yq
+          tools: shfmt yq
 
-      # kcov's runtime libraries, which a cached kcov needs as much as a
-      # fresh build; apt runs only when the image lacks one
-      - name: Install kcov's libraries
+      # Ubuntu 26.04 packages kcov 43, the release tests/coverage.sh needs
+      - name: Install kcov
         run: |
           set -euo pipefail
-          if ldd "$(command -v kcov)" | grep -q 'not found'; then
-            source .github/actions/apt/lib.sh
-            _ci_apt_install libdw1 libelf1 libcurl4 zlib1g
-          fi
+          source .github/actions/apt/lib.sh
+          _ci_apt_install kcov
+          kcov --version
 
       # the runner's python3, a venv holding requirements-dev.txt's hashed pins
       - name: Install the pinned Python tools

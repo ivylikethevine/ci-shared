@@ -44,7 +44,7 @@ EOF
 # tree runs its own copies of codeql.yml, link-check.yml and scorecard.yml.
 fixture() {
   local t
-  for t in shellcheck shfmt constricter actionlint zizmor typos gitleaks reuse pip-audit; do tool "$t"; done
+  for t in shellcheck shfmt constricter actionlint zizmor lychee typos gitleaks reuse pip-audit; do tool "$t"; done
   npm_fake
   mkdir -p "$T/tree/scripts" "$T/tree/tests" "$T/tree/scratch" "$T/tree/.github/scripts" \
     "$T/tree/.github/workflows" "$T/tree/.github/node_modules/.bin"
@@ -85,13 +85,18 @@ EOF
 
 test_runs_every_check_over_the_tree() {
   fixture
+  # lychee reads the tracked Markdown alone
+  echo '# t' >"$T/tree/README.md"
+  echo '# u' >"$T/tree/untracked.md"
+  t_git "$T/tree" add README.md
   t_run "$SCRIPTS/check.sh"
   t_rc 0
-  t_out "== pins" "== shellcheck" "== markdownlint" "== typos" "== gitleaks" "== reuse" "== audit" "== usage" "== own-files" \
+  t_out "== pins" "== shellcheck" "== markdownlint" "== lychee" "== typos" "== gitleaks" "== reuse" "== audit" "== usage" "== own-files" \
     "== config" "== lint-workflows-rendered"
   t_no_out "::error"
   t_in -x "$T/tools.log" 'shellcheck -x files/.github/scripts/shared.sh scratch/x.sh scripts/s.sh tests/t_test.sh' \
     'constricter scripts tests scratch' \
+    'lychee --config lychee.toml --offline --include-fragments --no-progress README.md' \
     'typos ' 'gitleaks git --redact --no-banner .' 'reuse --no-multiprocessing lint' \
     'pip-audit --strict --require-hashes --disable-pip -r requirements-dev.txt' 'npm audit --prefix .github --json' \
     'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' \

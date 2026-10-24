@@ -9,7 +9,8 @@
 #
 # OUT, which must not exist yet (kcov adds to an earlier run's counts), gets
 # kcov's reports and coverage.py's data; the default is a fresh temporary
-# directory. Needs kcov and shfmt on PATH, as tools.txt pins them, and a
+# directory. Needs kcov 43 or later (Ubuntu 26.04's package) and shfmt, as
+# tools.txt pins it, on PATH, and a
 # python3 that imports coverage (requirements-dev.txt), besides what
 # tests/run.sh needs.
 set -euo pipefail
