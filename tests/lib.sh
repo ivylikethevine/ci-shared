@@ -20,8 +20,9 @@ _T_PATH="$PATH"
 # t_setup - a fresh $T; the environment the scripts read reset to it
 t_setup() {
   T="$(mktemp -d "${TMPDIR:-/tmp}/ci-shared-test.XXXXXX")"
-  mkdir -p "$T/bin" "$T/tree/repos" "$T/tree/files"
-  cp -R "$REPO_DIR/rulesets" "$T/tree/"
+  mkdir -p "$T/bin" "$T/tree/repos" "$T/tree/files" "$T/tree/rulesets"
+  # the shared rulesets, not this repository's own values (t_self)
+  cp "$REPO_DIR"/rulesets/*.json "$T/tree/rulesets/"
   export T PATH="$T/bin:$_T_PATH" CI_SHARED_DIR="$T/tree" GH_LOG="$T/gh.log"
   # every SYNC_ and GITHUB_ variable too: a token of the machine's, or the
   # real job summary of a suite run in Actions, stays out of the fixtures
@@ -167,6 +168,14 @@ t_target() {
 # t_toml <name> - appends stdin to repos/<name>.toml
 t_toml() {
   cat >>"$T/tree/repos/$1.toml"
+}
+
+# t_self <name> - writes rulesets/self.toml for owner/<name>, then stdin
+t_self() {
+  {
+    printf 'repository = "owner/%s"\n' "$1"
+    cat
+  } >"$T/tree/rulesets/self.toml"
 }
 
 # t_shared <path> [mode] - writes stdin to tree/files/<path>

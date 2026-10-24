@@ -16,7 +16,8 @@ _batch_ are shared CI items: they go to every repository as one hand-run batch
   `uses: ./.github/...` to `$/.github/...` and `self-repository` back on in
   `.github/zizmor.yml` could follow. Blocked: actionlint 1.7.12, the newest,
   rejects `$/` ("ref is missing"), and no actionlint issue or pull request
-  tracks it. Every repository's lint gate runs actionlint.
+  tracks it. Every repository's lint gate runs actionlint. jactionlint
+  accepts it but is not taken for now (3.6).
 - **How, once actionlint accepts it:** rewrite the shared workflows and each
   target's own, extend `lint_workflows.sh` rule 7 to `$/` (it checks the
   sparse-checkout list for `./` refs only), re-enable the rule, and update
@@ -54,13 +55,21 @@ knows 26.04. What changed under them, from GitHub's image comparison
 - **Run:** `checks.yml` on `ubuntu-26.04` (run 39189568504): both jobs
   green, kcov 43 built from source in under a minute on a cold cache keyed
   `ubuntu26`, the checks and the 100% coverage gate as on 24.04.
-- **Left:** the first run on the image of each other shared workflow and of
-  every target's own, all now named `ubuntu-26.04` too. say-hi's two Linux
-  suite jobs are renamed `fast suites (ubuntu-26.04)` and
-  `lint suites (ubuntu-26.04)`, and its `[rulesets.main]` checks with them:
-  re-import `scripts/rulesets.sh render say-hi main` on GitHub when the
-  renamed jobs reach `main`, or pull requests wait on checks that never
-  report.
+- **Since:** this repository's `CI`, `CodeQL`, `Link check`, `Scorecard` and
+  `Sync` pass on `ubuntu-26.04` (2026-10-24); `tool-versions.yml` last ran
+  before the switch, so its next weekly run is its first. say-hi's renamed
+  suite jobs are on its `main`, and its live `main` ruleset requires them.
+- **Left:** instadroid's own workflows still name `ubuntu-latest` (21 jobs on
+  its `dev`), so they moved with the label rather than by a commit; pin them
+  to `ubuntu-26.04` there. The 2026-10-24 sync pull requests' CI failures are
+  not the image's: a new RustSec advisory in sharerr-rs's `cargo-deny`,
+  `filelock` and `setuptools` advisories in instadroid's `pip-audit`, and in
+  say-hi a `test_runner_ci` cost-table test and a harden-runner agent that
+  exited when `cdn.dl.k8s.io` did not resolve.
+- **kcov:** 26.04 packages kcov 43, which this repository's coverage job now
+  installs from apt. `tools.txt`'s `cmake` row for kcov is say-hi's alone:
+  its coverage jobs could take the package too, in its own workflow, and the
+  row go.
 - **Still exposed:** `checks.yml` and `coverage` build their venv on the
   system python3 (3.14: fine for constricter's `min-python = "3.11"` and
   coverage 7.16); `image-scan.yml` meets docker 29.
@@ -121,37 +130,32 @@ repository, which the sync then carries everywhere:
   `GITHUB_TOKEN` may not push: the App of 3.1 (installed on this repository
   too) is the token.
 
-### 3.3 "Require actions to be pinned to a full-length commit SHA"
+### 3.3 "Require actions to be pinned to a full-length commit SHA" (by hand)
 
-- **What:** a repository setting (Settings → Actions → General) that makes
-  GitHub refuse an unpinned `uses:` at run time; reusable workflows stay
-  exempt. `lint_workflows.sh` rule 5 enforces the same in-tree, but only on a
-  branch that runs the lint.
-- **How:** switch it on in every repository by hand (no REST field is
-  documented) and record it in the README beside the rulesets; `rulesets.sh
-diff` cannot see it.
+- **Left:** switch it on in every repository, this one included, with the
+  README's `gh api -X PUT .../actions/permissions` (The rulesets). The field
+  is `sha_pinning_required`; `scripts/rulesets.sh diff` compares it when its
+  token has Administration read, which the sync tokens lack, so the weekly run
+  names it as hidden.
 
-### 3.4 Immutable releases on the releasing targets
+### 3.4 Immutable releases on the releasing targets (by hand)
 
-- **What:** generally available since 2025-10-28: once on, every published
-  release's tag and assets are locked and each release carries a Sigstore
-  attestation. It complements `protect-stable` (which guards the tag refs)
-  and `.github/allowed_signers` (which gates signing). All-or-nothing per
-  repository, so a repository with a moving tag cannot take it.
-- **How:** a target-side setting for say-hi, sharerr-rs, instadroid and
-  python-constricter; `scripts/rulesets.sh diff` could report it beside the
-  rulesets if the repository API exposes the flag (verify).
+- **What:** once on, a published release's tag and assets are locked and the
+  release carries a Sigstore attestation, beside `protect-stable` and
+  `.github/allowed_signers`. sharerr-rs and python-constricter set
+  `immutable_releases = true`: sharerr-rs's release has no assets, and
+  python-constricter's `gh release create TAG assets/*` keeps the release a
+  draft until its uploads finish.
+- **Left:** `gh api -X PUT repos/OWNER/REPO/immutable-releases` on those two
+  by hand. say-hi and instadroid cannot take it yet: each publishes its
+  release before attaching assets (say-hi's `_ci_upload_assets` and package
+  repository after `gh release create`; instadroid's
+  `gh release upload --clobber`), which a locked release refuses. Each needs
+  its release created with `--draft`, its assets attached, then
+  `gh release edit --draft=false`, in its own workflow, before its
+  `immutable_releases` turns on.
 
-### 3.5 This repository's own `main` under the shared rulesets
-
-A push to `main` here opens a pull request in every target, so `main` needs
-the protection `check_protection.sh` checks there: `rulesets/main.json`
-rendered for a target named `ci-shared` with required checks `Checks`,
-`Coverage` and `CodeQL (actions)`, and `check_protection.sh` run on this
-repository in the weekly job. The `sync` environment already limits the
-secrets to `main`.
-
-### 3.6 A shared push ruleset
+### 3.5 A shared push ruleset
 
 Rulesets of type `push` apply to every branch and can refuse paths
 (`*.key`, `*.pem`, `.env`, `secrets/`) and files over a size. One
@@ -160,6 +164,41 @@ Rulesets of type `push` apply to every branch and can refuse paths
 maintainer whose `gitleaks` check runs on every push; worth it only if a
 target gains contributors.
 
+### 3.6 jactionlint in place of actionlint (_batch_, decided against for now)
+
+- **What:** [jdx/jactionlint](https://github.com/jdx/jactionlint), an
+  MIT-licensed fork of actionlint that accepts `uses: $/...`, which would
+  unblock 1.1. Not taken: the first release was 2026-10-05, it reached v2.3.0
+  within three weeks with a major bump four days in, and it has one
+  maintainer. Revisit once it has a settled release history, or drop it if
+  actionlint accepts `$/` first.
+- **Tried (v2.3.0, on a copy of the tree with every local `uses:` rewritten
+  to `$/`):** `--profile=correctness` is clean where actionlint 1.7.12 fails
+  every `$/` line; it reads a `$/` action's `action.yml`, so an unknown or
+  missing input fails as it does for `./`. Its `self-repository` rule, with a
+  `--fix=unsafe` rewrite, matches zizmor's. The default profile finds nothing
+  new on this repository's workflows; `pedantic` adds 34 (`require-shell`
+  17, `require-expression-wrapping` 10).
+- **What the swap would take:**
+  - Long options only: `-config-file` and `-oneline` are refused, so
+    `scripts/check.sh` and `tests/check_test.sh` change. It runs only inside
+    a git repository.
+  - It reads `.github/actionlint.yaml` but applies its larger `default`
+    profile unless the file sets `profile: correctness`; pin that to keep
+    today's checks across its fast releases.
+  - Linting `files/` here: a `$/` action and a `workflow_run` workflow name
+    resolve against this repository's root, so `advisory-note`,
+    `fetch-latest-artifact` and pages.yml's `Coverage` trigger are reported
+    missing. Lint the renderings in a scratch git tree shaped like a target,
+    or ignore `invalid-local-action` and `workflow-run-names` there.
+  - A `tools.txt` row: its archives follow actionlint's naming
+    (`jactionlint_%v_linux_amd64.tar.gz`) with a checksums file and a
+    Sigstore bundle.
+  - sharerr-rs's required check `workflow lint (zizmor + actionlint)` is
+    renamed in its ruleset by hand if the job name changes.
+- **Not evaluated:** it claims a rule for every zizmor 1.30.1 audit, which
+  could later replace zizmor as well.
+
 ## 4. More files into `files/`
 
 From `scratch/near_census.py --normalize` over the sibling checkouts. The
@@ -167,37 +206,20 @@ template engine's `shared:if repo=<name>` blocks already carry per-target
 rows in `dependabot.yml` and `tools.txt`, so a file that is mostly common
 with a per-repository tail is a template, not a per-repository file.
 
-| Path                    | Held by                     | Alike                                 | Call                                                |
-| ----------------------- | --------------------------- | ------------------------------------- | --------------------------------------------------- |
-| `.scorecard.yml`        | say-hi, sharerr-rs          | fuzzing and contributors notes common | template; instadroid and python-constricter get one |
-| `.prettierignore`       | 4 repos, 5 to 8 lines       | differ by build dirs                  | template with repo blocks                           |
-| `.typos.toml`           | 4 repos, 14 to 50 lines     | a common head, per-repo words         | template with repo blocks                           |
-| `.hadolint.yaml`        | say-hi, sharerr-rs (34, 29) | instadroid's is 3 lines               | template for the two                                |
-| `.tool-versions`        | 3 repos, 2 to 4 lines       | different tools                       | leave                                               |
-| `docs/GOVERNANCE.md`    | 3 repos, 51 to 82 lines     | ratio 0.24 to 0.27                    | leave, or template its policy sections              |
-| `.claude/settings.json` | 3 repos                     | differ                                | leave: project settings                             |
+| Path                    | Held by                     | Alike                         | Call                                   |
+| ----------------------- | --------------------------- | ----------------------------- | -------------------------------------- |
+| `.prettierignore`       | 4 repos, 5 to 8 lines       | differ by build dirs          | template with repo blocks              |
+| `.typos.toml`           | 4 repos, 14 to 50 lines     | a common head, per-repo words | template with repo blocks              |
+| `.hadolint.yaml`        | say-hi, sharerr-rs (34, 29) | instadroid's is 3 lines       | template for the two                   |
+| `.tool-versions`        | 3 repos, 2 to 4 lines       | different tools               | leave                                  |
+| `docs/GOVERNANCE.md`    | 3 repos, 51 to 82 lines     | ratio 0.24 to 0.27            | leave, or template its policy sections |
+| `.claude/settings.json` | 3 repos                     | differ                        | leave: project settings                |
 
 `bug_report.yml` and `feature_request.yml` stay per-repository by decision.
 
 ## 5. Checks this repository could run on itself
 
-### 5.1 Offline link check
-
-Every target's `ci.yml` runs `lychee --offline` over its Markdown; `check.sh`
-runs `lychee` not at all, while `link-check.yml` sweeps external links weekly.
-Add `lychee --offline --include-fragments --config lychee.toml` over the
-tracked `*.md` (the pin is in `tools.txt`), so a renamed heading in the
-README fails here first.
-
-### 5.2 kcov from apt once 26.04 ships 43
-
-`tests/coverage.sh` needs kcov 43, built from source on a cache miss (a
-minute of cmake and its build deps). Ubuntu 24.04 packages 42; if 26.04
-packages 43 or later, `_ci_apt_install kcov` replaces the `cmake` row for
-this repository, and the row stays for say-hi only if it still needs the
-source build.
-
-### 5.3 `pinact run --check`
+### 5.1 `pinact run --check`
 
 If 3.2 adopts pinact for action SHAs, its check mode joins `check.sh` beside
 `lint_workflows.sh`: it also verifies that each SHA is reachable from the

@@ -129,6 +129,28 @@ test_reads_each_target_with_its_own_token() {
   t_out "repos/ has no target nope"
 }
 
+# rulesets/self.toml: this repository's main alone, with its own token
+test_checks_its_own_main_alone() {
+  fake_github
+  t_target repo dev
+  t_self own </dev/null
+  t_run env GH_TOKEN=shared SYNC_TOKEN_OWN=o "$SCRIPTS/check_protection.sh"
+  t_rc 0
+  t_out "owner/repo dev: protected" "owner/own main: protected"
+  t_no_out "owner/own dev"
+  t_in "$T/tokens.log" "o repos/owner/own/rules/branches/main?per_page=100"
+  t_not_logged owner/own/.*dev
+  : >"$T/tokens.log"
+  t_run env GH_TOKEN=t "$SCRIPTS/check_protection.sh" own
+  t_rc 0
+  t_out "owner/own main: protected"
+  t_not_in "$T/tokens.log" owner/repo/
+  t_run env GH_TOKEN=t SCENARIO=main-unprotected "$SCRIPTS/check_protection.sh" own repo
+  t_rc 1
+  t_out "::error title=protection owner/own main::lacks non_fast_forward, pull_request" \
+    "::error title=protection owner/repo main::"
+}
+
 test_fails_on_an_invalid_config() {
   local c
   fake_github
@@ -163,19 +185,21 @@ test_refuses_rows_config_py_would_have() {
   fake_github
   t_fake python3 <<'EOF'
 #!/usr/bin/env bash
-cat "$T/config.json"
+case $* in *--self*) echo null ;; *) cat "$T/config.json" ;; esac
 EOF
   echo '[]' >"$T/config.json"
   check 1
   t_out "repos/ lists no targets"
+  # `-` marks this repository's row alone, and there is none
   jq -n '[{name: "repo", token_secret: "SYNC_TOKEN_REPO", repository: "owner/repo", sync_branch: "dev"},
     {repository: "not a slug", sync_branch: "dev"},
     {repository: "owner/x", sync_branch: "dev extra"},
-    {repository: "owner/y", sync_branch: "release"}]' >"$T/config.json"
+    {repository: "owner/y", sync_branch: "release"},
+    {repository: "owner/z", sync_branch: "-"}]' >"$T/config.json"
   check 1
   t_out "owner/repo dev: protected" \
     "target 'not a slug dev' is not 'owner/name main|dev'" \
-    "target 'owner/x dev extra' is not" "target 'owner/y release' is not"
+    "target 'owner/x dev extra' is not" "target 'owner/y release' is not" "target 'owner/z -' is not"
 }
 
 # A jq that fails where its pattern matches the program, the real one

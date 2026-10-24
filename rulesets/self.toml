@@ -1,0 +1,14 @@
+# This repository's own values in rulesets/main.json. A push to its main opens
+# a sync pull request in every target, so its main is protected as theirs is;
+# its dev and tags are not. scripts/rulesets.sh renders and diffs it as
+# `ci-shared`, and scripts/check_protection.sh checks its main.
+repository = "ivylikethevine/ci-shared"
+
+[rulesets.main]
+required_status_checks = [
+  { context = "Checks" },
+  { context = "Coverage" },
+  { context = "CodeQL (actions)" },
+]
+# Scorecard runs on main alone here, so a pull request would wait on it
+code_scanning_tools = ["CodeQL"]

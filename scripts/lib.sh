@@ -23,6 +23,36 @@ ci_configs() {
   printf '%s\n' "$CI_CONFIGS"
 }
 
+# ci_load_self - reads rulesets/self.toml, this repository's own values in the
+# shared main ruleset, into CI_SELF (null without one). The rulesets and
+# protection checks cover this repository's main through it; the sync never
+# reads it.
+ci_load_self() {
+  CI_SELF="$(python3 -I "$CI_SCRIPTS_DIR/config.py" --self "$CI_SHARED_DIR")"
+}
+
+# the targets' entries and, once ci_load_self has run, this repository's
+ci_entries() {
+  ci_configs | jq -c --argjson s "${CI_SELF:-null}" '. + ([$s] - [null])'
+}
+
+# ci_covered [NAME...] - prints a row per repository the rulesets and
+# protection checks cover: ci_repos' rows, then "owner/name -" for this
+# repository when no NAME is given or one is its name. Fails as ci_repos does
+# on a NAME that is neither.
+ci_covered() {
+  local self own=0 n names=()
+  self="$(jq -r '.repository // empty' <<<"${CI_SELF:-null}")"
+  [ $# -gt 0 ] || own=1
+  for n; do
+    if [ -n "$self" ] && [ "$n" = "${self#*/}" ]; then own=1; else names+=("$n"); fi
+  done
+  if [ $# = 0 ] || [ ${#names[@]} -gt 0 ]; then
+    ci_repos ${names[@]+"${names[@]}"} || return 1
+  fi
+  if [ -n "$self" ] && [ "$own" = 1 ]; then echo "$self -"; fi
+}
+
 # ci_repos [NAME...] - prints "owner/name branch" for each target, or for each
 # NAME given alone, branch being where its sync pull requests go. Fails, naming
 # them, when a NAME is no target, so a typo cannot pass as nothing to do; a
@@ -63,9 +93,10 @@ ci_targets() {
 }
 
 # ci_token_secret <name> - prints the name of the secret holding target
-# <name>'s sync token, SYNC_TOKEN_<NAME>.
+# <name>'s sync token, SYNC_TOKEN_<NAME>; for this repository, the variable
+# its own read-only token is passed in.
 ci_token_secret() {
-  ci_configs | jq -er --arg n "$1" 'first(.[] | select(.name == $n)).token_secret // error("no target \($n)")'
+  ci_entries | jq -er --arg n "$1" 'first(.[] | select(.name == $n)).token_secret // error("no target \($n)")'
 }
 
 # ci_token <name> - prints target <name>'s sync token: its SYNC_TOKEN_<NAME>,
@@ -84,10 +115,16 @@ ci_token() {
   fi
 }
 
-# ci_ruleset_values <name> - prints the JSON values target <name> gives the
-# shared main ruleset.
+# ci_ruleset_values <name> - prints the JSON values target <name>, or this
+# repository, gives the shared main ruleset.
 ci_ruleset_values() {
-  ci_configs | jq -ec --arg n "$1" 'first(.[] | select(.name == $n)).rulesets.main'
+  ci_entries | jq -ec --arg n "$1" 'first(.[] | select(.name == $n)).rulesets.main'
+}
+
+# ci_immutable_releases <name> - prints true or false: whether <name>'s
+# releases should be immutable.
+ci_immutable_releases() {
+  ci_entries | jq -r --arg n "$1" '(first(.[] | select(.name == $n)) // error("no target \($n)")).immutable_releases'
 }
 
 # ci_target_row <name> <path> - prints the key=value pairs <name>'s targets

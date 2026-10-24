@@ -6,7 +6,8 @@
 # reaches `dev` only through a pull request GitHub merges). A rule counts only
 # from an active ruleset the token's own user cannot bypass outside a pull
 # request; the token acts as that user. rulesets/ holds the shared rulesets
-# that pass.
+# that pass. This repository's `main` (rulesets/self.toml) is held to the same,
+# its `dev` to nothing: a push to its main reaches every target.
 #
 #   SYNC_TOKEN_<NAME>=<token>... scripts/check_protection.sh [NAME...]
 #   GH_TOKEN=<token> scripts/check_protection.sh [NAME...]
@@ -22,6 +23,7 @@ set -euo pipefail
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 ci_load
+ci_load_self
 
 # check_branch <slug> <main|dev> - prints why the branch fails and fails;
 # every command is checked, since a caller's `if` turns off `set -e` in here
@@ -80,7 +82,8 @@ check_branch() {
   fi
 }
 
-repos="$(ci_repos "$@")"
+repos="$(ci_covered "$@")"
+self="$(jq -r '.repository // empty' <<<"$CI_SELF")"
 if [ -z "$repos" ]; then
   echo "::error title=protection::repos/ lists no targets"
   exit 1
@@ -89,9 +92,10 @@ fi
 failed=0
 while read -r slug base extra; do
   # the sync writes only to rows this check covers: config.py's SLUG and
-  # BRANCHES again, checked here too so a misread config fails closed
+  # BRANCHES again, checked here too so a misread config fails closed; `-`
+  # is this repository, whose main alone is checked
   if [[ ! $slug =~ ^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$ ]] || [ -n "$extra" ] ||
-    { [ "$base" != main ] && [ "$base" != dev ]; }; then
+    { [ "$base" != main ] && [ "$base" != dev ] && { [ "$base" != - ] || [ "$slug" != "$self" ]; }; }; then
     echo "::error title=protection::target '$slug $base${extra:+ $extra}' is not 'owner/name main|dev'"
     failed=1
     continue
@@ -102,7 +106,9 @@ while read -r slug base extra; do
     continue
   fi
   export GH_TOKEN="$token"
-  for branch in main dev; do
+  branches=(main dev)
+  [ "$base" != - ] || branches=(main)
+  for branch in "${branches[@]}"; do
     if out="$(check_branch "$slug" "$branch" 2>&1)"; then
       echo "$slug $branch: protected"
     else

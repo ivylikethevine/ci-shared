@@ -61,8 +61,11 @@ jobs:
       drift: ${{ steps.drift.outcome }}
       rulesets: ${{ steps.rulesets.outcome }}
       prs: ${{ steps.prs.outcome }}
-    # one per repos/<name>.toml, each read by the scripts for its own target
+    # one per repos/<name>.toml, each read by the scripts for its own target,
+    # and this job's own read-only token for this repository's main
+    # (rulesets/self.toml), which the protection and rulesets checks cover
     env:
+      SYNC_TOKEN_CI_SHARED: ${{ github.token }}
       SYNC_TOKEN_HOMEBREW_TAP: ${{ secrets.SYNC_TOKEN_HOMEBREW_TAP }}
       SYNC_TOKEN_INSTADROID: ${{ secrets.SYNC_TOKEN_INSTADROID }}
       SYNC_TOKEN_PYTHON_CONSTRICTER: ${{ secrets.SYNC_TOKEN_PYTHON_CONSTRICTER }}

@@ -3,7 +3,8 @@
 # included, with the shared configs: that every tools.txt tool checks.yml
 # installs is its pinned version here, shellcheck and shfmt (.shellcheckrc,
 # .editorconfig), constricter over the Python (pyproject.toml), actionlint, lint_workflows.sh, zizmor (.github/zizmor.yml),
-# prettier and markdownlint (.prettierrc.yaml, .markdownlint.yaml), typos,
+# prettier and markdownlint (.prettierrc.yaml, .markdownlint.yaml), lychee
+# offline over the tracked Markdown (lychee.toml), typos,
 # gitleaks over the history, reuse lint (REUSE.toml, LICENSES/), pip-audit over
 # requirements-dev.txt and npm audit over .github/package-lock.json (less the advisories
 # files/.github/osv-scanner.toml accepts), then each template as every target
@@ -105,6 +106,13 @@ while IFS= read -r f; do
 done < <(find files \( -name '*.md' -o -name '*.json' \) -type f | LC_ALL=C sort)
 run prettier "$bin/prettier" --check "${raw_prettier[@]}"
 run markdownlint "$bin/markdownlint-cli2" "${raw_markdownlint[@]}"
+# lychee offline, as each target's CI runs it: a relative link or an anchor
+# that no longer resolves. link-check.yml sweeps the external links weekly.
+# shellcheck disable=SC2329 # run calls it by name
+links() {
+  git ls-files -z '*.md' | xargs -0 -r lychee --config lychee.toml --offline --include-fragments --no-progress
+}
+run lychee links
 run typos typos
 run gitleaks gitleaks git --redact --no-banner .
 run reuse reuse --no-multiprocessing lint

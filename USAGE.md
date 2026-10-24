@@ -49,6 +49,7 @@ Which repositories receive each shared file, written by
 | `.markdownlint.yaml`                               |              | x          | x                  | x      | x          | 4     |
 | `.moxide.toml`                                     |              | x          | x                  | x      | x          | 4     |
 | `.prettierrc.yaml`                                 |              | x          | x                  | x      | x          | 4     |
+| `.scorecard.yml`                                   |              | x          | x                  | x      | x          | 4     |
 | `.shellcheckrc`                                    | x            | x          | x                  | x      | x          | 5     |
 | `.vscode/settings.json`                            | x            | x          | x                  | x      | x          | 5     |
 | `.zed/settings.json`                               |              | x          | x                  | x      | x          | 4     |
@@ -59,7 +60,7 @@ Which repositories receive each shared file, written by
 | `_config.yml`                                      |              | x          |                    | x      | x          | 3     |
 | `docs/CODE_OF_CONDUCT.md`                          | x            | x          | x                  | x      | x          | 5     |
 | `lychee.toml`                                      |              | x          | x                  | x      | x          | 4     |
-| **Files per repository**                           | 26           | 52         | 43                 | 51     | 54         | 54    |
+| **Files per repository**                           | 26           | 53         | 44                 | 52     | 55         | 55    |
 
 ## Template values
 

@@ -54,6 +54,7 @@ them, or make the repository a target.
 | `scripts/own_files.sh`        | writes this repository's own copies of the shared files it uses                              |
 | `docs/SECURITY.md`            | what is in scope here and how to report a vulnerability privately                            |
 | `rulesets/`                   | the rulesets every target shares, in GitHub's import format                                  |
+| `rulesets/self.toml`          | this repository's own values in the shared `main` ruleset                                    |
 | `scratch/`                    | analysis scripts kept for reuse, each with its suite under `tests/`                          |
 | `tests/`                      | a suite per script, run against fixtures and a fake `gh`                                     |
 | `requirements-dev.in`         | the Python dev tools (constricter, coverage.py, pip-audit, reuse); `.txt` is its hashed lock |
@@ -78,8 +79,9 @@ here.
    checkouts themselves are left alone: the sync pull requests of step 4 carry
    the change.
 4. Once this repository is on GitHub, a push to `main` that changes `files/`
-   or `repos/` opens one pull request per target on branch `ci-sync`, and
-   re-pushes update it. A change to the scripts alone, `ci_render` included,
+   or `repos/` opens one draft pull request per target on branch `ci-sync`,
+   and re-pushes update it. The target's CI skips drafts, so it runs once the
+   pull request is marked ready. A change to the scripts alone, `ci_render` included,
    syncs on the next manual run of `sync.yml`. The run's job summary lists
    each target's pull request and the files it changes.
 
@@ -98,11 +100,10 @@ shows up here. The last is off until the repository variable `SYNC_PR_REPORT`
 waits on the tokens' Checks and Commit statuses read. These and the token and
 protection checks keep one `sync-health` issue open until a weekly run passes.
 
-A target's CI and CodeQL workflows trigger on pull requests into `dev` as well
-as `main`, so the sync pull request is checked before it merges. Scorecard's
-CI-Tests and SAST checks grade each commit on `main` by the first pull request
-it was merged through, which for a synced commit is the one into `dev`; a
-target whose workflows run only for `main` loses a point on both.
+Sync pull requests go into each target's `main`, so its CI and CodeQL check
+them once, Scorecard's CI-Tests and SAST checks credit the synced commits, and
+the scheduled workflows run the new files as soon as they merge. Merge `main`
+back into `dev` after one merges; `dev` takes signed direct pushes.
 
 ## Roadmap
 
@@ -162,7 +163,8 @@ script that is not worth a suite is run from a temporary directory and not
 kept.
 
 - `scripts/check.sh` runs shellcheck, shfmt, constricter, actionlint,
-  `lint_workflows.sh`, zizmor, prettier, markdownlint, typos, gitleaks over the
+  `lint_workflows.sh`, zizmor, prettier, markdownlint, lychee offline over the
+  tracked Markdown, typos, gitleaks over the
   history, `reuse lint`, pip-audit over `requirements-dev.txt` and npm audit over the
   Markdown tools' lock (less the advisories `files/.github/osv-scanner.toml`
   accepts, as `advisories.yml` reads it), `scripts/usage.sh --check`,
@@ -180,8 +182,9 @@ kept.
   through `CI_SHARED_DIR`. `tests/coverage.sh` runs them under kcov and
   coverage.py and fails unless every statement of `scripts/*.sh` and
   `scratch/*.sh` ran and every line and branch of the Python did;
-  `checks.yml`'s coverage job runs it. It needs the `kcov`, `shfmt` and `yq`
-  pins and the virtual environment above; `tests/coverage.py` explains how
+  `checks.yml`'s coverage job runs it. It needs kcov 43 or later (Ubuntu
+  26.04's package), the `shfmt` and `yq` pins and the virtual environment
+  above; `tests/coverage.py` explains how
   kcov's line counts are mapped to statements.
 
 ## The sync tokens
@@ -209,7 +212,9 @@ from any other ref cannot read them.
 
 A new target needs its secret and its line in `sync.yml`'s job `env`, which
 passes each secret by name; until then `check_tokens.sh` reports it unset and
-the sync skips it.
+the sync skips it. The same `env` passes the job's own token as
+`SYNC_TOKEN_CI_SHARED`, for this repository's protection and rulesets checks;
+it is no secret, and no sync writes with it.
 
 Contents write lets a token push any branch of its target, not just
 `ci-sync`. The rulesets on each target's `main` and `dev` keep it to pull
@@ -266,3 +271,30 @@ approval would lift it to 8/10.
 (_Settings → Rules → Rulesets → New ruleset → Import a ruleset_);
 `scripts/rulesets.sh diff [NAME...]` shows where the live ones differ, and
 the weekly `sync.yml` run fails on any.
+
+This repository's own `main` is held to the same `main` ruleset, with the
+values in `rulesets/self.toml` (`render ci-shared main`), since a push to it
+opens a pull request in every target; its `dev` and tags are not. The weekly
+run reads it, and `scripts/check_protection.sh` checks its `main`, with the
+job's own read-only token, passed as `SYNC_TOKEN_CI_SHARED`.
+
+Two repository settings sit beside the rulesets, set by hand in each
+repository with an admin token:
+
+- **Actions pinned to a full-length commit SHA**, in every repository
+  (_Settings → Actions → General_):
+  `gh api -X PUT repos/OWNER/REPO/actions/permissions -F enabled=true -f allowed_actions=ALLOWED -F sha_pinning_required=true`,
+  ALLOWED being the `allowed_actions` a GET of the same path returns, so the
+  PUT changes nothing else. GitHub then refuses an unpinned `uses:` at run time, on every branch; a
+  reusable workflow stays exempt. `lint_workflows.sh` rule 5 checks the same
+  in-tree.
+- **Immutable releases**, where `repos/<name>.toml` sets
+  `immutable_releases = true` (_Settings → General → Releases_):
+  `gh api -X PUT repos/OWNER/REPO/immutable-releases`. A published release's
+  tag and assets are then locked, so a release workflow must attach every
+  asset while the release is a draft and publish it last; `gh release create`
+  with its assets does.
+
+`scripts/rulesets.sh diff` compares both, but GitHub shows them only to a
+token with Administration read, which the sync tokens lack: the weekly run
+names them as hidden, and a local run with an admin token compares them.
