@@ -239,6 +239,16 @@ tag its comment names, which rule 5 does not.
   `error sending request for url (https://api.github.com/advisories?...)`.
   Seen on `ubuntu-26.04` image `20261012.163.1` (runs 39797240128 and
   39828192413); any repository with a `block` job is exposed.
+- **Also at `actions/download-artifact`:** python-constricter's own
+  `build.yml` lost a `Compiled wheel` job to it twice, a second after
+  harden-runner engaged, both on westus2: the step fails with
+  `ECONNREFUSED` from `ListArtifacts`, and the post step shows a GitHub IP
+  (`140.82.11x.22:443`) dropped with an empty `domain:`. Seen on
+  `ubuntu-24.04-arm` (run 40057157703, 2026-10-24) and on `ubuntu-26.04`
+  image `20261012.163.1` (run 40216058251 attempt 2, 2026-10-25). The second
+  job stayed `in_progress` after its post steps ended, so the run never
+  completed and took `gh run cancel` before `gh run rerun --failed`. A retry
+  of the download step there would ride it out.
 - **Upstream:**
   [actions/runner-images#14925](https://github.com/actions/runner-images/issues/14925)
   is open, with no answer from GitHub on the DNS-observation part.
