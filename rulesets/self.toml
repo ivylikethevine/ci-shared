@@ -10,5 +10,6 @@ required_status_checks = [
   { context = "Coverage" },
   { context = "CodeQL (actions)" },
 ]
-# Scorecard runs on main alone here, so a pull request would wait on it
+# Scorecard is left out: its pull_request run grades the checkout locally, and
+# the score the badge shows comes from the runs on main
 code_scanning_tools = ["CodeQL"]
