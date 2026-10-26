@@ -73,7 +73,9 @@ def main(argv: list[str]) -> None:
     names: list[str] = args[1:] if args and os.path.isdir(args[0]) else args
     if not names:
         names = [
-            f[:-5] for f in sorted(os.listdir(os.path.join(HERE, "repos"))) if f.endswith(".toml")
+            f[:-5]
+            for f in sorted(os.listdir(os.path.join(HERE, "repos")))
+            if f.endswith(".toml") and not f.startswith("_")
         ]
     names = [n for n in names if os.path.isdir(os.path.join(root, n, ".git"))]
     rank: dict[str, int] = {n: i for i, n in enumerate(MATURITY)}

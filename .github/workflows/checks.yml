@@ -16,7 +16,6 @@ on:
       runner:
         description: Runner label for both jobs
         required: false
-        default: ubuntu-26.04
 
 permissions: {}
 
@@ -91,12 +90,14 @@ jobs:
       contents: read
     steps:
       # block: the checkout, the cache service, the pinned tools' release
-      # downloads, PyPI, and the Ubuntu archive for kcov.
+      # downloads and kcov's source tarball (codeload), PyPI, and the Ubuntu
+      # archive for kcov's build deps and runtime libraries.
       - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: >
             github.com:443
+            codeload.github.com:443
             results-receiver.actions.githubusercontent.com:443
             release-assets.githubusercontent.com:443
             objects.githubusercontent.com:443
@@ -112,17 +113,18 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-tools
-        with:
-          tools: shfmt yq
-
-      # Ubuntu 26.04 packages kcov 43, the release tests/coverage.sh needs
-      - name: Install kcov
+      # kcov's runtime libraries, which tools.txt leaves to the caller
+      - name: Install kcov's runtime libraries
         run: |
           set -euo pipefail
           source .github/actions/apt/lib.sh
-          _ci_apt_install kcov
-          kcov --version
+          _ci_apt_install libdw1 libelf1 libcurl4 zlib1g libstdc++6
+
+      # kcov built from its upstream source tarball (tools.txt's cmake row) and
+      # cached; Ubuntu's 43+dfsg-2 records no hit on a multi-line array
+      - uses: ./.github/actions/setup-tools
+        with:
+          tools: shfmt yq kcov
 
       # the runner's python3, a venv holding requirements-dev.txt's hashed pins
       - name: Install the pinned Python tools

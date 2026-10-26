@@ -82,30 +82,38 @@ ci_repos() {
     | "\(.repository) \(.sync_branch)"' --args "$@"
 }
 
+# a jq `pairs` filter: a table as the key=value words ci_rows prints
+CI_JQ_PAIRS='def pairs: [to_entries[] | "\(.key)=\(.value | gsub(" "; "%20"))"] | join(" ");'
+
 # ci_rows [NAME...] - prints a row per path each target, or each NAME alone,
 # receives: the target's name, the path in files/, then any key=value pairs
 # its template takes, a space in a value spelled `%20` so the row splits on
 # spaces (ci_render decodes it; scripts/config.py keeps `%` out of values). A
-# template's pairs start with `repo=<name>`, set by nothing but the target's
-# name. Fails as ci_repos does on a NAME that is no target.
+# template's pairs are `repo=<name>`, set by nothing but the target's name,
+# then the target's `values`, then the path's own. Fails as ci_repos does on a
+# NAME that is no target.
 # shellcheck disable=SC2120 # NAME is optional
 ci_rows() {
-  local name path vars
+  local name path values vars
   local -A template=()
   ci_repos "$@" >/dev/null || return 1
-  ci_configs | jq -r '.[] | select($ARGS.positional == [] or (.name | IN($ARGS.positional[])))
+  # unit separators between the fields, since IFS whitespace would merge empty ones
+  ci_configs | jq -r "$CI_JQ_PAIRS"'
+    .[] | select($ARGS.positional == [] or (.name | IN($ARGS.positional[])))
     | .name as $n
     | .templates as $t
+    | (.values | pairs) as $v
     | .files[]
-    | [$n, ., (($t[.] // {}) | to_entries[] | "\(.key)=\(.value | gsub(" "; "%20"))")]
-    | join(" ")' --args "$@" |
-    while read -r name path vars; do
+    | [$n, ., $v, ($t[.] // {} | pairs)]
+    | join("\u001f")' --args "$@" |
+    while IFS=$'\x1f' read -r name path values vars; do
       # each path read for markers once, however many targets receive it
       if [ -z "$vars" ] && [ -z "${template[$path]:-}" ]; then
         template[$path]=no
         if ci_is_template "$path"; then template[$path]=yes; fi
       fi
       if [ -n "$vars" ] || [ "${template[$path]}" = yes ]; then
+        vars="$values${values:+${vars:+ }}$vars"
         echo "$name $path repo=$name${vars:+ $vars}"
       else
         echo "$name $path"

@@ -3,62 +3,25 @@ repository = "ivylikethevine/instadroid"
 # the branch sync pull requests go to: main or dev
 sync_branch = "main"
 
-# paths from files/, each at the path it has in this repository
+# repos/_base.toml's paths, less any `skip` names
+base = true
+
+# paths from files/ beyond those, each at the path it has in this repository
 files = [
-  ".editorconfig",
-  ".gitattributes",
-  ".github/CODEOWNERS",
-  ".github/ISSUE_TEMPLATE/config.yml",
-  ".github/actionlint.yaml",
   ".github/actions/advisory-note/action.yml",
-  ".github/actions/apt/lib.sh",
   ".github/actions/fetch-latest-artifact/action.yml",
-  ".github/actions/setup-tool/action.yml",
-  ".github/actions/setup-tool/install.sh",
-  ".github/actions/setup-tool/lib.sh",
-  ".github/actions/setup-tool/tools.txt",
-  ".github/actions/setup-tools/action.yml",
-  ".github/actions/setup-tools/install-missing.sh",
-  ".github/actions/setup-tools/resolve.sh",
-  ".github/actions/upsert-tracking-issue/action.yml",
   ".github/allowed_signers",
-  ".github/dependabot.yml",
-  ".github/osv-scanner.toml",
-  ".github/package-lock.json",
-  ".github/package.json",
-  ".github/pull_request_template.md",
-  ".github/scripts/check_tool_versions.sh",
-  ".github/scripts/lib.sh",
-  ".github/scripts/lint_workflows.sh",
-  ".github/scripts/release_notes.sh",
   ".github/scripts/scan_pinned_images.sh",
   ".github/scripts/trivy_scan.sh",
   ".github/workflows/advisories.yml",
-  ".github/workflows/cancel-closed-pr.yml",
-  ".github/workflows/codeql.yml",
   ".github/workflows/image-scan.yml",
-  ".github/workflows/link-check.yml",
   ".github/workflows/pages.yml",
-  ".github/workflows/release-note.yml",
-  ".github/workflows/scorecard.yml",
-  ".github/workflows/tool-versions.yml",
-  ".github/zizmor.yml",
-  ".gitignore",
-  ".markdownlint.yaml",
-  ".moxide.toml",
-  ".prettierrc.yaml",
-  ".scorecard.yml",
-  ".shellcheckrc",
-  ".vscode/settings.json",
-  ".zed/settings.json",
-  "LICENSE.md",
-  "LICENSES/CC-BY-4.0.txt",
-  "LICENSES/MIT.txt",
-  "REUSE.toml",
   "_config.yml",
-  "docs/CODE_OF_CONDUCT.md",
-  "lychee.toml",
 ]
+
+# the values every template takes
+[values]
+language = "python"
 
 # the values a template takes, by path
 [templates.".gitignore"]
@@ -70,21 +33,11 @@ pins_egress = "audit"
 image_name = "instadroid"
 trivyignore = ".trivyignore"
 
-[templates.".github/workflows/codeql.yml"]
-language = "python"
-
-[templates.".vscode/settings.json"]
-python = "true"
-
-[templates.".zed/settings.json"]
-python = "true"
-
 [templates."_config.yml"]
 title = "instadroid"
 description = "A real, logged-in Instagram Android app running in redroid, publishing the chronological Following feed as Atom for FreshRSS."
 
 [templates.".github/workflows/advisories.yml"]
-python = "true"
 tool = "pip-audit"
 
 # this repository's values in rulesets/main.json

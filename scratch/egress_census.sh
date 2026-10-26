@@ -10,7 +10,8 @@
 set -euo pipefail
 here="${CI_SHARED_DIR:-$(dirname "$0")/..}"
 if (($# == 0)); then
-  for f in "$here"/repos/*.toml; do set -- "$@" "$(basename "$f" .toml)"; done
+  # repos/_base.toml and any other _ file are no target
+  for f in "$here"/repos/[!_]*.toml; do set -- "$@" "$(basename "$f" .toml)"; done
 fi
 mkdir -p "$here/local"
 out="$here/local/egress_census.tsv"

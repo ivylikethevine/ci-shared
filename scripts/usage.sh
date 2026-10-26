@@ -71,12 +71,23 @@ render() {
   '
 }
 
-# The values each repository gives each template, one bullet per row that
-# sets any beyond the implicit `repo`.
+# The values each repository gives every template, then those it gives each
+# template, one bullet per row that sets any beyond the implicit `repo` and
+# its `values`.
 render_values() {
-  local name path vars lines=""
+  local name path vars last="" lines=""
+  local -A values=()
+  while IFS=$'\x1f' read -r name vars; do
+    values[$name]=$vars
+  done < <(ci_configs | jq -r "$CI_JQ_PAIRS"'.[] | select(.values != {}) | [.name, (.values | pairs)] | join("\u001f")')
   while read -r name path vars; do
+    if [ "$name" != "$last" ] && [ -n "${values[$name]:-}" ]; then
+      lines="$lines- every template in $name: \`${values[$name]//%20/ }\`"$'\n'
+    fi
+    last=$name
     vars="${vars#"repo=$name"}"
+    vars="${vars# }"
+    vars="${vars#"${values[$name]:-}"}"
     vars="${vars# }"
     [ -n "$vars" ] || continue
     lines="$lines- \`$path\` in $name: \`${vars//%20/ }\`"$'\n'

@@ -40,6 +40,7 @@ them, or make the repository a target.
 | ----------------------------- | -------------------------------------------------------------------------------------------- |
 | `files/`                      | the master copies, at the path they have in a target                                         |
 | `repos/<name>.toml`           | one target: its repository, sync branch, files, template and ruleset values                  |
+| `repos/_base.toml`            | the files most targets receive; a target takes them with `base = true`, less its `skip`      |
 | `USAGE.md`                    | each file against the repositories receiving it, written from `repos/`                       |
 | `scripts/check.sh`            | the shipped checks, run over this repository and `files/`                                    |
 | `scripts/config.py`           | validates `repos/` and prints it as JSON, for the scripts to read                            |
@@ -71,7 +72,8 @@ here.
 ## Changing a shared file
 
 1. Edit it under `files/`. To share a new file, copy it in, add its path to
-   the `files` list of each `repos/<name>.toml` that should receive it, and run
+   `repos/_base.toml` (and the `skip` of each target that should not receive
+   it) or to the `files` list of each `repos/<name>.toml` that should, and run
    `scripts/usage.sh`. After a change to a file this repository keeps its own
    copy of (`OWN` in `scripts/own_files.sh`), run `scripts/own_files.sh`.
 2. Run `scripts/check.sh`.
@@ -120,12 +122,17 @@ one of a few values (`shared:if key=a,b`), up to `shared:endif`; a
 `shared:else` between them keeps the other lines instead. Blocks nest, and a
 marker is a `#` comment line, or `<!-- shared:if key -->` in Markdown. The target's
 `[templates."<path>"]` table sets the values: words separated by single spaces,
-holding no `%`, `&` or `\`. The key `repo` is always set, to the target's
-name, so a file may spell `__repo__` or `shared:if repo=<name>` with no table.
+holding no `%`, `&` or `\`. Its `[values]` table sets values every template it
+receives takes, such as its language; a path's table may not repeat one. The
+key `repo` is always set, to the target's name, so a file may spell `__repo__`
+or `shared:if repo=<name>` with no table.
 
 ```toml
-[templates.".github/workflows/codeql.yml"]
+[values]
 language = "rust"
+
+[templates.".github/workflows/advisories.yml"]
+tool = "cargo-deny"
 ```
 
 Every script renders before comparing or copying, so a target never sees a
@@ -183,18 +190,11 @@ kept.
   through `CI_SHARED_DIR`. `tests/coverage.sh` runs them under kcov and
   coverage.py and fails unless every statement of `scripts/*.sh` and
   `scratch/*.sh` ran and every line and branch of the Python did;
-  `checks.yml`'s coverage job runs it. It needs kcov 43 or later (Ubuntu
-  26.04's package), the `shfmt` and `yq` pins and the virtual environment
+  `checks.yml`'s coverage job runs it. It needs upstream kcov 43 or later
+  (`tools.txt`'s row; Ubuntu's `43+dfsg-2` records no hit on a multi-line
+  array assignment), the `shfmt` and `yq` pins and the virtual environment
   above; `tests/coverage.py` explains how
   kcov's line counts are mapped to statements.
-
-### Syntax
-
-Spellings the coverage job needs, each learned from a failed run.
-
-| Write                   | Not                                           | Breaks on                                                                                                                                  | Caught by                                                     |
-| ----------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| `a=(x y z)` on one line | an array assignment spread over several lines | Ubuntu's kcov `43+dfsg-2`: no line of the assignment records a hit, so `tests/coverage.py` reports it not run; upstream kcov 43 records it | the coverage job; learned from `scripts/own_files.sh`'s `OWN` |
 
 ## The sync tokens
 

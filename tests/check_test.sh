@@ -42,7 +42,7 @@ EOF
 # Target a receives a template workflow (values and a block), a plain
 # workflow and a non-workflow file; target b receives the template alone. The
 # tree keeps its own copies of codeql.yml, link-check.yml, scorecard.yml,
-# tool-versions.yml, dependabot.yml and .gitignore.
+# tool-versions.yml, dependabot.yml, .gitignore and REUSE.toml.
 fixture() {
   local t
   for t in shellcheck shfmt constricter actionlint zizmor lychee typos gitleaks reuse pip-audit; do tool "$t"; done
@@ -72,6 +72,7 @@ fixture() {
   echo 'on: push' | t_shared .github/workflows/tool-versions.yml
   echo 'version: 2' | t_shared .github/dependabot.yml
   echo 'local/' | t_shared .gitignore
+  echo 'version = 1' | t_shared REUSE.toml
   echo 'x' | t_shared .github/actions/a/action.yml
   echo 'true' | t_shared .github/scripts/shared.sh
   t_target a dev .github/workflows/codeql.yml .github/workflows/plain.yml .github/actions/a/action.yml
@@ -137,17 +138,17 @@ test_lints_a_markdown_template_rendered_not_raw() {
   t_in -x "$T/tools.log" 'prettier --check . !files/docs/t.md' 'markdownlint-cli2 **/*.md #**/node_modules #.claude #local #files/docs/t.md'
   t_match "$T/tools.log" '^markdownlint-cli2 --config .markdownlint.yaml .*/a/docs/t.md .*/b/docs/t.md$'
   # every rendering, a file prettier has no parser for included: --ignore-unknown skips it
-  t_match "$T/tools.log" '^prettier --check --config .prettierrc.yaml --ignore-unknown .*/a/docs/t.md .*/a/.gitattributes .*/b/docs/t.md$'
+  t_match "$T/tools.log" '^prettier --check --config .prettierrc.yaml --ignore-unknown .*/a/.gitattributes .*/a/docs/t.md .*/b/docs/t.md$'
   # prettier sees every rendering (a's .gitattributes keeps its block on the
   # implicit repo alone), markdownlint the Markdown alone
   t_file "$T/rendered.log" "$(
     cat <<'EOF'
+== a/.gitattributes
+*.apk binary
 == a/docs/t.md
 # a
 
 - only a
-== a/.gitattributes
-*.apk binary
 == b/docs/t.md
 # b
 

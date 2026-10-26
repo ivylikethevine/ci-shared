@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # scripts/own_files.sh: writes this repository's copies of the shared files it
 # uses, the workflows rendered with no values and tool-versions.yml,
-# dependabot.yml and .gitignore for `repo=ci-shared`, and --check fails when
-# one is stale.
+# dependabot.yml, .gitignore and REUSE.toml for `repo=ci-shared`, and --check
+# fails when one is stale.
 # shellcheck disable=SC2329 # t_main calls the test_* functions by name
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -18,6 +18,7 @@ fixture() {
   printf 'version: 2\n# shared:if repo=a\na: true\n# shared:endif\n# shared:if repo=ci-shared\nown: true\n# shared:endif\n' |
     t_shared .github/dependabot.yml
   printf 'local/\n# shared:if repo=ci-shared\n/.vscode\n# shared:endif\n' | t_shared .gitignore
+  printf 'version = 1\n# shared:unless repo=ci-shared\ncoc = true\n# shared:endif\n' | t_shared REUSE.toml
 }
 
 test_writes_each_copy_rendered_and_check_agrees() {
@@ -30,6 +31,7 @@ test_writes_each_copy_rendered_and_check_agrees() {
   t_file "$T/tree/.github/workflows/tool-versions.yml" $'name: Tool versions\nhint: own'
   t_file "$T/tree/.github/dependabot.yml" $'version: 2\nown: true'
   t_file "$T/tree/.gitignore" $'local/\n/.vscode'
+  t_file "$T/tree/REUSE.toml" 'version = 1'
   t_run "$SCRIPTS/own_files.sh" --check
   t_rc 0
 }

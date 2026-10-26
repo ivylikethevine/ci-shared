@@ -6,7 +6,11 @@
 
 ROOT is the tree holding repos/ and files/ (default: this checkout). Each entry is the file's table with `name` (the file's stem) and `token_secret`
 (SYNC_TOKEN_<NAME>, the secret holding its sync token) added and every
-optional key filled in, sorted by name. --self prints instead the entry of
+optional key filled in, sorted by name. A target with `base = true` also
+receives repos/_base.toml's `files`, less those its `skip` names, and its
+`files` print sorted with them; `values` are template values every template
+it receives takes. A repos/ file starting with _ is no target. --self prints
+instead the entry of
 rulesets/self.toml, this repository's own values in the shared main ruleset,
 named after its repository, or null without one; it is no target. Any problem
 in any file, an unknown key included, prints one line per problem to stderr and
@@ -31,10 +35,12 @@ ARGS: list[str] = sys.argv[2:] if SELF else sys.argv[1:]
 ROOT: Path = Path(ARGS[0]).resolve() if ARGS else Path(__file__).resolve().parent.parent
 SLUG: re.Pattern[str] = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")
 TEMPLATE_KEY: re.Pattern[str] = re.compile(r"[A-Za-z_]+")
-# ci_targets spells a value's spaces %20, so none holds a %; awk's gsub reads
+# ci_rows spells a value's spaces %20, so none holds a %; awk's gsub reads
 # & and \ in a replacement, so none holds those either
 TEMPLATE_VALUE: re.Pattern[str] = re.compile(r"[^\s%&\\]+( [^\s%&\\]+)*")
 BRANCHES: tuple[str, str] = ("main", "dev")
+# the paths most targets receive; a repos/ file starting with _ is no target
+BASE: str = "_base.toml"
 COVERAGE_KEYS: set[str] = {"minimum_coverage", "max_coverage_drop"}
 # the GitHub Actions app, which reports a required status check unless the
 # check names another integration
@@ -82,9 +88,62 @@ def entry(name: str, where: str, data: Table, errors: list[str]) -> Table:
     return {"name": name, "token_secret": token_secret(name), **data}
 
 
-def read(path: Path, errors: list[str]) -> Table | None:
+# The list of paths under `key`, its repeats reported; [] when it is no list
+# of paths.
+def path_list(where: str, key: str, value: Toml, errors: list[str]) -> list[str]:
+    if not isinstance(value, list) or not all(isinstance(p, str) for p in value):
+        errors.append(f"{where}: {key} must be a list of paths")
+        return []
+    paths: list[str] = [p for p in value if isinstance(p, str)]
+    p: str
+    for p in sorted({p for p in paths if paths.count(p) > 1}):
+        errors.append(f"{where}: {p} is listed twice")
+    return paths
+
+
+def check_shared(where: str, paths: list[str], errors: list[str]) -> None:
+    p: str
+    for p in paths:
+        if not (ROOT / "files" / p).is_file():
+            errors.append(f"{where}: {p} is listed but files/{p} does not exist")
+
+
+# Template values: letters-and-_ keys, never `repo`, each a string ci_rows can
+# carry.
+def check_values(where: str, label: str, table: Table, errors: list[str]) -> None:
+    k: str
+    v: Toml
+    for k, v in table.items():
+        if not TEMPLATE_KEY.fullmatch(k):
+            errors.append(f"{where}: {label} key {k!r} is not letters and _")
+        elif k == "repo":
+            errors.append(f"{where}: {label}.repo is set by the sync, from the file's name")
+        if not isinstance(v, str) or not TEMPLATE_VALUE.fullmatch(v):
+            errors.append(f"{where}: {label}.{k} must be a string of single-spaced words without %, & or \\")
+
+
+# repos/_base.toml's paths, which a target setting `base = true` receives less
+# its `skip`; [] without the file.
+def read_base(errors: list[str]) -> list[str]:
+    path: Path = ROOT / "repos" / BASE
+    if not path.exists():
+        return []
+    opened: tuple[str, Table] | None = open_table(path, {"files"}, errors)
+    if opened is None:
+        return []
+    where: str
+    data: Table
+    where, data = opened
+    files: list[str] = path_list(where, "files", data.get("files", []), errors)
+    check_shared(where, files, errors)
+    return files
+
+
+def read(path: Path, base: list[str], errors: list[str]) -> Table | None:
     opened: tuple[str, Table] | None = open_table(
-        path, {"repository", "sync_branch", "files", "templates", "rulesets", "immutable_releases"}, errors
+        path,
+        {"repository", "sync_branch", "base", "skip", "files", "values", "templates", "rulesets", "immutable_releases"},
+        errors,
     )
     if opened is None:
         return None
@@ -100,37 +159,49 @@ def read(path: Path, errors: list[str]) -> Table | None:
     if data.get("sync_branch") not in BRANCHES:
         errors.append(f"{where}: sync_branch must be one of {', '.join(BRANCHES)}")
 
-    files: Toml = data.get("files", [])
-    if not isinstance(files, list) or not all(isinstance(p, str) for p in files):
-        errors.append(f"{where}: files must be a list of paths")
-        files = []
+    files: list[str] = path_list(where, "files", data.get("files", []), errors)
+    check_shared(where, files, errors)
+    use_base: Toml = data.pop("base", False)
+    if not isinstance(use_base, bool):
+        errors.append(f"{where}: base must be true or false")
+        use_base = False
+    skip: list[str] = path_list(where, "skip", data.pop("skip", []), errors)
+    if skip and not use_base:
+        errors.append(f"{where}: skip needs base = true")
     p: str
-    for p in sorted({p for p in files if files.count(p) > 1}):
-        errors.append(f"{where}: {p} is listed twice")
-    for p in files:
-        if not (ROOT / "files" / p).is_file():
-            errors.append(f"{where}: {p} is listed but files/{p} does not exist")
+    for p in skip:
+        if p not in base:
+            errors.append(f"{where}: skip {p} is not in repos/{BASE}")
+    if use_base:
+        for p in files:
+            if p in base:
+                errors.append(f"{where}: {p} is in repos/{BASE} too")
+        files = files + [p for p in base if p not in skip and p not in files]
+    files = sorted(files)
+    listed: list[Toml] = [*files]
+    data["files"] = listed
+
+    values: Toml = data.setdefault("values", {})
+    if not isinstance(values, dict):
+        errors.append(f"{where}: values must be a table")
+        values = data["values"] = {}
+    check_values(where, "values", values, errors)
 
     templates: Toml = data.setdefault("templates", {})
     if not isinstance(templates, dict):
         errors.append(f"{where}: templates must be a table")
         templates = {}
-    values: Toml
+    table: Toml
     k: str
-    v: Toml
-    for p, values in templates.items():
+    for p, table in templates.items():
         if p not in files:
             errors.append(f"{where}: templates.{p!r} is not in files")
-        if not isinstance(values, dict):
+        if not isinstance(table, dict):
             errors.append(f"{where}: templates.{p!r} must be a table")
             continue
-        for k, v in values.items():
-            if not TEMPLATE_KEY.fullmatch(k):
-                errors.append(f"{where}: templates.{p!r} key {k!r} is not letters and _")
-            elif k == "repo":
-                errors.append(f"{where}: templates.{p!r}.repo is set by the sync, from the file's name")
-            if not isinstance(v, str) or not TEMPLATE_VALUE.fullmatch(v):
-                errors.append(f"{where}: templates.{p!r}.{k} must be a string of single-spaced words without %, & or \\")
+        check_values(where, f"templates.{p!r}", table, errors)
+        for k in sorted(table.keys() & values.keys()):
+            errors.append(f"{where}: templates.{p!r}.{k} is set in values too")
 
     return entry(name, where, data, errors)
 
@@ -203,10 +274,11 @@ def token_secret(name: str) -> str:
 
 def main() -> int:
     errors: list[str] = []
-    paths: list[Path] = sorted((ROOT / "repos").glob("*.toml"))
+    paths: list[Path] = sorted(p for p in (ROOT / "repos").glob("*.toml") if not p.name.startswith("_"))
     if not paths:
         errors.append("repos/ holds no <name>.toml")
-    configs: list[Table] = [c for c in (read(p, errors) for p in paths) if c is not None]
+    base: list[str] = read_base(errors)
+    configs: list[Table] = [c for c in (read(p, base, errors) for p in paths) if c is not None]
     self_path: Path = ROOT / "rulesets" / "self.toml"
     own: Table | None = read_self(self_path, errors) if self_path.exists() else None
     # repositories cannot collide: each target ends in its file's name, and
