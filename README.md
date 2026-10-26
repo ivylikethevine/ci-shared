@@ -59,7 +59,7 @@ them, or make the repository a target.
 | `tests/`                      | a suite per script, run against fixtures and a fake `gh`                                     |
 | `requirements-dev.in`         | the Python dev tools (constricter, coverage.py, pip-audit, reuse); `.txt` is its hashed lock |
 | `pyproject.toml`              | those tools' settings                                                                        |
-| `.github/workflows/`          | `sync.yml`, `checks.yml`, `tool-versions.yml` and copies of three shared ones                |
+| `.github/workflows/`          | `sync.yml`, `checks.yml` and copies of four shared ones                                      |
 
 A file belongs here once two targets hold it byte-identical. Per-repository
 files stay in their repository: `check_tool_versions.local.sh`, the
@@ -72,8 +72,8 @@ here.
 
 1. Edit it under `files/`. To share a new file, copy it in, add its path to
    the `files` list of each `repos/<name>.toml` that should receive it, and run
-   `scripts/usage.sh`. After a change to `codeql.yml`, `link-check.yml` or
-   `scorecard.yml` or `dependabot.yml`, run `scripts/own_files.sh`.
+   `scripts/usage.sh`. After a change to a file this repository keeps its own
+   copy of (`OWN` in `scripts/own_files.sh`), run `scripts/own_files.sh`.
 2. Run `scripts/check.sh`.
 3. `scripts/sync_local.sh --check` lists the checkouts that differ. The
    checkouts themselves are left alone: the sync pull requests of step 4 carry
@@ -149,13 +149,14 @@ One file is this repository's own:
 `.github/scripts/check_tool_versions.local.sh` points the version check at the
 Markdown tools' and Python tools' manifests and the action pins under `files/`.
 
-It runs three of the workflows it ships, as its targets do: `codeql.yml` (the
-`actions` language alone), `scorecard.yml` and `link-check.yml`, the last two
-following `checks.yml`, which is named `CI` for them, and its own
-`dependabot.yml`, the template rendered for `repo=ci-shared`. A workflow cannot
-be a symlink, and a template's markers must not reach a copy, so
-`scripts/own_files.sh` writes each as a copy, the workflows rendered with no
-values, and `scripts/check.sh` fails when one is stale.
+It runs four of the workflows it ships, as its targets do: `codeql.yml` (the
+`actions` language alone), `scorecard.yml`, `link-check.yml` and
+`tool-versions.yml`, the last three following `checks.yml`, which is named `CI`
+for them. Its `tool-versions.yml`, `dependabot.yml` and `.gitignore` are the
+templates rendered for `repo=ci-shared`. A workflow or a `.gitignore` cannot be
+a symlink, and a template's markers must not reach a copy, so
+`scripts/own_files.sh` writes each as a copy, the other workflows rendered with
+no values, and `scripts/check.sh` fails when one is stale.
 
 Every script and Python file here, `scratch/` included, has a test suite with
 100% coverage, and the Python passes constricter at `suffocate`. A scratch

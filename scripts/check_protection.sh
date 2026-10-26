@@ -83,7 +83,6 @@ check_branch() {
 }
 
 repos="$(ci_covered "$@")"
-self="$(jq -r '.repository // empty' <<<"$CI_SELF")"
 if [ -z "$repos" ]; then
   echo "::error title=protection::repos/ lists no targets"
   exit 1
@@ -95,7 +94,7 @@ while read -r slug base extra; do
   # BRANCHES again, checked here too so a misread config fails closed; `-`
   # is this repository, whose main alone is checked
   if [[ ! $slug =~ ^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$ ]] || [ -n "$extra" ] ||
-    { [ "$base" != main ] && [ "$base" != dev ] && { [ "$base" != - ] || [ "$slug" != "$self" ]; }; }; then
+    { [ "$base" != main ] && [ "$base" != dev ] && { [ "$base" != - ] || [ "$slug" != "$CI_SELF_REPO" ]; }; }; then
     echo "::error title=protection::target '$slug $base${extra:+ $extra}' is not 'owner/name main|dev'"
     failed=1
     continue

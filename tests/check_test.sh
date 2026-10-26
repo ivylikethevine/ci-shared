@@ -20,7 +20,7 @@ case $* in --version | version)
 esac
 echo "$name $*" >>"$T/tools.log"
 for f; do
-  case $f in */ci-render.*) { echo "== ${f#*/ci-render.??????/}" && cat "$f"; } >>"$T/rendered.log" ;; esac
+  case $f in */ci-tmp.??????/render/*) { echo "== ${f#*/ci-tmp.??????/render/}" && cat "$f"; } >>"$T/rendered.log" ;; esac
 done
 case " ${FAIL:-} " in *" $name "*) exit 1 ;; esac
 exit 0
@@ -41,7 +41,8 @@ EOF
 
 # Target a receives a template workflow (values and a block), a plain
 # workflow and a non-workflow file; target b receives the template alone. The
-# tree runs its own copies of codeql.yml, link-check.yml and scorecard.yml.
+# tree keeps its own copies of codeql.yml, link-check.yml, scorecard.yml,
+# tool-versions.yml, dependabot.yml and .gitignore.
 fixture() {
   local t
   for t in shellcheck shfmt constricter actionlint zizmor lychee typos gitleaks reuse pip-audit; do tool "$t"; done
@@ -68,7 +69,9 @@ fixture() {
   echo 'on: push' | t_shared .github/workflows/plain.yml
   echo 'on: push' | t_shared .github/workflows/link-check.yml
   echo 'on: push' | t_shared .github/workflows/scorecard.yml
+  echo 'on: push' | t_shared .github/workflows/tool-versions.yml
   echo 'version: 2' | t_shared .github/dependabot.yml
+  echo 'local/' | t_shared .gitignore
   echo 'x' | t_shared .github/actions/a/action.yml
   echo 'true' | t_shared .github/scripts/shared.sh
   t_target a dev .github/workflows/codeql.yml .github/workflows/plain.yml .github/actions/a/action.yml
@@ -101,10 +104,10 @@ test_runs_every_check_over_the_tree() {
     'pip-audit --strict --require-hashes --disable-pip -r requirements-dev.txt' 'npm audit --prefix .github --json' \
     'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' \
     'prettier --check .' \
-    'lint_workflows.sh .github/workflows/checks.yml .github/workflows/codeql.yml .github/workflows/link-check.yml .github/workflows/own.yml .github/workflows/scorecard.yml files/.github/workflows/link-check.yml files/.github/workflows/plain.yml files/.github/workflows/scorecard.yml files/.github/actions/a/action.yml'
-  grep -q '^actionlint -config-file .github/actionlint.yaml .*/ci-render\.' "$T/tools.log" ||
+    'lint_workflows.sh .github/workflows/checks.yml .github/workflows/codeql.yml .github/workflows/link-check.yml .github/workflows/own.yml .github/workflows/scorecard.yml .github/workflows/tool-versions.yml files/.github/workflows/link-check.yml files/.github/workflows/plain.yml files/.github/workflows/scorecard.yml files/.github/workflows/tool-versions.yml files/.github/actions/a/action.yml'
+  grep -q '^actionlint -config-file .github/actionlint.yaml .*/ci-tmp\.[^/]*/render/' "$T/tools.log" ||
     t_fail "actionlint did not read the shared runner labels for the renderings"
-  grep -q '^prettier --check --config .prettierrc.yaml .*/ci-render\.' "$T/tools.log" ||
+  grep -q '^prettier --check --config .prettierrc.yaml .*/ci-tmp\.[^/]*/render/' "$T/tools.log" ||
     t_fail "prettier did not run on the renderings with the shared config"
   # prettier, actionlint and lint_workflows.sh each see every rendering
   t_file "$T/rendered.log" "$(
@@ -240,6 +243,7 @@ test_a_shared_file_the_template_gitignore_swallows_fails() {
   echo 'x = 1' | t_shared .github/kept.toml
   t_target b dev tool.toml .github/kept.toml
   "$SCRIPTS/usage.sh"
+  "$SCRIPTS/own_files.sh"
   t_run "$SCRIPTS/check.sh"
   t_rc 1
   t_out "files/tool.toml is ignored by files/.gitignore: negate the rule in the template" \
@@ -247,6 +251,7 @@ test_a_shared_file_the_template_gitignore_swallows_fails() {
   # negated in the template, the file reaches a commit again; one already
   # tracked is past the rules
   printf '# shared:if repo=a\n*.toml\n!tool.toml\n# shared:endif\n' | t_shared .gitignore
+  "$SCRIPTS/own_files.sh"
   t_git "$T/tree" add -f files/.github/kept.toml
   t_run "$SCRIPTS/check.sh"
   t_rc 0

@@ -284,8 +284,10 @@ updates:
     open-pull-requests-limit: 0
     cooldown:
       default-days: 7
+  # shared:endif
+  # shared:if repo=instadroid,ci-shared
 
-  # requirements-dev.in -> the hashed requirements-dev.txt (ruff, basedpyright, ...)
+  # requirements-dev.in -> the hashed requirements-dev.txt, the dev tools
   - package-ecosystem: pip
     directory: /
     schedule:
@@ -297,6 +299,8 @@ updates:
     open-pull-requests-limit: 0
     cooldown:
       default-days: 7
+  # shared:endif
+  # shared:if repo=instadroid
 
   # app/Dockerfile's digest-pinned python base image
   - package-ecosystem: docker
@@ -344,19 +348,3 @@ updates:
     cooldown:
       default-days: 7
   # shared:endif
-  # shared:if repo=ci-shared
-
-  # requirements-dev.in -> the hashed requirements-dev.txt (constricter,
-  # coverage, pip-audit, reuse)
-  - package-ecosystem: pip
-    directory: /
-    schedule:
-      interval: weekly
-      day: monday
-    target-branch: dev
-    commit-message:
-      prefix: deps
-    open-pull-requests-limit: 0
-    cooldown:
-      default-days: 7
-# shared:endif

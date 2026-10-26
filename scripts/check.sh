@@ -26,6 +26,7 @@ set -uo pipefail
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 cd "$CI_SHARED_DIR" || exit 1
+ci_tmpdir
 
 failed=0
 run() {
@@ -125,7 +126,7 @@ run reuse reuse --no-multiprocessing lint
 audit() {
   local ok=0 report open
   pip-audit --strict --require-hashes --disable-pip -r requirements-dev.txt || ok=1
-  report="$(mktemp "${TMPDIR:-/tmp}/ci-npm-audit.XXXXXX")"
+  report="$CI_TMP/npm-audit.json"
   npm audit --prefix .github --json >"$report" 2>&1 || true
   if ! jq -e '.metadata.vulnerabilities.total' "$report" >/dev/null 2>&1; then
     cat "$report"
@@ -140,7 +141,6 @@ audit() {
       ok=1
     }
   fi
-  rm "$report"
   return "$ok"
 }
 run audit audit
@@ -150,6 +150,7 @@ run own-files "$CI_SCRIPTS_DIR/own_files.sh" --check
 # Each template rendered for every target that receives it, so a placeholder or
 # block that breaks only one repository's copy still fails here.
 run config ci_load
+rows="$(ci_rows)"
 
 # files/.gitignore is the template with every target's block active, so git
 # applies a target's blanket rule (*.toml, *.txt) to files/ here, and a new
@@ -162,29 +163,26 @@ ignored() {
     git check-ignore -q -- "files/$path" || continue
     echo "files/$path is ignored by files/.gitignore: negate the rule in the template"
     found=1
-  done < <(while read -r slug _; do ci_targets "${slug#*/}"; done < <(ci_repos) | cut -d' ' -f1 | LC_ALL=C sort -u)
+  done < <(cut -d' ' -f2 <<<"$rows" | LC_ALL=C sort -u)
   [ "$found" = 0 ]
 }
 run ignored ignored
-rendered="$(mktemp -d "${TMPDIR:-/tmp}/ci-render.XXXXXX")"
-trap 'case "$rendered" in */ci-render.??????) rm -r "$rendered" ;; esac' EXIT
+rendered="$CI_TMP/render"
 templates=() workflows_rendered=() md_rendered=()
 declare -A keys=()
-while read -r slug _; do
-  name="${slug#*/}"
-  # shellcheck disable=SC2086 # $vars is key=value words, split on purpose
-  while read -r path vars; do
-    [ -n "$vars" ] || ci_is_template "$path" || continue
-    mkdir -p "$rendered/$name/$(dirname "$path")"
-    ci_render "$path" $vars >"$rendered/$name/$path"
-    templates+=("$rendered/$name/$path")
-    case "$path" in
-    .github/workflows/*) workflows_rendered+=("$rendered/$name/$path") ;;
-    *.md) md_rendered+=("$rendered/$name/$path") ;;
-    esac
-    for kv in $vars; do keys[$path]="${keys[$path]:-} ${kv%%=*}"; done
-  done < <(ci_targets "$name")
-done < <(ci_repos)
+# shellcheck disable=SC2086 # $vars is key=value words, split on purpose
+while read -r name path vars; do
+  # a template's row carries at least repo=<name>
+  [ -n "$vars" ] || continue
+  mkdir -p "$rendered/$name/$(dirname "$path")"
+  ci_render "$path" $vars >"$rendered/$name/$path"
+  templates+=("$rendered/$name/$path")
+  case "$path" in
+  .github/workflows/*) workflows_rendered+=("$rendered/$name/$path") ;;
+  *.md) md_rendered+=("$rendered/$name/$path") ;;
+  esac
+  for kv in $vars; do keys[$path]="${keys[$path]:-} ${kv%%=*}"; done
+done <<<"$rows"
 
 # A `__key__` still in a rendering, for a key any target gives that path: a
 # value a target forgot, or one used only inside a block another target keeps.

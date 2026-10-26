@@ -19,6 +19,7 @@ set -euo pipefail
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 ci_load
+rows="$(ci_rows)"
 
 mode=all
 case "${1:-}" in
@@ -32,7 +33,7 @@ root="${1:-$(dirname "$CI_SHARED_DIR")}"
 CI_CENSUS_PATTERN='^(\.github/|\.vscode/|\.zed/|\.claude/settings\.json$|\.editorconfig$|\.gitattributes$|\.gitignore$|\.dockerignore$|\.prettierignore$|\.markdownlint|\.prettier|\.shellcheckrc$|\.typos\.toml$|\.hadolint\.yaml$|\.moxide\.toml$|\.scorecard\.yml$|\.gitleaks\.toml$|\.tool-versions$|_config\.yml$|lychee\.toml$|LICENSE\.md$|docs/CODE_OF_CONDUCT\.md$)'
 
 # the paths files/ holds, one per line
-shared="$(cd "$CI_SHARED_DIR/files" && find . -type f | sed 's|^\./||' | LC_ALL=C sort)"
+shared="$(ci_shared_paths)"
 
 # gaps - each path in files/ against each target: listed in its toml, held in
 # its checkout, both or neither
@@ -42,7 +43,7 @@ gaps() {
     name="${slug#*/}"
     [ -d "$root/$name/.git" ] || continue
     held="$(git -C "$root/$name" ls-files)"
-    listed="$(ci_targets "$name" | cut -d' ' -f1)"
+    listed="$(awk -v n="$name" '$1 == n { print $2 }' <<<"$rows")"
     while read -r path; do
       [ -n "$path" ] || continue
       if grep -qxF "$path" <<<"$listed"; then continue; fi
@@ -71,6 +72,12 @@ if [ "$mode" = gaps ]; then
   exit
 fi
 
+# each target's template values, by "name path"
+declare -A values=()
+while read -r name path vars; do
+  values["$name $path"]="$vars"
+done <<<"$rows"
+
 while read -r slug _; do
   name="${slug#*/}"
   [ -d "$root/$name/.git" ] || continue
@@ -87,7 +94,7 @@ done < <(ci_repos) |
   while read -r path blob mode_bits repo; do
     here=""
     if [ -f "$CI_SHARED_DIR/files/$path" ]; then
-      vars="$(ci_target_row "$repo" "$path" || true)"
+      vars="${values["$repo $path"]:-}"
       # shellcheck disable=SC2086 # $vars is key=value words, split on purpose
       if [ "$(ci_render "$path" $vars | git hash-object --stdin | cut -c1-7)" = "$blob" ]; then
         here=" = files/"

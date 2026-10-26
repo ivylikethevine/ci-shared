@@ -18,29 +18,26 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 ci_load
 
-BRANCH=ci-sync
 STALE_DAYS=14
 # the fields report reads from the open sync pull request
-PR_FIELDS='.[0] | select(. != null) | "\(.number) \(.html_url) \(.head.sha) \(.created_at)"'
+PR_FIELDS='"\(.number) \(.html_url) \(.head.sha) \(.created_at)"'
 
 repos="$(ci_repos "$@")"
 
-summary() {
-  printf '%s\n' "$@" >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
-}
-summary '## Sync pull requests' '' '| Target | Pull request | Open | Passed | Failed | Pending |' '| --- | --- | --- | --- | --- | --- |'
+ci_summary '## Sync pull requests' '' '| Target | Pull request | Open | Passed | Failed | Pending |' '| --- | --- | --- | --- | --- | --- |'
 
 # report <slug> <base> - prints the target's line, and fails when the pull
 # request needs a look
+# shellcheck disable=SC2329 # ci_as_target calls it by name
 report() {
   local slug=$1 base=$2 name=${1#*/} pr number url sha created days checks passed failed pending names
-  pr="$(gh api "repos/$slug/pulls?head=${slug%%/*}:$BRANCH&base=$base&state=open" --jq "$PR_FIELDS")" || {
+  pr="$(ci_open_sync_pr "$slug" "$base" "$PR_FIELDS")" || {
     echo "$name: cannot list its pull requests"
     return 1
   }
   if [ -z "$pr" ]; then
     echo "$name: no sync pull request open"
-    summary "| $name | none open | | | | |"
+    ci_summary "| $name | none open | | | | |"
     return 0
   fi
   read -r number url sha created <<<"$pr"
@@ -64,7 +61,7 @@ report() {
   pending="$(grep -c '^pending ' <<<"$checks" || true)"
   names="$(sed -n 's/^failed //p' <<<"$checks" | paste -sd, - | sed 's/,/, /g')"
   echo "$name: #$number into $base, open $days days: $passed passed, $failed failed${names:+ ($names)}, $pending pending"
-  summary "| $name | [#$number]($url) | $days days | $passed | $failed${names:+ ($names)} | $pending |"
+  ci_summary "| $name | [#$number]($url) | $days days | $passed | $failed${names:+ ($names)} | $pending |"
   if [ "$failed" -gt 0 ]; then
     echo "$name: #$number has a failed check"
     return 1
@@ -82,18 +79,8 @@ report() {
 failed=0
 while read -r slug base; do
   name="${slug#*/}"
-  # set -e turned back on inside a subshell outside any `if` or `||` (it
-  # inherits the +e), so a failure stops this target alone
-  set +e
-  (
-    set -e
-    GH_TOKEN="$(ci_token "$name")"
-    export GH_TOKEN
-    report "$slug" "$base"
-  )
-  rc=$?
-  set -e
-  if [ "$rc" != 0 ]; then
+  ci_as_target "$name" report "$slug" "$base"
+  if [ "$CI_RC" != 0 ]; then
     echo "::error title=sync pull request $name::see the lines above"
     failed=$((failed + 1))
   fi

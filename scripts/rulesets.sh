@@ -147,18 +147,8 @@ diff)
     kinds=(main dev stable)
     # this repository: its main alone
     [ "$branch" != - ] || kinds=(main)
-    # set -e turned back on inside a subshell outside any `if` or `||` (it
-    # inherits the +e), so a failure stops this repository alone
-    set +e
-    (
-      set -e
-      GH_TOKEN="$(ci_token "${slug#*/}")"
-      export GH_TOKEN
-      diff_repo "$slug" "${kinds[@]}"
-    )
-    rc=$?
-    set -e
-    failed=$((failed + rc))
+    ci_as_target "${slug#*/}" diff_repo "$slug" "${kinds[@]}"
+    failed=$((failed + CI_RC))
   done <<<"$repos"
   exit "$failed"
   ;;

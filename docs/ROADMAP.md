@@ -280,3 +280,108 @@ tag its comment names, which rule 5 does not.
   file `shfmt -f <dir>` leaves out.
 - **Until then:** `brew style --fix`'s diff from the CI log, applied by hand
   and not reformatted afterwards.
+
+## 7. Simplifications
+
+From a review of the whole tree for reuse, simplification, efficiency and
+fixes at the right depth. Each item is S, M or L in size; **(behaviour)**
+marks one that changes what runs.
+
+### 7.1 This repository's own CI and configuration
+
+- **1. `tool-versions.yml` as an own file**: done. `OWN` renders it for
+  `repo=ci-shared`, its fix hint in a `shared:if` block.
+- **2. `.gitignore` as an own file**: done. `OWN` renders it for
+  `repo=ci-shared`; its `/.vscode` (the sandbox's device) re-includes
+  directories, so `files/.vscode/` stays.
+- **3. A coverage-only lock** (S): `checks.yml` installs the full dev venv in
+  both jobs, and the coverage job uses only `coverage`. Compile a one-package
+  hashed lock, pulled into `requirements-dev.in` with `-r`.
+- **4. kcov from `setup-tools`** (M, behaviour): the apt kcov records no hit on
+  a multi-line array, which is the only reason for the one-line array rule.
+  Install the kcov `tools.txt` already pins and drop the rule.
+- **5. A shared base file list** (L): every `repos/*.toml` repeats about 44
+  paths. A base list with per-target opt-outs, or directory entries, changes
+  `config.py`'s schema and `ci_targets`.
+- **6. Repository-wide template values** (M): "this repository is Python" is
+  set in three or four template tables per target. Pass one values table to
+  every template, as `repo` is.
+- **7. Check `sync.yml`'s token list** (S): each `SYNC_TOKEN_<NAME>` is listed
+  by hand; a `check.sh` assertion against the entries' `token_secret` catches
+  a missing one before a run does.
+- **8. `REUSE.toml` as an own file** (S): the root copy differs from
+  `files/REUSE.toml` only by a path prefix; a `shared:if repo=ci-shared`
+  block and an `OWN` row replace it.
+- **9. Directory symlinks for `setup-tool` and `setup-tools`** (S): per-file
+  symlinks mean a new file in either action needs a link by hand.
+- **10. One runner default in `checks.yml`** (S): the `runner` input's
+  `default:` repeats the `||` fallback both jobs need anyway.
+- **11. Target names in `scratch/near_census.py`** (S): build `NAMES` from the
+  `repos/*.toml` stems, keeping only the extra spellings as literals.
+
+### 7.2 Sync tooling
+
+- **12. One pass over the target rows**: done. `ci_rows` prints every
+  target's rows in one `jq` call, and `check.sh`, `usage.sh` and `census.sh`
+  read one capture.
+- **13. `census.sh` row values**: done; `ci_target_row` is gone.
+- **14. `ci_as_target`**: done, in `lib.sh`.
+- **15. Sync branch and pull request lookup in `lib.sh`**: done:
+  `CI_SYNC_BRANCH`, `ci_open_sync_pr`, `ci_summary`.
+- **16. Tree listing parsed once**: done.
+- **17. Dead template check in `check.sh`**: done.
+- **18. `ci_entry`** (S, behaviour): `ci_token_secret`, `ci_ruleset_values` and
+  `ci_immutable_releases` repeat one lookup by name, and one of them fails
+  without a message.
+- **19. Shared steps in `config.py`** (S): `read` and `read_self` share their
+  load, `repository` check and entry construction; factor them into typed
+  helpers.
+- **20. Token logging in `t_fake_gh`** (S): four fake `gh` scripts paste the
+  same `tokens.log` line; write it once in the prologue.
+- **21. Path sets in `census.sh`** (S): one `grep` process per path; use
+  associative arrays or `comm`.
+- **22. `t_match`** (S): nine hand-rolled `grep -q … || t_fail` checks in
+  `check_test.sh` and `egress_test.sh`; `t_logged` becomes a wrapper.
+- **23. One temp directory per script**: done. `ci_tmpdir` gives
+  `check.sh` and `sync_remote.sh` one directory and one EXIT trap each.
+- **24. `ci_shared_paths`**: done.
+- **25. `CI_SELF_REPO`**: done; `ci_load_self` sets it.
+- **26. Test setup** (S): `config_test.sh`'s `config()` takes no arguments, so
+  `--self` is copied inline; `sync_remote_test.sh` opens 15 tests with the
+  same `fake_github; fixture` pair.
+
+### 7.3 Shared files
+
+- **27. One workflow-command escaper** (M): `check_tool_versions.sh`,
+  `upsert-tracking-issue`, `advisory-note` and `fetch-latest-artifact` each
+  escape `%`, CR, LF and title separators. One sourced lib needs listing in
+  image-scan's sparse checkout, and `lint_workflows.sh` does not check
+  `source` lines.
+- **28. One set of trivy flags** (S): `trivy_scan.sh` exists so the two scans
+  cannot drift on flags, yet `scan_pinned_images.sh` writes them again.
+- **29. Label created only with an issue** (S, behaviour):
+  `upsert-tracking-issue` runs `gh label create --force` on every call.
+  Check first that listing by a missing label returns empty, not an error.
+- **30. No skip in `setup-tools/install-missing.sh`** (S, behaviour): it skips
+  a tool already on the path, which `setup-tool` does not, and the cache then
+  saves that unverified binary under the pinned key.
+- **31. One root `pip` entry in `dependabot.yml`**: done.
+- **32. Image references read once** (S): `scan_pinned_images.sh` runs
+  `_ci_image_refs` twice over the same files.
+- **33. Report sections in `upsert-tracking-issue`** (M): `tool-versions.yml`
+  and `link-check.yml` compose the issue body by hand, and tool-versions'
+  plain fence breaks on backticks. `preamble` and `report-file` inputs reuse
+  `advisory-note`'s fence.
+- **34. One search for the latest run holding an artifact** (M):
+  `fetch-latest-artifact` makes up to 20 calls one after another and
+  `find_tree_run.sh` searches another way; one artifacts listing intersected
+  with the run list is two calls.
+- **35. `npm audit` once** (S): `advisories.yml` runs it again only to print a
+  table of the JSON it holds.
+- **36. `install.sh` branches** (S): one `tar -xf` for every archive kind, and
+  one "no binary" check after the `case` in place of three.
+- **37. `_ci_files` in `_ci_extract`** (S, behaviour): `compgen -G` and git
+  pathspecs give roster and image globs different meanings; check each
+  target's roster globs first.
+- **38. `release_notes.sh`'s `section()`** (S): one `awk` in place of a
+  five-process pipeline, which also drops its SIGPIPE caveats.
