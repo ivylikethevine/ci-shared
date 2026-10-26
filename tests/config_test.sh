@@ -5,9 +5,10 @@
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
+# config [--self] - config.py over the tree, stdout in $T/out, stderr in $T/err
 config() {
   T_RC=0
-  python3 -I "$SCRIPTS/config.py" "$T/tree" >"$T/out" 2>"$T/err" || T_RC=$?
+  python3 -I "$SCRIPTS/config.py" "$@" "$T/tree" >"$T/out" 2>"$T/err" || T_RC=$?
 }
 
 test_fills_in_the_optional_keys() {
@@ -26,8 +27,7 @@ EOF
 
 test_prints_its_own_entry_apart() {
   t_target a main
-  T_RC=0
-  python3 -I "$SCRIPTS/config.py" --self "$T/tree" >"$T/out" || T_RC=$?
+  config --self
   t_rc 0
   t_file "$T/out" null
   t_self own-repo <<'EOF'
@@ -35,7 +35,7 @@ immutable_releases = true
 [rulesets.main]
 required_status_checks = [{ context = "ci" }]
 EOF
-  python3 -I "$SCRIPTS/config.py" --self "$T/tree" >"$T/out" || T_RC=$?
+  config --self
   t_rc 0
   t_eq "$(jq -c '[.name, .token_secret, .immutable_releases, .rulesets.main.required_status_checks]' "$T/out")" \
     '["own-repo","SYNC_TOKEN_OWN_REPO",true,[{"context":"ci","integration_id":15368}]]' "this repository's entry"
@@ -118,6 +118,63 @@ EOF
     "repos/four.toml: immutable_releases must be true or false" \
     "rulesets/self.toml: unknown key 'sync_branch'" \
     "rulesets/self.toml: its token secret SYNC_TOKEN_FOUR is also repos/four.toml's"
+}
+
+test_merges_the_base_list_and_keeps_values() {
+  for f in a b c; do echo x | t_shared "$f"; done
+  printf 'files = ["b", "a"]\n' >"$T/tree/repos/_base.toml"
+  t_target one dev c
+  printf 'base = true\nskip = ["b"]\n[values]\nlanguage = "python"\n' | t_toml one
+  t_target two dev
+  echo 'base = true' | t_toml two
+  t_target three dev a
+  config
+  t_rc 0
+  # _base.toml is no target; a target's files print sorted, base and skip gone
+  t_eq "$(jq -c '[.[] | [.name, .files, .values, has("base"), has("skip")]]' "$T/out")" \
+    '[["one",["a","c"],{"language":"python"},false,false],["three",["a"],{},false,false],["two",["a","b"],{},false,false]]' \
+    "the merged files"
+}
+
+test_reports_base_and_values_mistakes() {
+  echo x | t_shared a
+  printf 'files = ["a", "a", "gone"]\n' >"$T/tree/repos/_base.toml"
+  t_target one dev a
+  printf 'base = true\nskip = ["b"]\n' | t_toml one
+  t_target two dev
+  printf 'base = "yes"\nskip = ["a"]\n' | t_toml two
+  t_target three dev
+  t_toml three <<'EOF'
+skip = 1
+[values]
+bad-key = "v"
+repo = "x"
+k = "50%"
+EOF
+  t_target four dev
+  echo 'values = "x"' | t_toml four
+  t_target five dev a
+  printf '[values]\nk = "v"\n[templates.a]\nk = "w"\n' | t_toml five
+  config
+  t_rc 1
+  t_in "$T/err" \
+    "repos/_base.toml: a is listed twice" \
+    "repos/_base.toml: gone is listed but files/gone does not exist" \
+    "repos/one.toml: a is in repos/_base.toml too" \
+    "repos/one.toml: skip b is not in repos/_base.toml" \
+    "repos/two.toml: base must be true or false" \
+    "repos/two.toml: skip needs base = true" \
+    "repos/three.toml: skip must be a list of paths" \
+    "repos/three.toml: values key 'bad-key' is not letters and _" \
+    "repos/three.toml: values.repo is set by the sync, from the file's name" \
+    "repos/three.toml: values.k must be a string of single-spaced words without %, & or \\" \
+    "repos/four.toml: values must be a table" \
+    "repos/five.toml: templates.'a'.k is set in values too"
+  # an unreadable base file fails the run too
+  echo 'files = ' >"$T/tree/repos/_base.toml"
+  config
+  t_rc 1
+  t_in "$T/err" "repos/_base.toml: "
 }
 
 test_reports_self_toml_mistakes() {

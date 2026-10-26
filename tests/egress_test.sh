@@ -53,7 +53,7 @@ test_census_lists_each_macos_and_windows_job() {
     printf 'a\tci.yml\twin\twindows-latest\tnone\t\n'
     printf "a\tci.yml\tcond\tmacos-14\taudit [if runner.os == 'macOS']\t0\n"
   )"
-  grep -qE '^a +ci\.yml +mac +macos-latest +block +2$' "$T/out" || t_fail "the printed table"
+  t_match "$T/out" '^a +ci\.yml +mac +macos-latest +block +2$'
   t_run "$REPO_DIR/scratch/egress_census.sh" b
   t_rc 0
   t_file "$T/tree/local/egress_census.tsv" "$(printf 'repo\tworkflow\tjob\trunners\tpolicy\tendpoints')"
@@ -99,10 +99,9 @@ test_baseline_folds_runs_into_one_row_per_endpoint() {
     printf '2\te2e (shard N)\tmacos-latest\ttests\tcurl\tgithub.com:443\n'
   )"
   [ "$(grep -c . "$T/out")" = 3 ] || t_fail "wanted a header and two rows"
-  grep -qE '^e2e \(shard N\) +macos-latest +github\.com:443 +2/2 +tests$' "$T/out" ||
-    t_fail "github.com's row"
-  grep -qE '^e2e \(shard N\) +macos-latest +17\.0\.0\.1:443 +1/2 +os +tests$' "$T/out" ||
-    t_fail "trustd's row"
+  # github.com's row, then trustd's
+  t_match "$T/out" '^e2e \(shard N\) +macos-latest +github\.com:443 +2/2 +tests$' \
+    '^e2e \(shard N\) +macos-latest +17\.0\.0\.1:443 +1/2 +os +tests$'
 }
 
 test_baseline_needs_a_successful_run() {

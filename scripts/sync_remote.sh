@@ -27,13 +27,13 @@
 # key on the GitHub account whose verified email is SYNC_COMMITTER_EMAIL. A
 # commit GitHub stores with other bytes than were signed, or does not verify,
 # fails its target before the branch moves.
+# shellcheck disable=SC2329 # ci_as_target calls sync_target, and so the rest, by name
 set -euo pipefail
 
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 ci_load
 
-BRANCH=ci-sync
 TITLE='ci: sync shared CI files'
 
 dry=0 drift=0
@@ -43,26 +43,19 @@ case "${1:-}" in
 esac
 repos="$(ci_repos "$@")"
 source_sha="${SOURCE_SHA:-$(git -C "$CI_SHARED_DIR" rev-parse HEAD 2>/dev/null || echo unknown)}"
-
-# summary <line>... - appends the lines to the job summary, when there is one
-summary() {
-  printf '%s\n' "$@" >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
-}
 source_ref="\`$source_sha\`"
 # a link where the workflow runs, a bare sha in a local run
 [ -z "${GITHUB_REPOSITORY:-}" ] || source_ref="[$source_ref](${GITHUB_SERVER_URL:-https://github.com}/$GITHUB_REPOSITORY/commit/$source_sha)"
 run_kind=''
 [ "$dry" = 0 ] || run_kind=' (dry run)'
 [ "$drift" = 0 ] || run_kind=' (drift check)'
-summary "## Sync$run_kind" '' "Source commit $source_ref." ''
+ci_summary "## Sync$run_kind" '' "Source commit $source_ref." ''
 
+ci_tmpdir
 # each drifted target's name, one per line: a target runs in a subshell, so it
 # reports here rather than through a variable
-drifted=''
-if [ "$drift" = 1 ]; then
-  drifted="$(mktemp "${TMPDIR:-/tmp}/ci-drift.XXXXXX")"
-  trap 'rm -f "$drifted"' EXIT
-fi
+drifted="$CI_TMP/drifted"
+: >"$drifted"
 
 keyfile=''
 if [ "$dry" = 0 ]; then
@@ -72,8 +65,8 @@ if [ "$dry" = 0 ]; then
       exit 1
     fi
   done
-  keyfile="$(mktemp "${TMPDIR:-/tmp}/ci-sync-key.XXXXXX")"
-  trap 'rm -f "$keyfile"' EXIT
+  # mktemp's mode 600, which ssh-keygen requires of a private key
+  keyfile="$(mktemp "$CI_TMP/key.XXXXXX")"
   printf '%s\n' "$SYNC_SIGNING_KEY" >"$keyfile"
   # the key reaches ssh-keygen through the file alone, never gh's environment
   unset SYNC_SIGNING_KEY
@@ -86,7 +79,7 @@ fi
 # open_pr <slug> <base> - prints "number node_id draft url" of the open sync
 # pull request into base, if any
 open_pr() {
-  gh api "repos/$1/pulls?head=${1%%/*}:$BRANCH&base=$2&state=open" --jq '.[0] | select(. != null) | "\(.number) \(.node_id) \(.draft) \(.html_url)"'
+  ci_open_sync_pr "$1" "$2" '"\(.number) \(.node_id) \(.draft) \(.html_url)"'
 }
 
 # Uploads one file as a blob and checks GitHub stored the bytes git hashes.
@@ -131,6 +124,7 @@ create_commit() {
 sync_repo() {
   local slug=$1 base=$2 name=${1#*/}
   local head tree listing path vars src rendered mode want have entries='' files=''
+  local -A held=()
   head="$(gh api "repos/$slug/git/ref/heads/$base" --jq .object.sha)"
   tree="$(gh api "repos/$slug/git/commits/$head" --jq .tree.sha)"
   listing="$(gh api "repos/$slug/git/trees/$tree?recursive=1")"
@@ -138,18 +132,19 @@ sync_repo() {
     echo "$name: the tree listing of $base is truncated" >&2
     return 1
   fi
+  # "sha mode" by path, parsed once
+  while IFS=$'\t' read -r path have; do
+    held[$path]=$have
+  done < <(jq -r '.tree[] | "\(.path)\t\(.sha) \(.mode)"' <<<"$listing")
 
-  rendered="$(mktemp "${TMPDIR:-/tmp}/ci-sync.XXXXXX")"
-  # sync_repo runs in its own subshell, so this fires as each repository ends
-  # shellcheck disable=SC2064 # expanded now: the local is gone by exit time
-  trap "rm -f '$rendered'" EXIT
+  rendered="$CI_TMP/$name"
   # shellcheck disable=SC2086 # $vars is key=value words, split on purpose
   while read -r path vars; do
     src="$CI_SHARED_DIR/files/$path"
     ci_render "$path" $vars >"$rendered"
     mode="$(ci_mode "$src")"
     want="$(git hash-object "$rendered") $mode"
-    have="$(jq -r --arg p "$path" '.tree[] | select(.path == $p) | "\(.sha) \(.mode)"' <<<"$listing")"
+    have="${held[$path]:-}"
     [ "$want" != "$have" ] || continue
     echo "$name: $path differs"
     files="$files- \`$path\`"$'\n'
@@ -159,7 +154,7 @@ sync_repo() {
 
   if [ -z "$files" ]; then
     echo "$name: in line with files/"
-    summary "### $name" '' "In line with \`files/\`." ''
+    ci_summary "### $name" '' "In line with \`files/\`." ''
     return 0
   fi
   local pr
@@ -168,15 +163,15 @@ sync_repo() {
     if [ -z "$pr" ]; then
       echo "$name: differs from files/ with no sync pull request open"
       echo "$name" >>"$drifted"
-      summary "### $name" '' "Drifted on \`$base\`, with no sync pull request open:" '' "$files"
+      ci_summary "### $name" '' "Drifted on \`$base\`, with no sync pull request open:" '' "$files"
     else
       echo "$name: differs; sync pull request #${pr%% *} is open"
-      summary "### $name" '' "Differs on \`$base\`; pull request [#${pr%% *}](${pr##* }) is open:" '' "$files"
+      ci_summary "### $name" '' "Differs on \`$base\`; pull request [#${pr%% *}](${pr##* }) is open:" '' "$files"
     fi
     return 0
   fi
   if [ "$dry" = 1 ]; then
-    summary "### $name" '' "Differs on \`$base\`; nothing written:" '' "$files"
+    ci_summary "### $name" '' "Differs on \`$base\`; nothing written:" '' "$files"
     return 0
   fi
 
@@ -195,10 +190,10 @@ sync_repo() {
     [ "$draft" = true ] || gh api graphql -f id="$node" \
       -f query='mutation($id: ID!) { convertPullRequestToDraft(input: {pullRequestId: $id}) { clientMutationId } }' >/dev/null
   fi
-  if gh api "repos/$slug/git/ref/heads/$BRANCH" >/dev/null 2>&1; then
-    gh api -X PATCH "repos/$slug/git/refs/heads/$BRANCH" -f sha="$commit" -F force=true >/dev/null
+  if gh api "repos/$slug/git/ref/heads/$CI_SYNC_BRANCH" >/dev/null 2>&1; then
+    gh api -X PATCH "repos/$slug/git/refs/heads/$CI_SYNC_BRANCH" -f sha="$commit" -F force=true >/dev/null
   else
-    gh api "repos/$slug/git/refs" -f ref="refs/heads/$BRANCH" -f sha="$commit" >/dev/null
+    gh api "repos/$slug/git/refs" -f ref="refs/heads/$CI_SYNC_BRANCH" -f sha="$commit" >/dev/null
   fi
 
   body="Brings the shared CI files in line with source commit \`$source_sha\`. Change the source copy, not this branch: the next sync overwrites it."$'\n\n'"$files"
@@ -208,37 +203,32 @@ sync_repo() {
   else
     verb=opened
     # a draft, so the target's CI waits until it is marked ready
-    pr="$(gh api "repos/$slug/pulls" -f title="$TITLE" -f head="$BRANCH" -f base="$base" -f body="$body" -F draft=true --jq '"\(.number) \(.html_url)"')"
+    pr="$(gh api "repos/$slug/pulls" -f title="$TITLE" -f head="$CI_SYNC_BRANCH" -f base="$base" -f body="$body" -F draft=true --jq '"\(.number) \(.html_url)"')"
     number="${pr%% *}" url="${pr#* }"
   fi
   echo "$name: $verb pull request #$number"
-  summary "### $name" '' "Pull request [#$number]($url) into \`$base\` $verb:" '' "$files"
+  ci_summary "### $name" '' "Pull request [#$number]($url) into \`$base\` $verb:" '' "$files"
+}
+
+# sync_target <slug> <base> - checks the target's branch protection with its
+# own token, then syncs it; a target that fails the check stops only its own
+# writes
+sync_target() {
+  if [ "$dry" = 0 ] && ! "$CI_SCRIPTS_DIR/check_protection.sh" "${1#*/}"; then
+    echo "${1#*/}: branch protection failed the check; nothing was written"
+    return 1
+  fi
+  sync_repo "$1" "$2"
 }
 
 failed=0
 while read -r slug base; do
   name="${slug#*/}"
-  # set -e turned back on inside a subshell outside any `if` or `||` (it
-  # inherits the +e), so a failure stops this repository alone
-  set +e
-  (
-    set -e
-    GH_TOKEN="$(ci_token "$name")"
-    export GH_TOKEN
-    # each token reaches its own target alone, so a target that fails the
-    # check stops only its own writes
-    if [ "$dry" = 0 ] && ! "$CI_SCRIPTS_DIR/check_protection.sh" "$name"; then
-      echo "$name: branch protection failed the check; nothing was written"
-      exit 1
-    fi
-    sync_repo "$slug" "$base"
-  )
-  rc=$?
-  set -e
-  if [ "$rc" != 0 ]; then
+  ci_as_target "$name" sync_target "$slug" "$base"
+  if [ "$CI_RC" != 0 ]; then
     echo "::error title=sync $name::sync failed, see the lines above"
     # a target writes its section last, so a failed one has none yet
-    summary "### $name" '' 'Failed; nothing written. See the log.' ''
+    ci_summary "### $name" '' 'Failed; nothing written. See the log.' ''
     failed=$((failed + 1))
   fi
 done <<<"$repos"

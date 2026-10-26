@@ -24,11 +24,24 @@ ci_configs() {
 }
 
 # ci_load_self - reads rulesets/self.toml, this repository's own values in the
-# shared main ruleset, into CI_SELF (null without one). The rulesets and
-# protection checks cover this repository's main through it; the sync never
-# reads it.
+# shared main ruleset, into CI_SELF (null without one), and its owner/name into
+# CI_SELF_REPO (empty without one). The rulesets and protection checks cover
+# this repository's main through it; the sync never reads it.
 ci_load_self() {
   CI_SELF="$(python3 -I "$CI_SCRIPTS_DIR/config.py" --self "$CI_SHARED_DIR")"
+  CI_SELF_REPO="$(jq -r '.repository // empty' <<<"$CI_SELF")"
+}
+
+# ci_tmpdir - makes CI_TMP, the one directory a script keeps its temporary
+# files in, removed with them when the script exits
+ci_tmpdir() {
+  CI_TMP="$(mktemp -d "${TMPDIR:-/tmp}/ci-tmp.XXXXXX")"
+  trap 'case "$CI_TMP" in */ci-tmp.??????) rm -r "$CI_TMP" ;; esac' EXIT
+}
+
+# ci_shared_paths - prints each path files/ holds, one per line, sorted
+ci_shared_paths() {
+  (cd "$CI_SHARED_DIR/files" && find . -type f | sed 's|^\./||' | LC_ALL=C sort)
 }
 
 # the targets' entries and, once ci_load_self has run, this repository's
@@ -41,8 +54,7 @@ ci_entries() {
 # repository when no NAME is given or one is its name. Fails as ci_repos does
 # on a NAME that is neither.
 ci_covered() {
-  local self own=0 n names=()
-  self="$(jq -r '.repository // empty' <<<"${CI_SELF:-null}")"
+  local self="${CI_SELF_REPO:-}" own=0 n names=()
   [ $# -gt 0 ] || own=1
   for n; do
     if [ -n "$self" ] && [ "$n" = "${self#*/}" ]; then own=1; else names+=("$n"); fi
@@ -70,33 +82,93 @@ ci_repos() {
     | "\(.repository) \(.sync_branch)"' --args "$@"
 }
 
-# Prints a row per path target <name> receives: the path in files/, then any
-# key=value pairs its template takes, a space in a value spelled `%20` so the
-# row splits on spaces (ci_render decodes it; scripts/config.py keeps `%` out
-# of values). A template's row starts with `repo=<name>`, set by nothing but
-# the target's name. Fails when there is no target <name>.
-ci_targets() {
-  local name="$1" path vars
-  ci_configs | jq -r --arg n "$name" '
-    first(.[] | select(.name == $n)) // error("no target \($n)")
+# a jq `pairs` filter: a table as the key=value words ci_rows prints
+CI_JQ_PAIRS='def pairs: [to_entries[] | "\(.key)=\(.value | gsub(" "; "%20"))"] | join(" ");'
+
+# ci_rows [NAME...] - prints a row per path each target, or each NAME alone,
+# receives: the target's name, the path in files/, then any key=value pairs
+# its template takes, a space in a value spelled `%20` so the row splits on
+# spaces (ci_render decodes it; scripts/config.py keeps `%` out of values). A
+# template's pairs are `repo=<name>`, set by nothing but the target's name,
+# then the target's `values`, then the path's own. Fails as ci_repos does on a
+# NAME that is no target.
+# shellcheck disable=SC2120 # NAME is optional
+ci_rows() {
+  local name path values vars
+  local -A template=()
+  ci_repos "$@" >/dev/null || return 1
+  # unit separators between the fields, since IFS whitespace would merge empty ones
+  ci_configs | jq -r "$CI_JQ_PAIRS"'
+    .[] | select($ARGS.positional == [] or (.name | IN($ARGS.positional[])))
+    | .name as $n
     | .templates as $t
+    | (.values | pairs) as $v
     | .files[]
-    | [., (($t[.] // {}) | to_entries[] | "\(.key)=\(.value | gsub(" "; "%20"))")]
-    | join(" ")' |
-    while read -r path vars; do
-      if [ -n "$vars" ] || ci_is_template "$path"; then
-        echo "$path repo=$name${vars:+ $vars}"
+    | [$n, ., $v, ($t[.] // {} | pairs)]
+    | join("\u001f")' --args "$@" |
+    while IFS=$'\x1f' read -r name path values vars; do
+      # each path read for markers once, however many targets receive it
+      if [ -z "$vars" ] && [ -z "${template[$path]:-}" ]; then
+        template[$path]=no
+        if ci_is_template "$path"; then template[$path]=yes; fi
+      fi
+      if [ -n "$vars" ] || [ "${template[$path]}" = yes ]; then
+        vars="$values${values:+${vars:+ }}$vars"
+        echo "$name $path repo=$name${vars:+ $vars}"
       else
-        echo "$path"
+        echo "$name $path"
       fi
     done
+}
+
+# ci_targets <name> - ci_rows for target <name>, without the name column
+ci_targets() {
+  ci_rows "$1" | cut -d' ' -f2-
+}
+
+# the branch the sync pull requests come from on every target
+CI_SYNC_BRANCH=ci-sync
+
+# ci_open_sync_pr <slug> <base> <fields> - prints the jq string <fields> of the
+# sync pull request open into <base>, if any
+ci_open_sync_pr() {
+  gh api "repos/$1/pulls?head=${1%%/*}:$CI_SYNC_BRANCH&base=$2&state=open" --jq ".[0] | select(. != null) | $3"
+}
+
+# ci_summary <line>... - appends the lines to the job summary, when there is one
+ci_summary() {
+  printf '%s\n' "$@" >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
+}
+
+# ci_as_target <name> <command>... - runs the command in a subshell under
+# set -e, with GH_TOKEN set to target <name>'s token, so a failure stops that
+# target alone, and sets CI_RC to its exit status. It returns 0: a caller
+# testing it with `if` or `||` would keep set -e off inside the command.
+ci_as_target() {
+  local name=$1 token
+  shift
+  set +e
+  (
+    set -e
+    token="$(ci_token "$name")"
+    GH_TOKEN="$token" "$@"
+  )
+  # shellcheck disable=SC2034 # the caller reads it
+  CI_RC=$?
+  set -e
+}
+
+# ci_entry <name> - prints target <name>'s entry, or this repository's, as JSON;
+# fails, naming it, when there is none
+ci_entry() {
+  ci_entries | jq -ec --arg n "$1" 'first(.[] | select(.name == $n)) // error("no target \($n)")'
 }
 
 # ci_token_secret <name> - prints the name of the secret holding target
 # <name>'s sync token, SYNC_TOKEN_<NAME>; for this repository, the variable
 # its own read-only token is passed in.
 ci_token_secret() {
-  ci_entries | jq -er --arg n "$1" 'first(.[] | select(.name == $n)).token_secret // error("no target \($n)")'
+  ci_entry "$1" | jq -r .token_secret
 }
 
 # ci_token <name> - prints target <name>'s sync token: its SYNC_TOKEN_<NAME>,
@@ -118,22 +190,13 @@ ci_token() {
 # ci_ruleset_values <name> - prints the JSON values target <name>, or this
 # repository, gives the shared main ruleset.
 ci_ruleset_values() {
-  ci_entries | jq -ec --arg n "$1" 'first(.[] | select(.name == $n)).rulesets.main'
+  ci_entry "$1" | jq -ec .rulesets.main
 }
 
 # ci_immutable_releases <name> - prints true or false: whether <name>'s
 # releases should be immutable.
 ci_immutable_releases() {
-  ci_entries | jq -r --arg n "$1" '(first(.[] | select(.name == $n)) // error("no target \($n)")).immutable_releases'
-}
-
-# ci_target_row <name> <path> - prints the key=value pairs <name>'s targets
-# give <path>, or fails when <name> does not receive <path>.
-ci_target_row() {
-  ci_targets "$1" | awk -v p="$2" '
-    $1 == p { f = 1; $1 = ""; sub(/^ /, ""); print }
-    END { exit !f }
-  '
+  ci_entry "$1" | jq -r .immutable_releases
 }
 
 # ci_is_template <path> - files/<path> carries a shared: marker or `__repo__`

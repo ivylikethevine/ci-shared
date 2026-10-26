@@ -5,9 +5,3 @@ path = "**"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Ivy Duggan"
 SPDX-License-Identifier = "MIT"
-
-[[annotations]]
-path = "files/docs/CODE_OF_CONDUCT.md"
-precedence = "override"
-SPDX-FileCopyrightText = ["Contributor Covenant contributors", "2026 Ivy Duggan"]
-SPDX-License-Identifier = "CC-BY-4.0"

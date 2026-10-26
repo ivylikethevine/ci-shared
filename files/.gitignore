@@ -32,6 +32,11 @@ CLAUDE.local.md
 /.claude/skills
 /.claude/workflows
 /.claude/.cc-writes
+# shared:if repo=ci-shared
+# the device alone: a .vscode/ directory, the shared one under files/, stays
+/.vscode
+!/.vscode/
+# shared:endif
 # .claude/settings.json too: where it is tracked the ignore changes nothing,
 # and where it is not the device would show as untracked
 /.claude/settings.json

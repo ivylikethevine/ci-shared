@@ -1,37 +1,69 @@
 name: Tool versions
 
-# Every pin here and in files/ against the newest upstream release past the
-# cooldown: .github/scripts/check_tool_versions.sh, whose local hook adds
-# files/ to the directories it reads. The signal is one `tool-versions`
-# tracking issue, opened when something is behind, rewritten on every later
-# run, closed when all is current. The fix is an edit under files/, which the
-# sync then carries to every target.
+# Drift check over every pin: the CI tools in
+# .github/actions/setup-tool/tools.txt where a repo has one, the inline pins
+# and local checks in .github/scripts/check_tool_versions.local.sh, the action
+# SHAs, any image digests, and the dependency manifests. Dependabot opens no version-update
+# pull request (.github/dependabot.yml), so this is the one report of an
+# upstream release, held to the same 7-day cooldown. The signal is one
+# tracking issue, kept current: opened when something is behind, rewritten on
+# every later run, closed when all is current. Runs after every green CI run
+# on a push to main and weekly, since upstream releases land without a push
+# here.
 on:
+  workflow_run: # zizmor: ignore[dangerous-triggers]
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   schedule:
-    - cron: "17 14 * * 1"
+    - cron: "23 7 * * 1"
   workflow_dispatch:
 
-permissions: {}
-
-# queue rather than cancel: a run cancelled mid-upsert can leave its tracking
-# issue half-written (or a duplicate opened)
+# pushes to main can stack, but queue rather than cancel: a run cancelled
+# mid-upsert can leave its tracking issue half-written (or a duplicate opened)
 concurrency:
   group: tool-versions
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
-  versions:
-    name: Tool versions
+  check:
+    name: pinned CI tools vs upstream
+    # only a green push to main gets a fresh report; the schedule and a manual
+    # dispatch pass the first clause
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
     runs-on: ubuntu-26.04
     timeout-minutes: 10
-    # job-scoped, not workflow-level, for Scorecard's Token-Permissions check
     permissions:
       contents: read
       issues: write # upsert (and close) its own tracking issue
     steps:
-      # block: the checkout, the releases and tags APIs (and the issue upsert),
-      # the npm registry, PyPI's JSON API for requirements-dev.in, and
-      # salsa.debian.org's tags API for the gitlab: row of checkbashisms.
+      # block, not audit: check_tool_versions.sh asks the GitHub API, Docker
+      # Hub, the registry of each manifest in CI_MANIFESTS, and any gitlab:
+      # host a roster row names - nothing else. The list is the union of what
+      # every repo carrying this file needs, so a repo may allow a registry it
+      # never calls. Every host is HTTPS on 443, every request a GET, and the
+      # token goes to api.github.com alone; the job's only write is its own
+      # tracking issue, and checkout keeps no credential.
+      #
+      #   github.com          actions/checkout fetching this repository
+      #   api.github.com      releases, tags and commits for github: rows and
+      #                       action SHAs, and the tracking-issue upsert; the
+      #                       one host that gets the token
+      #   hub.docker.com      tag digests for digest-pinned images; read-only
+      #                       public API, sent no credential
+      #   registry.npmjs.org  npm manifests' versions; anonymous GET
+      #   crates.io           cargo manifests' versions; anonymous GET with a
+      #                       User-Agent, as crates.io asks
+      #   pypi.org            pip and uv manifests' versions; anonymous GET of
+      #                       the JSON API
+      #   salsa.debian.org    the gitlab: row for checkbashisms; anonymous GET
+      #                       of the tags API
       - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
@@ -39,7 +71,9 @@ jobs:
           allowed-endpoints: >
             github.com:443
             api.github.com:443
+            hub.docker.com:443
             registry.npmjs.org:443
+            crates.io:443
             pypi.org:443
             salsa.debian.org:443
 
@@ -49,10 +83,13 @@ jobs:
 
       # The script exits with the number of problems, captured as an output
       # rather than failing the step, so the issue closes on zero and opens on
-      # the rest.
+      # the rest. An unreadable upstream counts as current, unless no lookup on
+      # its host answered: that host is missing from allowed-endpoints above.
       - id: check
-        name: Check every pin
+        name: Compare pins to upstream releases
         env:
+          # raises the GitHub API rate limit (60/hour unauthenticated, shared
+          # across the runner pool) above the roster size
           GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
@@ -69,8 +106,9 @@ jobs:
           {
             echo "$PROBLEMS row(s) marked fix below: a pin behind a release past the cooldown, or a"
             echo "check that could not run. Ages are days since release; a release still inside the"
-            echo "cooldown is not offered yet. Bump each fix row under files/; every use of an"
-            echo "action SHA moves together, and such a row ends with the value to pin."
+            echo "cooldown is not offered yet. Bump each fix row under files/, which the sync then"
+            echo "carries to every target; every use of an action SHA moves together, and such a row"
+            echo "ends with the value to pin."
             echo
             echo '```'
             cat "$RUNNER_TEMP/tool-versions.txt"

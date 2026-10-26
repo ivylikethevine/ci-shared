@@ -19,6 +19,7 @@ set -euo pipefail
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 ci_load
+rows="$(ci_rows)"
 
 mode=all
 case "${1:-}" in
@@ -31,22 +32,31 @@ root="${1:-$(dirname "$CI_SHARED_DIR")}"
 
 CI_CENSUS_PATTERN='^(\.github/|\.vscode/|\.zed/|\.claude/settings\.json$|\.editorconfig$|\.gitattributes$|\.gitignore$|\.dockerignore$|\.prettierignore$|\.markdownlint|\.prettier|\.shellcheckrc$|\.typos\.toml$|\.hadolint\.yaml$|\.moxide\.toml$|\.scorecard\.yml$|\.gitleaks\.toml$|\.tool-versions$|_config\.yml$|lychee\.toml$|LICENSE\.md$|docs/CODE_OF_CONDUCT\.md$)'
 
-# the paths files/ holds, one per line
-shared="$(cd "$CI_SHARED_DIR/files" && find . -type f | sed 's|^\./||' | LC_ALL=C sort)"
+# the paths files/ holds, one per line, and as a set
+shared="$(ci_shared_paths)"
+declare -A is_shared=()
+while read -r path; do [ -z "$path" ] || is_shared[$path]=1; done <<<"$shared"
+
+# each target's template values, by "name path"; a key per path it lists
+declare -A values=()
+while read -r name path vars; do
+  values["$name $path"]="$vars"
+done <<<"$rows"
 
 # gaps - each path in files/ against each target: listed in its toml, held in
 # its checkout, both or neither
 gaps() {
-  local slug name path held listed
+  local slug name path
+  local -A held
   while read -r slug _; do
     name="${slug#*/}"
     [ -d "$root/$name/.git" ] || continue
-    held="$(git -C "$root/$name" ls-files)"
-    listed="$(ci_targets "$name" | cut -d' ' -f1)"
+    held=()
+    while read -r path; do held[$path]=1; done < <(git -C "$root/$name" ls-files)
     while read -r path; do
       [ -n "$path" ] || continue
-      if grep -qxF "$path" <<<"$listed"; then continue; fi
-      if grep -qxF "$path" <<<"$held" && [ -f "$root/$name/$path" ]; then
+      [ -z "${values["$name $path"]+x}" ] || continue
+      if [ -n "${held[$path]:-}" ] && [ -f "$root/$name/$path" ]; then
         printf '%s\tunlisted\t%s\n' "$path" "$name"
       else
         printf '%s\tmissing\t%s\n' "$path" "$name"
@@ -78,7 +88,7 @@ while read -r slug _; do
   git -C "$root/$name" ls-files |
     while read -r path; do
       [ -f "$root/$name/$path" ] || continue
-      [[ $path =~ $CI_CENSUS_PATTERN ]] || grep -qxF "$path" <<<"$shared" || continue
+      [[ $path =~ $CI_CENSUS_PATTERN ]] || [ -n "${is_shared[$path]:-}" ] || continue
       blob="$(git hash-object "$root/$name/$path")"
       echo "$path ${blob:0:7} $(ci_mode "$root/$name/$path") $name"
     done
@@ -87,7 +97,7 @@ done < <(ci_repos) |
   while read -r path blob mode_bits repo; do
     here=""
     if [ -f "$CI_SHARED_DIR/files/$path" ]; then
-      vars="$(ci_target_row "$repo" "$path" || true)"
+      vars="${values["$repo $path"]:-}"
       # shellcheck disable=SC2086 # $vars is key=value words, split on purpose
       if [ "$(ci_render "$path" $vars | git hash-object --stdin | cut -c1-7)" = "$blob" ]; then
         here=" = files/"

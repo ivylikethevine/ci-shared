@@ -13,13 +13,14 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 ci_load
 
 out="$CI_SHARED_DIR/USAGE.md"
+rows="$(ci_rows)"
 
 render() {
   local names=() lists=() slug i
   # each target's paths once, as a newline-wrapped list the cells search
   while read -r slug _; do
     names+=("${slug#*/}")
-    lists+=($'\n'"$(ci_targets "${slug#*/}" | cut -d' ' -f1)"$'\n')
+    lists+=($'\n'"$(awk -v n="${slug#*/}" '$1 == n { print $2 }' <<<"$rows")"$'\n')
   done < <(ci_repos)
 
   printf '# Usage\n\n'
@@ -27,10 +28,7 @@ render() {
   # shellcheck disable=SC2016 # the backticks are Markdown
   printf '`scripts/usage.sh` from `repos/`; run it after changing a file list there.\n\n'
 
-  (
-    cd "$CI_SHARED_DIR/files"
-    find . -type f | sed 's|^\./||' | LC_ALL=C sort
-  ) | while read -r path; do
+  ci_shared_paths | while read -r path; do
     row="\`$path\`"
     count=0
     for i in "${!names[@]}"; do
@@ -73,22 +71,30 @@ render() {
   '
 }
 
-# The values each repository gives each template, one bullet per row that
-# sets any beyond the implicit `repo`.
+# The values each repository gives every template, then those it gives each
+# template, one bullet per row that sets any beyond the implicit `repo` and
+# its `values`.
 render_values() {
-  local slug name path vars rows=""
-  while read -r slug _; do
-    name="${slug#*/}"
-    while read -r path vars; do
-      vars="${vars#"repo=$name"}"
-      vars="${vars# }"
-      [ -n "$vars" ] || continue
-      rows="$rows- \`$path\` in $name: \`${vars//%20/ }\`"$'\n'
-    done < <(ci_targets "$name")
-  done < <(ci_repos)
-  [ -n "$rows" ] || return 0
+  local name path vars last="" lines=""
+  local -A values=()
+  while IFS=$'\x1f' read -r name vars; do
+    values[$name]=$vars
+  done < <(ci_configs | jq -r "$CI_JQ_PAIRS"'.[] | select(.values != {}) | [.name, (.values | pairs)] | join("\u001f")')
+  while read -r name path vars; do
+    if [ "$name" != "$last" ] && [ -n "${values[$name]:-}" ]; then
+      lines="$lines- every template in $name: \`${values[$name]//%20/ }\`"$'\n'
+    fi
+    last=$name
+    vars="${vars#"repo=$name"}"
+    vars="${vars# }"
+    vars="${vars#"${values[$name]:-}"}"
+    vars="${vars# }"
+    [ -n "$vars" ] || continue
+    lines="$lines- \`$path\` in $name: \`${vars//%20/ }\`"$'\n'
+  done <<<"$rows"
+  [ -n "$lines" ] || return 0
   printf '\n## Template values\n\n'
-  printf '%s' "$rows"
+  printf '%s' "$lines"
 }
 
 usage() {

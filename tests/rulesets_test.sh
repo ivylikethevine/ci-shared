@@ -64,8 +64,7 @@ test_render_refuses_bad_arguments() {
 # bypass_actors as GitHub does for a token that cannot edit it, and READ_ERROR
 # failing stable's read. Actions require SHA pins and releases are not
 # immutable, unless UNPINNED or IMMUTABLE says otherwise; SETTINGS is `hidden`
-# (403) or `error` (500) for both. $T/tokens.log gets "token endpoint" per
-# call.
+# (403) or `error` (500) for both.
 fake_github() {
   local kind id=0
   for kind in main dev stable; do
@@ -77,7 +76,6 @@ fake_github() {
       | .rules |= reverse | .conditions.ref_name.include |= reverse' >"$T/live-$kind.json"
   done
   t_fake_gh <<'EOF'
-echo "${GH_TOKEN:-} $ep" >>"$T/tokens.log"
 case $ep in
 */rulesets\?includes_parents=false)
   [ -z "${LIST_ERROR:-}" ] || fail

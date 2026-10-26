@@ -65,23 +65,17 @@ Which repositories receive each shared file, written by
 ## Template values
 
 - `.gitignore` in homebrew-tap: `stray_files=true`
-- `.github/workflows/advisories.yml` in instadroid: `python=true tool=pip-audit`
-- `.github/workflows/codeql.yml` in instadroid: `language=python`
+- every template in instadroid: `language=python`
+- `.github/workflows/advisories.yml` in instadroid: `tool=pip-audit`
 - `.github/workflows/image-scan.yml` in instadroid: `pins_egress=audit image_name=instadroid trivyignore=.trivyignore`
 - `.gitignore` in instadroid: `images=true stray_files=true`
-- `.vscode/settings.json` in instadroid: `python=true`
-- `.zed/settings.json` in instadroid: `python=true`
 - `_config.yml` in instadroid: `title=instadroid description=A real, logged-in Instagram Android app running in redroid, publishing the chronological Following feed as Atom for FreshRSS.`
-- `.github/workflows/codeql.yml` in python-constricter: `language=python`
+- every template in python-constricter: `language=python`
 - `.gitignore` in python-constricter: `stray_files=true`
-- `.vscode/settings.json` in python-constricter: `python=true`
-- `.zed/settings.json` in python-constricter: `python=true`
 - `.github/workflows/image-scan.yml` in say-hi: `pins_egress=block`
 - `.gitignore` in say-hi: `images=true stray_files=true`
 - `_config.yml` in say-hi: `title=say-hi description=A greeting, a prompt, and your aliases on every machine you ssh, docker, podman, nomad, or kubectl into - without installing anything there.`
-- `.github/workflows/advisories.yml` in sharerr-rs: `rust=true tool=cargo-deny`
-- `.github/workflows/codeql.yml` in sharerr-rs: `language=rust`
+- every template in sharerr-rs: `language=rust`
+- `.github/workflows/advisories.yml` in sharerr-rs: `tool=cargo-deny`
 - `.github/workflows/image-scan.yml` in sharerr-rs: `pins_egress=audit image_name=sharerr trivyignore=docker/.trivyignore`
-- `.vscode/settings.json` in sharerr-rs: `rust=true`
-- `.zed/settings.json` in sharerr-rs: `rust=true`
 - `_config.yml` in sharerr-rs: `title=sharerr description=Share your media library with friends, over the tools you already run.`

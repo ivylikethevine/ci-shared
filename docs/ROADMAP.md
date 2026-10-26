@@ -66,10 +66,9 @@ knows 26.04. What changed under them, from GitHub's image comparison
   `filelock` and `setuptools` advisories in instadroid's `pip-audit`, and in
   say-hi a `test_runner_ci` cost-table test and a harden-runner agent that
   exited when `cdn.dl.k8s.io` did not resolve.
-- **kcov:** 26.04 packages kcov 43, which this repository's coverage job now
-  installs from apt. `tools.txt`'s `cmake` row for kcov is say-hi's alone:
-  its coverage jobs could take the package too, in its own workflow, and the
-  row go.
+- **kcov:** 26.04 packages kcov `43+dfsg-2`, which records no hit on a
+  multi-line array assignment; this repository's coverage job and say-hi's
+  build upstream kcov 43 from `tools.txt`'s `cmake` row instead.
 - **Still exposed:** `checks.yml` and `coverage` build their venv on the
   system python3 (3.14: fine for constricter's `min-python = "3.11"` and
   coverage 7.16); `image-scan.yml` meets docker 29.
@@ -280,3 +279,65 @@ tag its comment names, which rule 5 does not.
   file `shfmt -f <dir>` leaves out.
 - **Until then:** `brew style --fix`'s diff from the CI log, applied by hand
   and not reformatted afterwards.
+
+## 7. Simplifications
+
+From a review of the whole tree for reuse, simplification, efficiency and
+fixes at the right depth. Each item is S, M or L in size; **(behaviour)**
+marks one that changes what runs.
+
+### 7.1 This repository's own CI and configuration
+
+- **1. A coverage-only lock** (S): `checks.yml` installs the full dev venv in
+  both jobs, and the coverage job uses only `coverage`. Compile a one-package
+  hashed lock, pulled into `requirements-dev.in` with `-r`.
+- **2. kcov from `setup-tools`**: done; the one-line array rule is gone.
+- **3. A shared base file list**: done: `repos/_base.toml`, `base = true`,
+  `skip`.
+- **4. Repository-wide template values**: done: a target's `[values]`.
+- **5. Check `sync.yml`'s token list** (S): each `SYNC_TOKEN_<NAME>` is listed
+  by hand; a `check.sh` assertion against the entries' `token_secret` catches
+  a missing one before a run does.
+- **6. `REUSE.toml` as an own file**: done. This repository's copy drops the
+  code-of-conduct annotation, which `files/REUSE.toml`, read as a nested
+  REUSE.toml, already makes for `files/docs/`.
+- **7. Directory symlinks for `setup-tool` and `setup-tools`** (S): per-file
+  symlinks mean a new file in either action needs a link by hand.
+- **8. One runner default in `checks.yml`**: done.
+- **9. Target names in `scratch/near_census.py`** (S): build `NAMES` from the
+  `repos/*.toml` stems, keeping only the extra spellings as literals.
+
+### 7.2 Shared files
+
+- **10. One workflow-command escaper** (M): `check_tool_versions.sh`,
+  `upsert-tracking-issue`, `advisory-note` and `fetch-latest-artifact` each
+  escape `%`, CR, LF and title separators. One sourced lib needs listing in
+  image-scan's sparse checkout, and `lint_workflows.sh` does not check
+  `source` lines.
+- **11. One set of trivy flags** (S): `trivy_scan.sh` exists so the two scans
+  cannot drift on flags, yet `scan_pinned_images.sh` writes them again.
+- **12. Label created only with an issue** (S, behaviour):
+  `upsert-tracking-issue` runs `gh label create --force` on every call.
+  Check first that listing by a missing label returns empty, not an error.
+- **13. No skip in `setup-tools/install-missing.sh`** (S, behaviour): it skips
+  a tool already on the path, which `setup-tool` does not, and the cache then
+  saves that unverified binary under the pinned key.
+- **14. Image references read once** (S): `scan_pinned_images.sh` runs
+  `_ci_image_refs` twice over the same files.
+- **15. Report sections in `upsert-tracking-issue`** (M): `tool-versions.yml`
+  and `link-check.yml` compose the issue body by hand, and tool-versions'
+  plain fence breaks on backticks. `preamble` and `report-file` inputs reuse
+  `advisory-note`'s fence.
+- **16. One search for the latest run holding an artifact** (M):
+  `fetch-latest-artifact` makes up to 20 calls one after another and
+  `find_tree_run.sh` searches another way; one artifacts listing intersected
+  with the run list is two calls.
+- **17. `npm audit` once** (S): `advisories.yml` runs it again only to print a
+  table of the JSON it holds.
+- **18. `install.sh` branches** (S): one `tar -xf` for every archive kind, and
+  one "no binary" check after the `case` in place of three.
+- **19. `_ci_files` in `_ci_extract`** (S, behaviour): `compgen -G` and git
+  pathspecs give roster and image globs different meanings; check each
+  target's roster globs first.
+- **20. `release_notes.sh`'s `section()`** (S): one `awk` in place of a
+  five-process pipeline, which also drops its SIGPIPE caveats.

@@ -3,60 +3,19 @@ repository = "ivylikethevine/say-hi"
 # the branch sync pull requests go to: main or dev
 sync_branch = "main"
 
-# paths from files/, each at the path it has in this repository
+# repos/_base.toml's paths, less any `skip` names
+base = true
+
+# paths from files/ beyond those, each at the path it has in this repository
 files = [
-  ".editorconfig",
-  ".gitattributes",
-  ".github/CODEOWNERS",
-  ".github/ISSUE_TEMPLATE/config.yml",
-  ".github/actionlint.yaml",
   ".github/actions/advisory-note/action.yml",
-  ".github/actions/apt/lib.sh",
   ".github/actions/fetch-latest-artifact/action.yml",
   ".github/actions/mark-tree/action.yml",
-  ".github/actions/setup-tool/action.yml",
-  ".github/actions/setup-tool/install.sh",
-  ".github/actions/setup-tool/lib.sh",
-  ".github/actions/setup-tool/tools.txt",
-  ".github/actions/setup-tools/action.yml",
-  ".github/actions/setup-tools/install-missing.sh",
-  ".github/actions/setup-tools/resolve.sh",
-  ".github/actions/upsert-tracking-issue/action.yml",
   ".github/allowed_signers",
-  ".github/dependabot.yml",
-  ".github/osv-scanner.toml",
-  ".github/package-lock.json",
-  ".github/package.json",
-  ".github/pull_request_template.md",
-  ".github/scripts/check_tool_versions.sh",
   ".github/scripts/find_tree_run.sh",
-  ".github/scripts/lib.sh",
-  ".github/scripts/lint_workflows.sh",
-  ".github/scripts/release_notes.sh",
   ".github/scripts/scan_pinned_images.sh",
-  ".github/workflows/cancel-closed-pr.yml",
-  ".github/workflows/codeql.yml",
   ".github/workflows/image-scan.yml",
-  ".github/workflows/link-check.yml",
-  ".github/workflows/release-note.yml",
-  ".github/workflows/scorecard.yml",
-  ".github/workflows/tool-versions.yml",
-  ".github/zizmor.yml",
-  ".gitignore",
-  ".markdownlint.yaml",
-  ".moxide.toml",
-  ".prettierrc.yaml",
-  ".scorecard.yml",
-  ".shellcheckrc",
-  ".vscode/settings.json",
-  ".zed/settings.json",
-  "LICENSE.md",
-  "LICENSES/CC-BY-4.0.txt",
-  "LICENSES/MIT.txt",
-  "REUSE.toml",
   "_config.yml",
-  "docs/CODE_OF_CONDUCT.md",
-  "lychee.toml",
 ]
 
 # the values a template takes, by path
@@ -84,5 +43,7 @@ required_status_checks = [
   { context = "release note (pr body)" },
   { context = "secret scan (gitleaks)" },
 ]
-code_scanning_tools = ["CodeQL", "Scorecard"]
+# Scorecard is left out: its pull_request run grades the checkout locally, and
+# the score the badge shows comes from the runs on main
+code_scanning_tools = ["CodeQL"]
 code_quality = true

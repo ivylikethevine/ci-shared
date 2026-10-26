@@ -47,6 +47,23 @@ EOF
   t_in -x "$T/tree/USAGE.md" '## Template values' '- `.editorconfig` in b: `indent=4 style=two spaces`'
 }
 
+test_lists_a_targets_values_once() {
+  fixture
+  printf '# shared:if lang\nx\n# shared:endif\n' | t_shared .github/a-much-longer-shared-path.yml
+  t_toml alpha <<'EOF'
+[values]
+lang = "two words"
+
+[templates.".editorconfig"]
+indent = "4"
+EOF
+  t_run "$SCRIPTS/usage.sh"
+  t_rc 0
+  # shellcheck disable=SC2016 # literal text
+  t_in -x "$T/tree/USAGE.md" '- every template in alpha: `lang=two words`' '- `.editorconfig` in alpha: `indent=4`'
+  t_not_in "$T/tree/USAGE.md" 'a-much-longer-shared-path.yml` in alpha'
+}
+
 test_check_fails_when_stale() {
   fixture
   t_run "$SCRIPTS/usage.sh"

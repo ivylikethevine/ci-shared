@@ -1,14 +1,11 @@
-# The common part of files/.gitignore by hand: git does not follow a symlinked
-# .gitignore.
-
 # Everything generated on this machine (scratch, tool caches, local builds).
 local/
 
 # npm installs, the pinned CI Markdown tools' (.github/package.json) included.
 node_modules/
 
-# Claude Code: .claude/settings.json is shared and tracked; personal overrides,
-# agent worktrees and host-specific agent notes stay local.
+# Claude Code: personal overrides, agent worktrees and host-specific agent
+# notes stay local.
 .claude/settings.local.json
 .claude/worktrees/
 CLAUDE.local.md
@@ -35,9 +32,11 @@ CLAUDE.local.md
 /.claude/skills
 /.claude/workflows
 /.claude/.cc-writes
+# the device alone: a .vscode/ directory, the shared one under files/, stays
 /.vscode
-# .claude/settings.json too: this repository tracks none, so the device would
-# show as untracked
+!/.vscode/
+# .claude/settings.json too: where it is tracked the ignore changes nothing,
+# and where it is not the device would show as untracked
 /.claude/settings.json
 
 # Secrets and local environment. A .env.example is a template with no real
@@ -52,6 +51,13 @@ CLAUDE.local.md
 *.pfx
 *.crt
 *.cert
+*.pub
+*.rsa
+*.priv
+secret/
+secrets/
+private/
+keys/
 
 # Editor and OS droppings, and the backups merge tools leave beside a conflict.
 .DS_Store
@@ -59,3 +65,23 @@ CLAUDE.local.md
 *.swo
 *~
 *.orig
+
+# Logs.
+*.log
+
+# Python's bytecode caches and packaging metadata, and Hypothesis's example
+# database.
+__pycache__/
+*.pyc
+*.egg-info/
+.hypothesis/
+.import_linter_cache/
+# Packaging output at the root; a build/ deeper in the tree is source.
+/build/
+/dist/
+# Rust build output.
+/target
+**/*.rs.bk
+# A local Jekyll build of the docs site; CI builds the real one.
+_site/
+.jekyll-cache/

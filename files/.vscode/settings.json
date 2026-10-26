@@ -2,12 +2,12 @@
   "editor.tabSize": 2,
   "editor.insertSpaces": true,
   "editor.detectIndentation": false,
-# shared:if python
+# shared:if language=python
   "[python]": {
     "editor.tabSize": 4
   },
 # shared:endif
-# shared:if rust
+# shared:if language=rust
   "[rust]": {
     "editor.tabSize": 4
   },
