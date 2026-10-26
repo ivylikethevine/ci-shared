@@ -59,6 +59,8 @@ required_status_checks = [
   { context = "terraform (fmt + validate)" },
   { context = "workflow lint (zizmor + actionlint)" },
 ]
-code_scanning_tools = ["CodeQL", "Scorecard", "Trivy"]
+# Scorecard is left out: its pull_request run grades the checkout locally, and
+# the score the badge shows comes from the runs on main
+code_scanning_tools = ["CodeQL", "Trivy"]
 code_quality = true
 code_coverage = { minimum_coverage = 90, max_coverage_drop = 2 }

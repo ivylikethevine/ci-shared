@@ -43,5 +43,7 @@ required_status_checks = [
   { context = "release note (pr body)" },
   { context = "secret scan (gitleaks)" },
 ]
-code_scanning_tools = ["CodeQL", "Scorecard"]
+# Scorecard is left out: its pull_request run grades the checkout locally, and
+# the score the badge shows comes from the runs on main
+code_scanning_tools = ["CodeQL"]
 code_quality = true
