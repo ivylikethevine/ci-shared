@@ -98,10 +98,20 @@ t_file() {
   [ "$(cat "$1")" = "$2" ] || t_fail "$1 holds '$(cat "$1")', wanted '$2'"
 }
 
+# t_match <file> <regex...> - the file has a line matching each extended
+# regex; the file is shown on failure
+t_match() {
+  local f=$1 r
+  shift
+  for r; do
+    grep -qE -- "$r" "$f" || t_fail "no line matching '$r' in $f:"$'\n'"$(cat "$f")"
+  done
+}
+
 # t_logged <pattern> / t_not_logged <pattern> - an extended regex against the
 # fake gh's call log, one "METHOD endpoint" line per call
 t_logged() {
-  grep -qE -- "$1" "$GH_LOG" || t_fail "no gh call matching '$1': $(tr '\n' ';' <"$GH_LOG")"
+  t_match "$GH_LOG" "$1"
 }
 t_not_logged() {
   if grep -qE -- "$1" "$GH_LOG"; then t_fail "a gh call matched '$1'"; fi
@@ -115,9 +125,9 @@ t_fake() {
 
 # t_fake_gh - writes a fake `gh api` whose answers stdin's bash decides. The
 # prologue parses the call into $method, $ep, $fields (-f/-F values), $input
-# (an --input - body), $jqf (--jq) and $include (--include: 1 or 0), and logs
-# "METHOD endpoint"; the body answers with `reply <json>` (filtered through
-# --jq, as gh does) or `fail`.
+# (an --input - body), $jqf (--jq) and $include (--include: 1 or 0), logs
+# "METHOD endpoint" to $GH_LOG and "token endpoint" to $T/tokens.log; the body
+# answers with `reply <json>` (filtered through --jq, as gh does) or `fail`.
 t_fake_gh() {
   {
     cat <<'EOF'
@@ -141,6 +151,7 @@ if [ -z "$method" ]; then
   if [ -n "$input" ] || [ ${#fields[@]} -gt 0 ]; then method=POST; fi
 fi
 echo "$method $ep" >>"$GH_LOG"
+echo "${GH_TOKEN:-} $ep" >>"$T/tokens.log"
 reply() {
   if [ -n "$jqf" ]; then jq -r "$jqf" <<<"$1"; else printf '%s\n' "$1"; fi
 }

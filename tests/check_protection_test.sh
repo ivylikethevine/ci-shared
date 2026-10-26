@@ -9,11 +9,10 @@
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 # Ruleset 1 holds main, ruleset 2 holds dev; SCENARIO bends one answer at a
-# time. $T/tokens.log gets "token endpoint" per call.
+# time.
 fake_github() {
   t_fake_gh <<'EOF'
 s=${SCENARIO:-pass}
-echo "${GH_TOKEN:-} $ep" >>"$T/tokens.log"
 ruleset() {
   local id=$1 bypass=${2-never} enf=${3-active}
   [ "$s" != ruleset-id ] || id=99

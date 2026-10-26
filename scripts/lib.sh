@@ -150,11 +150,17 @@ ci_as_target() {
   set -e
 }
 
+# ci_entry <name> - prints target <name>'s entry, or this repository's, as JSON;
+# fails, naming it, when there is none
+ci_entry() {
+  ci_entries | jq -ec --arg n "$1" 'first(.[] | select(.name == $n)) // error("no target \($n)")'
+}
+
 # ci_token_secret <name> - prints the name of the secret holding target
 # <name>'s sync token, SYNC_TOKEN_<NAME>; for this repository, the variable
 # its own read-only token is passed in.
 ci_token_secret() {
-  ci_entries | jq -er --arg n "$1" 'first(.[] | select(.name == $n)).token_secret // error("no target \($n)")'
+  ci_entry "$1" | jq -r .token_secret
 }
 
 # ci_token <name> - prints target <name>'s sync token: its SYNC_TOKEN_<NAME>,
@@ -176,13 +182,13 @@ ci_token() {
 # ci_ruleset_values <name> - prints the JSON values target <name>, or this
 # repository, gives the shared main ruleset.
 ci_ruleset_values() {
-  ci_entries | jq -ec --arg n "$1" 'first(.[] | select(.name == $n)).rulesets.main'
+  ci_entry "$1" | jq -ec .rulesets.main
 }
 
 # ci_immutable_releases <name> - prints true or false: whether <name>'s
 # releases should be immutable.
 ci_immutable_releases() {
-  ci_entries | jq -r --arg n "$1" '(first(.[] | select(.name == $n)) // error("no target \($n)")).immutable_releases'
+  ci_entry "$1" | jq -r .immutable_releases
 }
 
 # ci_is_template <path> - files/<path> carries a shared: marker or `__repo__`

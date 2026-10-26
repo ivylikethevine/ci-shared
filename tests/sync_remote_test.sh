@@ -11,7 +11,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 # write, and the signing key and identity it verifies. $T/listing.json is the
 # base branch's tree; SCENARIO bends one answer: unprotected, unprotected-a
 # (owner/a alone), truncated, bad-blob, tree-error, bad-commit, unverified,
-# branch-exists, pr-open. $T/tokens.log gets "token METHOD endpoint" per call.
+# branch-exists, pr-open.
 fake_github() {
   echo '[]' >"$T/listing.json"
   ssh-keygen -q -t ed25519 -N '' -C sync -f "$T/key"
@@ -19,7 +19,6 @@ fake_github() {
   export SYNC_SIGNING_KEY SYNC_COMMITTER_NAME=Sync SYNC_COMMITTER_EMAIL=sync@example.invalid
   t_fake_gh <<'EOF'
 s=${SCENARIO:-}
-echo "${GH_TOKEN:-} $method $ep" >>"$T/tokens.log"
 case "$method $ep" in
 "GET "*/git/matching-refs/heads/*) reply "[{\"ref\":\"refs/heads/${ep##*/}\"}]" ;;
 "GET "*/rules/branches/*)
@@ -77,8 +76,9 @@ esac
 EOF
 }
 
-# targets a (two files, one in line already) and b (one file)
+# fake_github, then targets a (two files, one in line already) and b (one file)
 fixture() {
+  fake_github
   echo same | t_shared same.txt
   printf '#!/bin/sh\n' | t_shared new.sh x
   t_target a dev same.txt new.sh
@@ -88,7 +88,6 @@ fixture() {
 }
 
 test_opens_a_pull_request_for_what_differs() {
-  fake_github
   fixture
   t_run env GH_TOKEN=t SOURCE_SHA=abc123 "$SCRIPTS/sync_remote.sh" a
   t_rc 0
@@ -117,7 +116,6 @@ test_opens_a_pull_request_for_what_differs() {
 }
 
 test_moves_the_branch_and_updates_an_open_pull_request() {
-  fake_github
   fixture
   t_run env GH_TOKEN=t SCENARIO=branch-exists "$SCRIPTS/sync_remote.sh" b
   t_rc 0
@@ -144,7 +142,6 @@ test_moves_the_branch_and_updates_an_open_pull_request() {
 }
 
 test_refuses_an_unknown_target_before_writing() {
-  fake_github
   fixture
   t_run env GH_TOKEN=t "$SCRIPTS/sync_remote.sh" a nope
   t_rc 1
@@ -153,7 +150,6 @@ test_refuses_an_unknown_target_before_writing() {
 }
 
 test_source_sha_defaults_to_this_tree_head() {
-  fake_github
   fixture
   t_run env GH_TOKEN=t "$SCRIPTS/sync_remote.sh" a
   t_rc 0
@@ -165,7 +161,6 @@ test_source_sha_defaults_to_this_tree_head() {
 }
 
 test_dry_run_reports_and_writes_nothing() {
-  fake_github
   fixture
   t_run env GH_TOKEN=t SCENARIO=unprotected "$SCRIPTS/sync_remote.sh" --dry-run
   t_rc 0
@@ -175,7 +170,6 @@ test_dry_run_reports_and_writes_nothing() {
 }
 
 test_drift_fails_a_target_differing_with_no_pull_request_open() {
-  fake_github
   fixture
   local md="$T/summary.md"
   t_run env GH_TOKEN=t SCENARIO=unprotected GITHUB_STEP_SUMMARY="$md" "$SCRIPTS/sync_remote.sh" --drift
@@ -195,7 +189,6 @@ test_drift_fails_a_target_differing_with_no_pull_request_open() {
 }
 
 test_an_unprotected_target_gets_nothing_and_the_others_sync() {
-  fake_github
   fixture
   echo '[]' >"$T/listing.json"
   t_run env GH_TOKEN=t SCENARIO=unprotected-a "$SCRIPTS/sync_remote.sh"
@@ -207,7 +200,6 @@ test_an_unprotected_target_gets_nothing_and_the_others_sync() {
 }
 
 test_writes_each_target_with_its_own_token() {
-  fake_github
   fixture
   echo '[]' >"$T/listing.json"
   t_run env SYNC_TOKEN_B=tb "$SCRIPTS/sync_remote.sh"
@@ -218,7 +210,6 @@ test_writes_each_target_with_its_own_token() {
 }
 
 test_a_failed_call_stops_that_target_alone() {
-  fake_github
   fixture
   t_run env GH_TOKEN=t SCENARIO=tree-error "$SCRIPTS/sync_remote.sh"
   t_rc 1
@@ -227,7 +218,6 @@ test_a_failed_call_stops_that_target_alone() {
 }
 
 test_a_commit_github_stored_differently_fails_the_target() {
-  fake_github
   fixture
   t_run env GH_TOKEN=t SCENARIO=bad-commit "$SCRIPTS/sync_remote.sh" a
   t_rc 1
@@ -236,7 +226,6 @@ test_a_commit_github_stored_differently_fails_the_target() {
 }
 
 test_an_unverified_signature_fails_the_target() {
-  fake_github
   fixture
   t_run env GH_TOKEN=t SCENARIO=unverified "$SCRIPTS/sync_remote.sh" a
   t_rc 1
@@ -245,7 +234,6 @@ test_an_unverified_signature_fails_the_target() {
 }
 
 test_writes_nothing_without_a_signing_key_and_identity() {
-  fake_github
   fixture
   local var
   for var in SYNC_SIGNING_KEY SYNC_COMMITTER_NAME SYNC_COMMITTER_EMAIL; do
@@ -261,7 +249,6 @@ test_writes_nothing_without_a_signing_key_and_identity() {
 }
 
 test_a_blob_github_stored_differently_fails_the_target() {
-  fake_github
   fixture
   t_run env GH_TOKEN=t SCENARIO=bad-blob "$SCRIPTS/sync_remote.sh" a
   t_rc 1
@@ -270,7 +257,6 @@ test_a_blob_github_stored_differently_fails_the_target() {
 }
 
 test_writes_a_section_per_target_to_the_job_summary() {
-  fake_github
   fixture
   local md="$T/summary.md"
   t_run env GH_TOKEN=t SOURCE_SHA=abc123 GITHUB_STEP_SUMMARY="$md" GITHUB_REPOSITORY=owner/shared \
@@ -313,7 +299,6 @@ EOF
 }
 
 test_a_truncated_tree_listing_fails_the_target() {
-  fake_github
   fixture
   t_run env GH_TOKEN=t SCENARIO=truncated "$SCRIPTS/sync_remote.sh" b
   t_rc 1

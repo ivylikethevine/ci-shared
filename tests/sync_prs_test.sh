@@ -8,10 +8,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 # a's pull request is AGE days old (default 2); CHECKS and STATUSES are its
 # check runs and commit statuses as JSON lists; b has none open. A *_ERROR
-# fails that read. $T/tokens.log gets "token endpoint" per call.
+# fails that read.
 fake_github() {
   t_fake_gh <<'EOF'
-echo "${GH_TOKEN:-} $ep" >>"$T/tokens.log"
 case $ep in
 repos/owner/a/pulls\?head=owner:ci-sync\&base=dev\&state=open)
   [ -z "${PULLS_ERROR:-}" ] || fail

@@ -57,18 +57,44 @@ def load(path: Path, where: str, errors: list[str]) -> Table | None:
         return None
 
 
-def read(path: Path, errors: list[str]) -> Table | None:
+# The file's place under ROOT and its table, its unknown keys reported; None
+# when it cannot be read.
+def open_table(path: Path, allowed: set[str], errors: list[str]) -> tuple[str, Table] | None:
     where: str = str(path.relative_to(ROOT))
     data: Table | None = load(path, where, errors)
     if data is None:
         return None
-    name: str = path.stem
-    check_keys(where, data, {"repository", "sync_branch", "files", "templates", "rulesets", "immutable_releases"}, errors)
+    check_keys(where, data, allowed, errors)
+    return where, data
 
+
+def repository_of(where: str, data: Table, errors: list[str]) -> str | None:
     repository: Toml | None = data.get("repository")
     if not isinstance(repository, str) or not SLUG.fullmatch(repository):
         errors.append(f"{where}: repository must be 'owner/name'")
-    elif repository.split("/")[1] != name:
+        return None
+    return repository
+
+
+# The printed entry: the table with its settings filled in, under `name`.
+def entry(name: str, where: str, data: Table, errors: list[str]) -> Table:
+    read_settings(where, data, errors)
+    return {"name": name, "token_secret": token_secret(name), **data}
+
+
+def read(path: Path, errors: list[str]) -> Table | None:
+    opened: tuple[str, Table] | None = open_table(
+        path, {"repository", "sync_branch", "files", "templates", "rulesets", "immutable_releases"}, errors
+    )
+    if opened is None:
+        return None
+    where: str
+    data: Table
+    where, data = opened
+    name: str = path.stem
+
+    repository: str | None = repository_of(where, data, errors)
+    if repository is not None and repository.split("/")[1] != name:
         errors.append(f"{where}: repository {repository!r} does not end in the file's name")
 
     if data.get("sync_branch") not in BRANCHES:
@@ -106,23 +132,20 @@ def read(path: Path, errors: list[str]) -> Table | None:
             if not isinstance(v, str) or not TEMPLATE_VALUE.fullmatch(v):
                 errors.append(f"{where}: templates.{p!r}.{k} must be a string of single-spaced words without %, & or \\")
 
-    read_settings(where, data, errors)
-    return {"name": name, "token_secret": token_secret(name), **data}
+    return entry(name, where, data, errors)
 
 
 def read_self(path: Path, errors: list[str]) -> Table | None:
-    where: str = str(path.relative_to(ROOT))
-    data: Table | None = load(path, where, errors)
-    if data is None:
+    opened: tuple[str, Table] | None = open_table(path, {"repository", "rulesets", "immutable_releases"}, errors)
+    if opened is None:
         return None
-    check_keys(where, data, {"repository", "rulesets", "immutable_releases"}, errors)
-    repository: Toml | None = data.get("repository")
-    if not isinstance(repository, str) or not SLUG.fullmatch(repository):
-        errors.append(f"{where}: repository must be 'owner/name'")
+    where: str
+    data: Table
+    where, data = opened
+    repository: str | None = repository_of(where, data, errors)
+    if repository is None:
         return None
-    read_settings(where, data, errors)
-    name: str = repository.split("/")[1]
-    return {"name": name, "token_secret": token_secret(name), **data}
+    return entry(repository.split("/")[1], where, data, errors)
 
 
 # The repository settings scripts/rulesets.sh compares: the main ruleset's own

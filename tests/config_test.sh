@@ -5,9 +5,10 @@
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
+# config [--self] - config.py over the tree, stdout in $T/out, stderr in $T/err
 config() {
   T_RC=0
-  python3 -I "$SCRIPTS/config.py" "$T/tree" >"$T/out" 2>"$T/err" || T_RC=$?
+  python3 -I "$SCRIPTS/config.py" "$@" "$T/tree" >"$T/out" 2>"$T/err" || T_RC=$?
 }
 
 test_fills_in_the_optional_keys() {
@@ -26,8 +27,7 @@ EOF
 
 test_prints_its_own_entry_apart() {
   t_target a main
-  T_RC=0
-  python3 -I "$SCRIPTS/config.py" --self "$T/tree" >"$T/out" || T_RC=$?
+  config --self
   t_rc 0
   t_file "$T/out" null
   t_self own-repo <<'EOF'
@@ -35,7 +35,7 @@ immutable_releases = true
 [rulesets.main]
 required_status_checks = [{ context = "ci" }]
 EOF
-  python3 -I "$SCRIPTS/config.py" --self "$T/tree" >"$T/out" || T_RC=$?
+  config --self
   t_rc 0
   t_eq "$(jq -c '[.name, .token_secret, .immutable_releases, .rulesets.main.required_status_checks]' "$T/out")" \
     '["own-repo","SYNC_TOKEN_OWN_REPO",true,[{"context":"ci","integration_id":15368}]]' "this repository's entry"

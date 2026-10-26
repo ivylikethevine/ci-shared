@@ -330,25 +330,18 @@ marks one that changes what runs.
   `CI_SYNC_BRANCH`, `ci_open_sync_pr`, `ci_summary`.
 - **16. Tree listing parsed once**: done.
 - **17. Dead template check in `check.sh`**: done.
-- **18. `ci_entry`** (S, behaviour): `ci_token_secret`, `ci_ruleset_values` and
-  `ci_immutable_releases` repeat one lookup by name, and one of them fails
-  without a message.
-- **19. Shared steps in `config.py`** (S): `read` and `read_self` share their
-  load, `repository` check and entry construction; factor them into typed
-  helpers.
-- **20. Token logging in `t_fake_gh`** (S): four fake `gh` scripts paste the
-  same `tokens.log` line; write it once in the prologue.
-- **21. Path sets in `census.sh`** (S): one `grep` process per path; use
-  associative arrays or `comm`.
-- **22. `t_match`** (S): nine hand-rolled `grep -q … || t_fail` checks in
-  `check_test.sh` and `egress_test.sh`; `t_logged` becomes a wrapper.
+- **18. `ci_entry`**: done; an unknown name now fails with `no target`
+  in `ci_ruleset_values` too.
+- **19. Shared steps in `config.py`**: done: `open_table`, `repository_of`,
+  `entry`.
+- **20. Token logging in `t_fake_gh`**: done.
+- **21. Path sets in `census.sh`**: done.
+- **22. `t_match`**: done.
 - **23. One temp directory per script**: done. `ci_tmpdir` gives
   `check.sh` and `sync_remote.sh` one directory and one EXIT trap each.
 - **24. `ci_shared_paths`**: done.
 - **25. `CI_SELF_REPO`**: done; `ci_load_self` sets it.
-- **26. Test setup** (S): `config_test.sh`'s `config()` takes no arguments, so
-  `--self` is copied inline; `sync_remote_test.sh` opens 15 tests with the
-  same `fake_github; fixture` pair.
+- **26. Test setup**: done.
 
 ### 7.3 Shared files
 

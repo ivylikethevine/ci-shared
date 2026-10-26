@@ -105,10 +105,9 @@ test_runs_every_check_over_the_tree() {
     'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' \
     'prettier --check .' \
     'lint_workflows.sh .github/workflows/checks.yml .github/workflows/codeql.yml .github/workflows/link-check.yml .github/workflows/own.yml .github/workflows/scorecard.yml .github/workflows/tool-versions.yml files/.github/workflows/link-check.yml files/.github/workflows/plain.yml files/.github/workflows/scorecard.yml files/.github/workflows/tool-versions.yml files/.github/actions/a/action.yml'
-  grep -q '^actionlint -config-file .github/actionlint.yaml .*/ci-tmp\.[^/]*/render/' "$T/tools.log" ||
-    t_fail "actionlint did not read the shared runner labels for the renderings"
-  grep -q '^prettier --check --config .prettierrc.yaml .*/ci-tmp\.[^/]*/render/' "$T/tools.log" ||
-    t_fail "prettier did not run on the renderings with the shared config"
+  # the renderings read the shared runner labels and prettier config
+  t_match "$T/tools.log" '^actionlint -config-file .github/actionlint.yaml .*/ci-tmp\.[^/]*/render/' \
+    '^prettier --check --config .prettierrc.yaml .*/ci-tmp\.[^/]*/render/'
   # prettier, actionlint and lint_workflows.sh each see every rendering
   t_file "$T/rendered.log" "$(
     for _ in 1 2 3; do
@@ -136,11 +135,9 @@ test_lints_a_markdown_template_rendered_not_raw() {
   t_no_out "actionlint-rendered"
   # the raw template is kept from prettier and markdownlint
   t_in -x "$T/tools.log" 'prettier --check . !files/docs/t.md' 'markdownlint-cli2 **/*.md #**/node_modules #.claude #local #files/docs/t.md'
-  grep -q '^markdownlint-cli2 --config .markdownlint.yaml .*/a/docs/t.md .*/b/docs/t.md$' "$T/tools.log" ||
-    t_fail "markdownlint did not run on the renderings: $(grep '^markdownlint' "$T/tools.log")"
+  t_match "$T/tools.log" '^markdownlint-cli2 --config .markdownlint.yaml .*/a/docs/t.md .*/b/docs/t.md$'
   # every rendering, a file prettier has no parser for included: --ignore-unknown skips it
-  grep -q '^prettier --check --config .prettierrc.yaml --ignore-unknown .*/a/docs/t.md .*/a/.gitattributes .*/b/docs/t.md$' "$T/tools.log" ||
-    t_fail "prettier's rendered paths: $(grep '^prettier --check --config' "$T/tools.log")"
+  t_match "$T/tools.log" '^prettier --check --config .prettierrc.yaml --ignore-unknown .*/a/docs/t.md .*/a/.gitattributes .*/b/docs/t.md$'
   # prettier sees every rendering (a's .gitattributes keeps its block on the
   # implicit repo alone), markdownlint the Markdown alone
   t_file "$T/rendered.log" "$(
@@ -175,8 +172,7 @@ test_lints_a_json_template_rendered_not_raw() {
   t_rc 0
   # the raw template is kept from prettier; markdownlint's raw list is unchanged
   t_in -x "$T/tools.log" 'prettier --check . !files/.vscode/settings.json' 'markdownlint-cli2 **/*.md #**/node_modules #.claude #local'
-  grep -q '^prettier --check --config .prettierrc.yaml --ignore-unknown .*/a/.vscode/settings.json .*/b/.vscode/settings.json$' "$T/tools.log" ||
-    t_fail "prettier did not run on the renderings: $(grep '^prettier --check --config' "$T/tools.log")"
+  t_match "$T/tools.log" '^prettier --check --config .prettierrc.yaml --ignore-unknown .*/a/.vscode/settings.json .*/b/.vscode/settings.json$'
   t_file "$T/rendered.log" "$(
     cat <<'EOF'
 == a/.vscode/settings.json
@@ -214,8 +210,8 @@ test_counts_and_annotates_each_failure() {
   t_rc 3
   t_out "::error title=shellcheck::shellcheck failed" "::error title=zizmor::zizmor failed" \
     "::error title=audit::audit failed"
-  grep -qxF 'zizmor --config .github/zizmor.yml .github/workflows files/.github' "$T/tools.log" ||
-    t_fail "zizmor ran offline with a token"
+  # online, with a token
+  t_in -x "$T/tools.log" 'zizmor --config .github/zizmor.yml .github/workflows files/.github'
 }
 
 test_a_tool_off_its_pin_fails() {
