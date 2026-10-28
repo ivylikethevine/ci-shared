@@ -49,7 +49,6 @@ them, or make the repository a target.
 | `scripts/sync_local.sh`       | copies `files/` into the checkouts beside this one                                           |
 | `scripts/sync_remote.sh`      | opens or updates a pull request per target through the GitHub API                            |
 | `scripts/check_protection.sh` | fails unless each target's `main` and `dev` are protected from its token                     |
-| `scripts/check_tokens.sh`     | prints when each target's sync token expires, failing within two weeks                       |
 | `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets                      |
 | `scripts/sync_prs.sh`         | reports each target's open sync pull request: its age and its checks                         |
 | `scripts/own_files.sh`        | writes this repository's own copies of the shared files it uses                              |
@@ -99,8 +98,9 @@ by hand, or whose pull request was closed unmerged. The same run's
 check, no checks, or open over two weeks, so a shared file that breaks a target
 shows up here. The last is off until the repository variable `SYNC_PR_REPORT`
 (_Settings → Secrets and variables → Actions → Variables_) is `true`, which
-waits on the tokens' Checks and Commit statuses read. These and the token and
-protection checks keep one `sync-health` issue open until a weekly run passes.
+waits on the sync App's Checks and Commit statuses read. These and the token
+and protection checks keep one `sync-health` issue open until a weekly run
+passes.
 
 Sync pull requests go into each target's `main`, so its CI and CodeQL check
 them once, Scorecard's CI-Tests and SAST checks credit the synced commits, and
@@ -196,16 +196,15 @@ kept.
   above; `tests/coverage.py` explains how
   kcov's line counts are mapped to statements.
 
-## The sync tokens
+## The sync App
 
-Each target has its own token, in a secret of this repository's `sync`
-environment named for it: `SYNC_TOKEN_<NAME>`, the target's name in capitals
-with `-` as `_` (`SYNC_TOKEN_SAY_HI`). _Settings → Environments → sync →
-Environment secrets_ holds each one, a fine-grained personal access token. The
-environment's _Deployment branches and tags_ are limited to `main`, so a run
-from any other ref cannot read them.
+The sync writes through a GitHub App the repository owner creates and
+installs (_Settings → Developer settings → GitHub Apps → New GitHub App_), no
+webhook, installable only on this account, and installed on every target.
+Each `sync.yml` run mints one installation token per target with
+`actions/create-github-app-token`, scoped to that repository alone, valid
+for an hour at most and revoked when the job ends. Nothing expires to renew.
 
-- **Repository access:** that target alone.
 - **Permissions:** Contents read and write (a pull request needs its branch
   pushed), Pull requests read and write, Workflows read and write (the synced
   files include `.github/workflows/`), Checks read and Commit statuses read
@@ -213,29 +212,35 @@ from any other ref cannot read them.
   `SYNC_PR_REPORT` turns it on); Metadata read is added automatically. No
   Administration permission: without it, GitHub hides a ruleset's
   `bypass_actors`, which `scripts/rulesets.sh diff` then compares without, and
-  `scripts/check_protection.sh` reads the bypass that matters, the token's own.
-- **Expiry:** the shortest you will renew. `scripts/check_tokens.sh` reads each
-  token's expiry from GitHub and fails once one is within two weeks of it;
-  `sync.yml` runs it on every run and weekly, so the weekly run fails, and
-  opens a `sync-health` issue, in time to renew.
+  `scripts/check_protection.sh` reads the bypass that matters, the App's own.
+  Each mint step requests exactly these, so a permission granted to the App
+  later reaches the tokens only once the steps request it too, and one the App
+  lacks fails the mint.
+- **Credentials:** the `sync` environment holds the App's client ID as the
+  variable `SYNC_APP_CLIENT_ID` and one of its private keys, the whole PEM
+  file, as the secret `SYNC_APP_PRIVATE_KEY`. The environment's _Deployment
+  branches and tags_ are limited to `main`, so a run from any other ref cannot
+  read them.
 
-A new target needs its secret and its line in `sync.yml`'s job `env`, which
-passes each secret by name; until then `check_tokens.sh` reports it unset and
-the sync skips it. The same `env` passes the job's own token as
+The scripts read target `<name>`'s token as `SYNC_TOKEN_<NAME>`, the name in
+capitals with `-` as `_` (`SYNC_TOKEN_SAY_HI`). In `sync.yml`, a mint step
+per target feeds a `TOKEN_<NAME>` line of the `tokens` step, which exports
+each as `SYNC_TOKEN_<NAME>`. A new target needs the App installed on it, its
+mint step and its `TOKEN_<NAME>` line; until then the `tokens` step fails and
+the sync skips it. The job's `env` passes its own token as
 `SYNC_TOKEN_CI_SHARED`, for this repository's protection and rulesets checks;
 it is no secret, and no sync writes with it.
 
 Contents write lets a token push any branch of its target, not just
 `ci-sync`. The rulesets on each target's `main` and `dev` keep it to pull
-requests, provided the token's user can bypass them only through a pull
-request: the token acts as that user. `scripts/check_protection.sh` checks
-this and fails closed on any error; `scripts/sync_remote.sh` runs it on each
-target before writing to it, and a target that fails gets nothing while the
-others still sync.
+requests, provided the App can bypass them only through a pull request; it is
+no bypass actor, so it cannot. `scripts/check_protection.sh` checks this and
+fails closed on any error; `scripts/sync_remote.sh` runs it on each target
+before writing to it, and a target that fails gets nothing while the others
+still sync.
 
 For a local run, `GH_TOKEN` stands in for any target whose `SYNC_TOKEN_<NAME>`
-is unset, in every script but `check_tokens.sh`, which reads only the
-`SYNC_TOKEN_<NAME>` variables.
+is unset.
 
 ## The signing key
 
@@ -305,5 +310,5 @@ repository with an admin token:
   with its assets does.
 
 `scripts/rulesets.sh diff` compares both, but GitHub shows them only to a
-token with Administration read, which the sync tokens lack: the weekly run
+token with Administration read, which the sync App lacks: the weekly run
 names them as hidden, and a local run with an admin token compares them.

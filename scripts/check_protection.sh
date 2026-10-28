@@ -4,8 +4,8 @@
 # pushes and deletion, `main` requires a pull request, and `dev` requires a
 # pull request or signed commits (the token's commits are unsigned, so it
 # reaches `dev` only through a pull request GitHub merges). A rule counts only
-# from an active ruleset the token's own user cannot bypass outside a pull
-# request; the token acts as that user. rulesets/ holds the shared rulesets
+# from an active ruleset the token's own actor (the sync App, in sync.yml)
+# cannot bypass outside a pull request. rulesets/ holds the shared rulesets
 # that pass. This repository's `main` (rulesets/self.toml) is held to the same,
 # its `dev` to nothing: a push to its main reaches every target.
 #
@@ -17,7 +17,7 @@
 # repos/ config, an API error, a response of the wrong shape or a bypass level
 # it does not know each fail the branch. Prints one line per branch and exits 1
 # if any fails. Each token needs Metadata read on its target, and must be the
-# one the sync writes with: the bypass is read for its user.
+# one the sync writes with: the bypass is read for its actor.
 set -euo pipefail
 
 # shellcheck source=./lib.sh

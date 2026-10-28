@@ -3,14 +3,15 @@
 This repository is the one source of the CI files several repositories carry:
 a change to `files/` reaches every target through its sync pull request. A
 flaw in a shared workflow, action or script is therefore a flaw in all of
-them, and the sync itself holds a write token per target.
+them, and the sync itself mints a write token per target from its GitHub App.
 
 ## In scope
 
 - Anything under `files/`: workflows, composite actions, helper scripts, lint
   configs and the Markdown tools' lock, as the targets receive them.
 - The sync: `sync.yml`, `scripts/sync_remote.sh` and the scripts it calls,
-  including how they handle the per-target tokens and the signing key.
+  including how they handle the App's key, the per-target tokens and the
+  signing key.
 - This repository's own workflows and the rulesets in `rulesets/`.
 
 A flaw in a target's own code belongs to that repository's security policy.

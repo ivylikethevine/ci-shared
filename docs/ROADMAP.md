@@ -82,25 +82,28 @@ knows 26.04. What changed under them, from GitHub's image comparison
 
 ## 3. Integrations and replacements
 
-### 3.1 One GitHub App in place of five fine-grained tokens
+### 3.1 One GitHub App in place of five fine-grained tokens (live setup left)
 
-- **What:** each target's sync token is a fine-grained PAT with an expiry,
-  renewed by hand when `scripts/check_tokens.sh` fails the weekly run. A
-  GitHub App installed on the five targets (and this repository, for 3.2)
-  mints a one-hour installation token per run through
-  `actions/create-github-app-token`, whose `repositories` input scopes each
-  token to one target, so the per-target isolation the README asks for
-  stays. The secret becomes the App's private key, which does not expire.
+- **Done in the tree:** `sync.yml` mints one token per target through
+  `actions/create-github-app-token` v3.3.0, `repositories` scoping each to its
+  target, and a `tokens` step exports them as the `SYNC_TOKEN_<NAME>` the
+  scripts already read, so the scripts and their suites keep their contract.
+  `check_tokens.sh` and its suite are gone; the health issue's `tokens` line
+  now means the App minted no token for a target. The README's "The sync App"
+  section has the permissions and credentials.
 - **Keeps:** the SSH signing key and `create_commit`'s verification (the
   signature is checked against the committer email's registered key, not the
-  token), `check_protection.sh` (the App is the user whose bypass is read;
+  token), `check_protection.sh` (the App is the actor whose bypass is read;
   not a bypass actor, so `never`), the `sync` environment.
-- **Drops:** `check_tokens.sh` and its job output, the five
-  `SYNC_TOKEN_<NAME>` secrets and the `env:` block that names them (new
-  targets then need no secret), the README's expiry section.
-- **Verify first:** on one target, that a Git data API commit carrying the
-  SSH `signature` verifies when created with an App token, and that the
-  App's bypass reads `never` on both rulesets.
+- **Left, by hand:** create the App with the README's permissions, install it
+  on the five targets (and this repository, for 3.2), set
+  `SYNC_APP_CLIENT_ID` and `SYNC_APP_PRIVATE_KEY` in the `sync` environment,
+  then dispatch `sync.yml` with `dry-run` and one target, then a real run on
+  one target. Verify there that the sync commit shows as verified and that
+  `check_protection.sh` reads the App's bypass as `never` on both rulesets.
+  Then delete the five `SYNC_TOKEN_<NAME>` secrets and revoke the PATs.
+- **Still by hand per target:** a mint step and a `TOKEN_<NAME>` line in
+  `sync.yml` (7.1 item 5).
 
 ### 3.2 Bumps as a pull request, not a hand edit
 
@@ -134,7 +137,8 @@ repository, which the sync then carries everywhere:
 - **Left:** switch it on in every repository, this one included, with the
   README's `gh api -X PUT .../actions/permissions` (The rulesets). The field
   is `sha_pinning_required`; `scripts/rulesets.sh diff` compares it when its
-  token has Administration read, which the sync tokens lack, so the weekly run
+  token has Administration read, which the sync App lacks (granting it also
+  needs `permission-administration: read` on `sync.yml`'s mint steps), so the weekly run
   names it as hidden.
 
 ### 3.4 Immutable releases on the releasing targets (by hand)
@@ -295,9 +299,9 @@ marks one that changes what runs.
 - **3. A shared base file list**: done: `repos/_base.toml`, `base = true`,
   `skip`.
 - **4. Repository-wide template values**: done: a target's `[values]`.
-- **5. Check `sync.yml`'s token list** (S): each `SYNC_TOKEN_<NAME>` is listed
-  by hand; a `check.sh` assertion against the entries' `token_secret` catches
-  a missing one before a run does.
+- **5. Check `sync.yml`'s mint steps** (S): each target's mint step and
+  `TOKEN_<NAME>` line are listed by hand; a `check.sh` assertion against the
+  entries' `token_secret` catches a missing one before a run does.
 - **6. `REUSE.toml` as an own file**: done. This repository's copy drops the
   code-of-conduct annotation, which `files/REUSE.toml`, read as a nested
   REUSE.toml, already makes for `files/docs/`.
