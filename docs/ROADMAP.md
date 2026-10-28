@@ -82,7 +82,7 @@ knows 26.04. What changed under them, from GitHub's image comparison
 
 ## 3. Integrations and replacements
 
-### 3.1 One GitHub App in place of five fine-grained tokens (live setup left)
+### 3.1 One GitHub App in place of five fine-grained tokens (live)
 
 - **Done in the tree:** `sync.yml` mints one token per target through
   `actions/create-github-app-token` v3.3.0, `repositories` scoping each to its
@@ -95,13 +95,14 @@ knows 26.04. What changed under them, from GitHub's image comparison
   signature is checked against the committer email's registered key, not the
   token), `check_protection.sh` (the App is the actor whose bypass is read;
   not a bypass actor, so `never`), the `sync` environment.
-- **Left, by hand:** create the App with the README's permissions, install it
-  on the five targets (and this repository, for 3.2), set
-  `SYNC_APP_CLIENT_ID` and `SYNC_APP_PRIVATE_KEY` in the `sync` environment,
-  then dispatch `sync.yml` with `dry-run` and one target, then a real run on
-  one target. Verify there that the sync commit shows as verified and that
-  `check_protection.sh` reads the App's bypass as `never` on both rulesets.
-  Then delete the five `SYNC_TOKEN_<NAME>` secrets and revoke the PATs.
+- **Live since 2026-10-28:** the App is created and installed, its credentials
+  set, and the change merged to `main`. Dry runs 40751549579 (homebrew-tap)
+  and 40751746191 (every target) minted all five tokens, and
+  `check_protection.sh` passed every target's `main` and `dev` with the App's
+  token. Every target was in line with `files/`, so no commit was written.
+  The five `SYNC_TOKEN_<NAME>` secrets are deleted and their PATs revoked.
+- **Left:** the first sync that writes a commit confirms GitHub shows it as
+  verified when made with an App token; until then that is unchecked.
 - **Still by hand per target:** a mint step and a `TOKEN_<NAME>` line in
   `sync.yml` (7.1 item 5).
 
@@ -275,14 +276,15 @@ tag its comment names, which rule 5 does not.
   editor's format-on-save, a format-on-write hook) rewrites both back, so
   `docs/demo/fixtures.sh` fails `brew style` after any such save. No
   EditorConfig key gives Homebrew's `do` placement.
-- **How:** a `shared:if repo=homebrew-tap` block in `files/.editorconfig`
-  setting `ignore = true` for `[docs/demo/*.sh]`, so `brew style` alone owns
-  that layout. Not enough by itself: shfmt 3.14.1 honors `ignore` only when
-  it walks a directory (`shfmt -l <dir>` skips the file, `shfmt -d <file>`
-  still reformats it), so whatever formats one file on save must also skip a
-  file `shfmt -f <dir>` leaves out.
-- **Until then:** `brew style --fix`'s diff from the CI log, applied by hand
-  and not reformatted afterwards.
+- **Done in `files/`:** a `shared:if repo=homebrew-tap` block in
+  `files/.editorconfig` sets `ignore = true` for `[docs/demo/*.sh]`, so
+  `shfmt -l` over a copy of homebrew-tap's tree skips `fixtures.sh` and
+  `brew style` alone owns that layout. It is also the first sync to write a
+  commit with the App's token (3.1).
+- **Left:** shfmt 3.14.1 honors `ignore` only when it walks a directory
+  (`shfmt -d <file>` still reformats it), so whatever formats one file on
+  save must also skip a file `shfmt -f <dir>` leaves out. Until it does,
+  apply `brew style --fix`'s diff by hand and do not reformat afterwards.
 
 ## 7. Simplifications
 
