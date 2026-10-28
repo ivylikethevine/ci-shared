@@ -1,16 +1,18 @@
 name: Sync
 
 # Opens or updates a pull request in each repos/ repository whose copies of
-# the shared files differ from files/. Each target has its own secret in the
-# `sync` environment, SYNC_TOKEN_<NAME>: a fine-grained token scoped to that
-# repository alone with Contents, Pull requests and Workflows read/write and
-# Checks and Commit statuses read. The commits are signed with
-# SYNC_SIGNING_KEY. This workflow's own token reads this repository and writes
-# only its `sync-health` issue. A target gets nothing unless its main and dev
-# pass scripts/check_protection.sh. The run's job summary lists what each
-# target got, file by file. The weekly run writes
-# nothing to a target: it fails once a token is within two weeks of expiry,
-# a target's protection has slipped, a target differs from files/ with no
+# the shared files differ from files/. Each run mints one token per target
+# from the sync GitHub App (client ID in the `sync` environment's variable
+# SYNC_APP_CLIENT_ID, private key in its secret SYNC_APP_PRIVATE_KEY), scoped
+# to that repository alone, with the App's Contents, Pull requests and
+# Workflows read/write and Checks and Commit statuses read; each is revoked
+# when the job ends. The commits are signed with SYNC_SIGNING_KEY. This
+# workflow's own token reads this repository and writes only its
+# `sync-health` issue. A target gets nothing unless its main and dev pass
+# scripts/check_protection.sh. The run's job summary lists what each target
+# got, file by file. The weekly run writes nothing to a target: it fails once
+# the App cannot mint a target's token, a target's protection has slipped, a
+# target differs from files/ with no
 # sync pull request open, a target's rulesets differ from rulesets/, or (with
 # the repository variable SYNC_PR_REPORT set to `true`) a sync pull request
 # has a failed check or has stayed open too long, and keeps the `sync-health`
@@ -49,8 +51,9 @@ jobs:
     name: Sync
     runs-on: ubuntu-26.04
     timeout-minutes: 10
-    # SYNC_TOKEN_<NAME> and SYNC_SIGNING_KEY are secrets of this environment,
-    # whose deployment branches are main alone, so no other ref's run reads them
+    # SYNC_APP_PRIVATE_KEY and SYNC_SIGNING_KEY are secrets of this
+    # environment, whose deployment branches are main alone, so no other ref's
+    # run reads them
     environment: sync
     # job-scoped, not workflow-level, for Scorecard's Token-Permissions check
     permissions:
@@ -61,16 +64,11 @@ jobs:
       drift: ${{ steps.drift.outcome }}
       rulesets: ${{ steps.rulesets.outcome }}
       prs: ${{ steps.prs.outcome }}
-    # one per repos/<name>.toml, each read by the scripts for its own target,
-    # and this job's own read-only token for this repository's main
-    # (rulesets/self.toml), which the protection and rulesets checks cover
+    # this job's own read-only token, for this repository's main
+    # (rulesets/self.toml), which the protection and rulesets checks cover;
+    # the tokens step below adds one SYNC_TOKEN_<NAME> per target
     env:
       SYNC_TOKEN_CI_SHARED: ${{ github.token }}
-      SYNC_TOKEN_HOMEBREW_TAP: ${{ secrets.SYNC_TOKEN_HOMEBREW_TAP }}
-      SYNC_TOKEN_INSTADROID: ${{ secrets.SYNC_TOKEN_INSTADROID }}
-      SYNC_TOKEN_PYTHON_CONSTRICTER: ${{ secrets.SYNC_TOKEN_PYTHON_CONSTRICTER }}
-      SYNC_TOKEN_SAY_HI: ${{ secrets.SYNC_TOKEN_SAY_HI }}
-      SYNC_TOKEN_SHARERR_RS: ${{ secrets.SYNC_TOKEN_SHARERR_RS }}
     steps:
       # block, not audit: the checkout and the GitHub API are all this job
       # reaches.
@@ -86,11 +84,97 @@ jobs:
         with:
           persist-credentials: false
 
-      # every target, whatever the repos input names. The steps after run
-      # whatever this one finds: an expiring token still syncs.
+      # one token per repos/<name>.toml, whatever the repos input names, each
+      # scoped to its target alone and to the README's permissions, which the
+      # App must hold (zizmor: github-app). A target the App cannot reach (not
+      # installed there) gets none: the tokens step fails and the scripts
+      # skip that target, while the others still sync.
+      - id: app-homebrew-tap
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+          permission-checks: read
+          permission-statuses: read
+          repositories: homebrew-tap
+      - id: app-instadroid
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+          permission-checks: read
+          permission-statuses: read
+          repositories: instadroid
+      - id: app-python-constricter
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+          permission-checks: read
+          permission-statuses: read
+          repositories: python-constricter
+      - id: app-say-hi
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+          permission-checks: read
+          permission-statuses: read
+          repositories: say-hi
+      - id: app-sharerr-rs
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+          permission-checks: read
+          permission-statuses: read
+          repositories: sharerr-rs
+
+      # the scripts read target <name>'s token as SYNC_TOKEN_<NAME>, its name
+      # in capitals with `-` as `_`; each TOKEN_<NAME> below becomes one. The
+      # steps after run whatever this one finds.
       - id: tokens
-        name: Check the sync tokens' expiry
-        run: scripts/check_tokens.sh
+        name: Pass the targets' tokens to the steps below
+        env:
+          TOKEN_HOMEBREW_TAP: ${{ steps.app-homebrew-tap.outputs.token }}
+          TOKEN_INSTADROID: ${{ steps.app-instadroid.outputs.token }}
+          TOKEN_PYTHON_CONSTRICTER: ${{ steps.app-python-constricter.outputs.token }}
+          TOKEN_SAY_HI: ${{ steps.app-say-hi.outputs.token }}
+          TOKEN_SHARERR_RS: ${{ steps.app-sharerr-rs.outputs.token }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for var in $(compgen -v TOKEN_); do
+            if [ -n "${!var}" ]; then
+              echo "SYNC_$var=${!var}" >>"$GITHUB_ENV"
+            else
+              missing+=("${var#TOKEN_}")
+            fi
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error title=tokens::the sync App minted no token for ${missing[*]}"
+            exit 1
+          fi
 
       # every target, on the runs where the sync below does not check each
       # one itself: the weekly run and a dry run write nothing, and a run
@@ -201,7 +285,7 @@ jobs:
           {
             echo "The weekly sync checks did not pass; the run's log has the details."
             echo
-            line "$TOKENS" scripts/check_tokens.sh "a token is unset, unreadable or within two weeks of expiry"
+            line "$TOKENS" create-github-app-token "the sync App minted no token for a target: not installed there, lacking a permission the mint step requests, or SYNC_APP_CLIENT_ID or SYNC_APP_PRIVATE_KEY is unset"
             line "$PROTECTION" scripts/check_protection.sh "a target's main or dev is not protected from its token"
             line "$DRIFT" "scripts/sync_remote.sh --drift" "a target differs from files/ with no sync pull request open, or could not be read"
             line "$RULESETS" "scripts/rulesets.sh diff" "a target's rulesets differ from rulesets/, or could not be read"
