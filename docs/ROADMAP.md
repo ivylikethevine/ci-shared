@@ -7,6 +7,23 @@ play. Each item says what, why, how, and what to verify first. Items marked
 _batch_ are shared CI items: they go to every repository as one hand-run batch
 ([README](../README.md), "Checking this repository"), never to one alone.
 
+## Order of work
+
+Ranked by value for size; the numbers are the items below. S, M and L are sizes.
+
+1. 3.1, read the first weekly run under the App on 2026-11-02 (S).
+2. 6.1 item 5, the check on `sync.yml`'s mint steps (S).
+3. 6.2 item 21, `lint_workflows.sh` reading `source` lines (M): a miss only
+   fails at release.
+4. 3.3 and 3.4, the settings to switch on by hand (S).
+5. 3.2, bumps as a pull request (L), which also shortens 1.3.
+6. The batch when it is started: 1.3 (S), 1.2 (M, one session per repository).
+7. The remaining S items: 6.1 item 7, 6.2 items 12, 17, 19 and 20.
+8. 6.2's M items: 10, 15 and 16.
+9. Section 4's templates (M).
+
+Waiting on upstream: 1.1, 3.6, 5.1, 5.2. Not worth doing as things stand: 3.5.
+
 ## 1. Fixes in this repository
 
 ### 1.1 The `$/` rewrite and zizmor `self-repository` (_batch_)
@@ -21,9 +38,26 @@ _batch_ are shared CI items: they go to every repository as one hand-run batch
 - **How, once actionlint accepts it:** rewrite the shared workflows and each
   target's own, extend `lint_workflows.sh` rule 7 to `$/` (it checks the
   sparse-checkout list for `./` refs only), re-enable the rule, and update
-  each target's disabled-rules note. The harden-runner `block` move for the
-  macOS and Windows jobs is the other open batch item; it lives in the
-  targets' own workflows, one session per repository.
+  each target's disabled-rules note.
+
+### 1.2 harden-runner `block` on macOS and Windows jobs (_batch_)
+
+- **What:** harden-runner v2.20.0 supports `egress-policy: block` on GitHub's
+  macOS and Windows runners in the free tier, so those jobs can move from
+  `audit`. A weekly external-link check stays `audit`, and Windows arm64 has no
+  agent, so those legs stay unmonitored.
+- **How:** `scratch/egress_census.sh` lists the jobs and
+  `scratch/egress_baseline.sh` reads each job's endpoints from its audit runs
+  for `allowed-endpoints`. The jobs live in the targets' own workflows, one
+  session per repository; update each disabled-rules row that says only audit
+  is supported.
+
+### 1.3 The bumps the `tool-versions` issue lists (_batch_)
+
+- **What:** issue #3 names each pin past the cooldown. As of its 2026-10-28 run:
+  trivy, terraform, `github/codeql-action`, `step-security/harden-runner`,
+  markdownlint-cli2 and python-constricter. actionlint 1.7.12 is still the
+  newest, which keeps 1.1 blocked.
 
 ## 2. Platform changes with a date
 
@@ -56,16 +90,16 @@ knows 26.04. What changed under them, from GitHub's image comparison
   green, kcov 43 built from source in under a minute on a cold cache keyed
   `ubuntu26`, the checks and the 100% coverage gate as on 24.04.
 - **Since:** this repository's `CI`, `CodeQL`, `Link check`, `Scorecard` and
-  `Sync` pass on `ubuntu-26.04` (2026-10-24); `tool-versions.yml` last ran
-  before the switch, so its next weekly run is its first. say-hi's renamed
-  suite jobs are on its `main`, and its live `main` ruleset requires them.
-- **Left:** instadroid's own workflows still name `ubuntu-latest` (21 jobs on
-  its `dev`), so they moved with the label rather than by a commit; pin them
-  to `ubuntu-26.04` there. The 2026-10-24 sync pull requests' CI failures are
-  not the image's: a new RustSec advisory in sharerr-rs's `cargo-deny`,
-  `filelock` and `setuptools` advisories in instadroid's `pip-audit`, and in
-  say-hi a `test_runner_ci` cost-table test and a harden-runner agent that
-  exited when `cdn.dl.k8s.io` did not resolve.
+  `Sync` pass on `ubuntu-26.04` (2026-10-24), and `tool-versions.yml` does too
+  (run 40754857850, 2026-10-28). say-hi's renamed suite jobs are on its `main`,
+  and its live `main` ruleset requires them.
+- **instadroid:** its own 21 `ubuntu-latest` jobs now name `ubuntu-26.04`; its
+  next CI run on them is the check.
+- **Not the image's:** the 2026-10-24 sync pull requests' CI failures were a
+  new RustSec advisory in sharerr-rs's `cargo-deny`, `filelock` and `setuptools`
+  advisories in instadroid's `pip-audit`, and in say-hi a `test_runner_ci`
+  cost-table test and a harden-runner agent that exited when `cdn.dl.k8s.io` did
+  not resolve. Those pull requests are closed; later syncs replaced them.
 - **kcov:** 26.04 packages kcov `43+dfsg-2`, which records no hit on a
   multi-line array assignment; this repository's coverage job and say-hi's
   build upstream kcov 43 from `tools.txt`'s `cmake` row instead.
@@ -77,8 +111,8 @@ knows 26.04. What changed under them, from GitHub's image comparison
 
 - **What:** since 2026-07-14 Dependabot waits three days by default; the
   shared `dependabot.yml` sets seven explicitly on every entry, which wins.
-  Nothing to change; the `COOLDOWN_DAYS` comment in `check_tool_versions.sh`
-  still mirrors it.
+  Nothing to change; `COOLDOWN_DAYS` in `check_tool_versions.sh` defaults to the
+  same seven.
 
 ## 3. Integrations and replacements
 
@@ -100,11 +134,15 @@ knows 26.04. What changed under them, from GitHub's image comparison
   and 40751746191 (every target) minted all five tokens, and
   `check_protection.sh` passed every target's `main` and `dev` with the App's
   token. Every target was in line with `files/`, so no commit was written.
-  The five `SYNC_TOKEN_<NAME>` secrets are deleted and their PATs revoked.
-- **Left:** the first sync that writes a commit confirms GitHub shows it as
-  verified when made with an App token; until then that is unchecked.
+  The five `SYNC_TOKEN_<NAME>` secrets are deleted and their PATs revoked. The
+  first commit written with an App token, homebrew-tap's `db047dd` (pull request
+  82), shows as verified.
+- **Left:** the `sync-health` issue (#4) is still open from the 2026-10-26
+  weekly run, the last under the PATs, naming drift and rulesets. The
+  2026-11-02 run is the first under the App, and closes it if every check
+  passes.
 - **Still by hand per target:** a mint step and a `TOKEN_<NAME>` line in
-  `sync.yml` (7.1 item 5).
+  `sync.yml` (6.1 item 5).
 
 ### 3.2 Bumps as a pull request, not a hand edit
 
@@ -117,13 +155,16 @@ repository, which the sync then carries everywhere:
   fetching the new asset for each platform the row names), the `-> @sha`
   lines across every `uses:`, `npm install --prefix .github <pkg>@<ver>`
   for the Markdown tools, `pip-compile --upgrade-package` for
-  `requirements-dev.in`. A workflow runs it after the weekly check and opens
+  `requirements-dev.in` and `requirements-coverage.in`. A workflow runs it after the weekly check and opens
   one pull request. The sha256 recomputation is the one step no off-the-shelf
   tool does for this roster format.
-- **pinact** (v5.0.0, 2026-09-12) for the action SHAs alone: `pinact run
---update` rewrites `uses:` pins with their version comments and `pinact run
---check` is a lint; it does not know `tools.txt` or the npm lock.
-- **Renovate**, as the README described it: self-hosted through
+- **pinact** (v5.0.0, 2026-09-12) for the action SHAs alone:
+  `pinact run --update` rewrites `uses:` pins with their version comments and
+  `pinact run --check` is a lint; it does not know `tools.txt` or the npm lock.
+  If adopted, its check mode joins `check.sh` beside `lint_workflows.sh`: it also verifies
+  that each SHA is reachable from the tag its comment names, which rule 5 does
+  not.
+- **Renovate**: self-hosted through
   `renovatebot/github-action` (v46.3.8), Renovate 44.3.1 or later
   (CVE-2026-88884), regex custom managers for `tools.txt` plus
   `postUpgradeTasks` for the sha256, `ignorePaths` for the root symlinks, its
@@ -200,8 +241,8 @@ target gains contributors.
     Sigstore bundle.
   - sharerr-rs's required check `workflow lint (zizmor + actionlint)` is
     renamed in its ruleset by hand if the job name changes.
-- **Not evaluated:** it claims a rule for every zizmor 1.30.1 audit, which
-  could later replace zizmor as well.
+- **Not evaluated:** it claims a rule for every zizmor 1.30.1 audit (zizmor is
+  pinned at 1.31.1 since), which could later replace zizmor as well.
 
 ## 4. More files into `files/`
 
@@ -212,7 +253,7 @@ with a per-repository tail is a template, not a per-repository file.
 
 | Path                    | Held by                     | Alike                         | Call                                   |
 | ----------------------- | --------------------------- | ----------------------------- | -------------------------------------- |
-| `.prettierignore`       | 4 repos, 5 to 8 lines       | differ by build dirs          | template with repo blocks              |
+| `.prettierignore`       | 4 repos, 6 to 8 lines       | differ by build dirs          | template with repo blocks              |
 | `.typos.toml`           | 4 repos, 14 to 50 lines     | a common head, per-repo words | template with repo blocks              |
 | `.hadolint.yaml`        | say-hi, sharerr-rs (34, 29) | instadroid's is 3 lines       | template for the two                   |
 | `.tool-versions`        | 3 repos, 2 to 4 lines       | different tools               | leave                                  |
@@ -221,17 +262,9 @@ with a per-repository tail is a template, not a per-repository file.
 
 `bug_report.yml` and `feature_request.yml` stay per-repository by decision.
 
-## 5. Checks this repository could run on itself
+## 5. Known issues
 
-### 5.1 `pinact run --check`
-
-If 3.2 adopts pinact for action SHAs, its check mode joins `check.sh` beside
-`lint_workflows.sh`: it also verifies that each SHA is reachable from the
-tag its comment names, which rule 5 does not.
-
-## 6. Known issues
-
-### 6.1 harden-runner `block` drops allowlisted hosts on some westus2 runners
+### 5.1 harden-runner `block` drops allowlisted hosts on some westus2 runners
 
 - **What:** GitHub runs an experiment on some westus2 hosted runners that adds
   its own DNS resolver (`egress-dns-resolver.service`, on `127.0.0.100:53`).
@@ -268,7 +301,7 @@ tag its comment names, which rule 5 does not.
   `domain:`, with `ip address dropped` for an allowlisted host's IP. Close
   this once #14925 reports a fix and a westus2 run passes.
 
-### 6.2 shfmt and `brew style` disagree on homebrew-tap's shell layout
+### 5.2 shfmt and `brew style` disagree on homebrew-tap's shell layout
 
 - **What:** homebrew-tap's `brew style` runs Homebrew's shfmt wrapper over
   every `*.sh` in the tap, which wants `then` and `do` on their own line and
@@ -276,27 +309,25 @@ tag its comment names, which rule 5 does not.
   editor's format-on-save, a format-on-write hook) rewrites both back, so
   `docs/demo/fixtures.sh` fails `brew style` after any such save. No
   EditorConfig key gives Homebrew's `do` placement.
-- **Done in `files/`:** a `shared:if repo=homebrew-tap` block in
-  `files/.editorconfig` sets `ignore = true` for `[docs/demo/*.sh]`, so
-  `shfmt -l` over a copy of homebrew-tap's tree skips `fixtures.sh` and
-  `brew style` alone owns that layout. It is also the first sync to write a
-  commit with the App's token (3.1).
+- **Done:** a `shared:if repo=homebrew-tap` block in `files/.editorconfig`,
+  merged in homebrew-tap, sets `ignore = true` for `[docs/demo/*.sh]`, so
+  `shfmt -l` over its tree skips `fixtures.sh` and `brew style` alone owns that
+  layout.
 - **Left:** shfmt 3.14.1 honors `ignore` only when it walks a directory
   (`shfmt -d <file>` still reformats it), so whatever formats one file on
   save must also skip a file `shfmt -f <dir>` leaves out. Until it does,
   apply `brew style --fix`'s diff by hand and do not reformat afterwards.
 
-## 7. Simplifications
+## 6. Simplifications
 
 From a review of the whole tree for reuse, simplification, efficiency and
 fixes at the right depth. Each item is S, M or L in size; **(behaviour)**
 marks one that changes what runs.
 
-### 7.1 This repository's own CI and configuration
+### 6.1 This repository's own CI and configuration
 
-- **1. A coverage-only lock** (S): `checks.yml` installs the full dev venv in
-  both jobs, and the coverage job uses only `coverage`. Compile a one-package
-  hashed lock, pulled into `requirements-dev.in` with `-r`.
+- **1. A coverage-only lock**: done: `requirements-coverage.in`, pulled into
+  `requirements-dev.in` with `-r`, and installed alone by the coverage job.
 - **2. kcov from `setup-tools`**: done; the one-line array rule is gone.
 - **3. A shared base file list**: done: `repos/_base.toml`, `base = true`,
   `skip`.
@@ -310,26 +341,27 @@ marks one that changes what runs.
 - **7. Directory symlinks for `setup-tool` and `setup-tools`** (S): per-file
   symlinks mean a new file in either action needs a link by hand.
 - **8. One runner default in `checks.yml`**: done.
-- **9. Target names in `scratch/near_census.py`** (S): build `NAMES` from the
-  `repos/*.toml` stems, keeping only the extra spellings as literals.
+- **9. Target names in `scratch/near_census.py`**: done: built from the
+  `repos/*.toml` stems, with the short forms in `SPELLINGS`.
 
-### 7.2 Shared files
+### 6.2 Shared files
 
 - **10. One workflow-command escaper** (M): `check_tool_versions.sh`,
   `upsert-tracking-issue`, `advisory-note` and `fetch-latest-artifact` each
-  escape `%`, CR, LF and title separators. One sourced lib needs listing in
-  image-scan's sparse checkout, and `lint_workflows.sh` does not check
-  `source` lines.
-- **11. One set of trivy flags** (S): `trivy_scan.sh` exists so the two scans
-  cannot drift on flags, yet `scan_pinned_images.sh` writes them again.
+  escape `%`, CR, LF and title separators. `lib.sh` is the place: the sparse
+  checkout in image-scan's scan job now lists it, but any other sparse checkout
+  of these actions must too (item 21).
+- **11. One set of trivy flags**: done: `_CI_TRIVY_FLAGS` in `lib.sh`, so a
+  sparse checkout of `trivy_scan.sh` lists `lib.sh` too. sharerr-rs's own
+  `docker.yml` has one, so its edit lands before the sync pull request that
+  carries this.
 - **12. Label created only with an issue** (S, behaviour):
   `upsert-tracking-issue` runs `gh label create --force` on every call.
   Check first that listing by a missing label returns empty, not an error.
-- **13. No skip in `setup-tools/install-missing.sh`** (S, behaviour): it skips
-  a tool already on the path, which `setup-tool` does not, and the cache then
-  saves that unverified binary under the pinned key.
-- **14. Image references read once** (S): `scan_pinned_images.sh` runs
-  `_ci_image_refs` twice over the same files.
+- **13. No skip in `setup-tools/install-missing.sh`**: done; a cache miss
+  installs every tool from its pin, as `setup-tool` does.
+- **14. Image references read once**: done: `_ci_refs_pinned` filters the one
+  read.
 - **15. Report sections in `upsert-tracking-issue`** (M): `tool-versions.yml`
   and `link-check.yml` compose the issue body by hand, and tool-versions'
   plain fence breaks on backticks. `preamble` and `report-file` inputs reuse
@@ -340,10 +372,15 @@ marks one that changes what runs.
   with the run list is two calls.
 - **17. `npm audit` once** (S): `advisories.yml` runs it again only to print a
   table of the JSON it holds.
-- **18. `install.sh` branches** (S): one `tar -xf` for every archive kind, and
-  one "no binary" check after the `case` in place of three.
+- **18. `install.sh` branches**: done: one `tar -xf` for the tar kinds (a zip
+  still takes `unzip`), and one "no binary" check after the `case`.
 - **19. `_ci_files` in `_ci_extract`** (S, behaviour): `compgen -G` and git
   pathspecs give roster and image globs different meanings; check each
   target's roster globs first.
 - **20. `release_notes.sh`'s `section()`** (S): one `awk` in place of a
   five-process pipeline, which also drops its SIGPIPE caveats.
+- **21. `lint_workflows.sh` reads `source` lines** (M): rule 7 checks a sparse
+  checkout's list for `./` refs only, so a listed script that sources a file
+  left off the list passes every lint and fails when the job runs. Item 11 needed
+  that line added by hand in sharerr-rs's `docker.yml`, whose scan runs only at
+  release.

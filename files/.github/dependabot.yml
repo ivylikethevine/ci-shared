@@ -88,7 +88,7 @@
 # shared:if repo=ci-shared
 # Names what dependabot could move: the SHA-pinned `uses:` in this
 # repository's workflows and composite actions and in the shared ones under
-# files/, the Markdown tools' npm lock, and the hashed requirements-dev.txt.
+# files/, the Markdown tools' npm lock, and the hashed requirements locks.
 #
 # What this file cannot cover, and what covers it instead:
 #
@@ -287,7 +287,13 @@ updates:
   # shared:endif
   # shared:if repo=instadroid,ci-shared
 
+  # shared:if repo=ci-shared
+  # requirements-dev.in and requirements-coverage.in -> their hashed locks, the
+  # dev tools
+  # shared:endif
+  # shared:if repo=instadroid
   # requirements-dev.in -> the hashed requirements-dev.txt, the dev tools
+  # shared:endif
   - package-ecosystem: pip
     directory: /
     schedule:

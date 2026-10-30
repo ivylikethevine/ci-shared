@@ -1,0 +1,6 @@
+# tests/coverage.sh's coverage, on its own for the coverage job, and pulled into
+# requirements-dev.in. requirements-coverage.txt is the hashed lock compiled from
+# this file; regenerate it after editing here, then requirements-dev.txt (from the
+# repository root):
+#   pip-compile --allow-unsafe --generate-hashes --strip-extras requirements-coverage.in
+coverage==7.16.2

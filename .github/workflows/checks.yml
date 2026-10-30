@@ -126,12 +126,12 @@ jobs:
         with:
           tools: shfmt yq kcov
 
-      # the runner's python3, a venv holding requirements-dev.txt's hashed pins
-      - name: Install the pinned Python tools
+      # the runner's python3, a venv holding coverage's hashed pin alone
+      - name: Install coverage
         run: |
           set -euo pipefail
           python3 -m venv "$RUNNER_TEMP/venv"
-          "$RUNNER_TEMP/venv/bin/pip" install --quiet --require-hashes --no-deps -r requirements-dev.txt
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet --require-hashes --no-deps -r requirements-coverage.txt
           echo "$RUNNER_TEMP/venv/bin" >>"$GITHUB_PATH"
 
       - name: Run the tests under kcov and coverage.py, failing below 100%

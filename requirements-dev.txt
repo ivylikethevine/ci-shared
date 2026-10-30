@@ -322,7 +322,7 @@ coverage==7.16.2 \
     --hash=sha256:fb2bde05838fffae1a1bf75e5d411a6cac3e4e9bb97e6640fed8cd47888b33f0 \
     --hash=sha256:fb9d92ecfe2d5b494367c67f7446f8b75b68d8d0c8cf3bc3e6997478be25d9e2 \
     --hash=sha256:fd3d72233eb8b48acc94fa57d44e2d32ce8e7abed02882ccb6d855ccc4ed33ec
-    # via -r requirements-dev.in
+    # via -r requirements-coverage.in
 cyclonedx-python-lib==11.12.0 \
     --hash=sha256:0e807521a921a5c3cb8ce1153f8a61d29eedfe76a46aac2796b7c6b573391a54 \
     --hash=sha256:16767c4039de90c04e9f03348f8f0ed4b8ff842eaa7eefcad3a95685f970dacf

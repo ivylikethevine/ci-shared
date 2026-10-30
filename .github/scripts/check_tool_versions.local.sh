@@ -15,10 +15,11 @@ CI_IMAGE_GLOBS=''
 CI_WORKFLOW_ROSTER='just-the-docs|files/_config.yml|remote_theme: just-the-docs/just-the-docs@v\([0-9][0-9.]*\)|github:just-the-docs/just-the-docs|'
 
 # The Markdown tools' npm manifest, the shared copy every target receives, and
-# the Python dev tools' pip-compile input.
+# the Python dev tools' pip-compile inputs.
 # shellcheck disable=SC2034 # read by check_tool_versions.sh
 CI_MANIFESTS='npm|.github/package.json
-pip|requirements-dev.in'
+pip|requirements-dev.in
+pip|requirements-coverage.in'
 
 # The shared workflows and actions as well: `grep -r` does not follow this repository's symlinks
 # into files/, and files/.github/workflows holds templates no symlink reaches.
