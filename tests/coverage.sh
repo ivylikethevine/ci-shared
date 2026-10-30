@@ -11,7 +11,7 @@
 # kcov's reports and coverage.py's data; the default is a fresh temporary
 # directory. Needs kcov 43 or later (Ubuntu 26.04's package) and shfmt, as
 # tools.txt pins it, on PATH, and a
-# python3 that imports coverage (requirements-dev.txt), besides what
+# python3 that imports coverage (requirements-coverage.txt), besides what
 # tests/run.sh needs.
 set -euo pipefail
 
@@ -29,7 +29,7 @@ fi
 
 python="$(command -v python3)"
 "$python" -c 'import coverage' 2>/dev/null || {
-  echo "coverage: $python cannot import coverage; install requirements-dev.txt" >&2
+  echo "coverage: $python cannot import coverage; install requirements-coverage.txt" >&2
   exit 2
 }
 export COVERAGE_FILE="$out/python/.coverage"

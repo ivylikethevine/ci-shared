@@ -73,4 +73,21 @@ EOF
   t_file "$T/out" "$(printf 'diff.txt\n  de98044  say-hi zzz  [reference, 3 lines]\n  7be73ce  sharerr-rs  [1 lines differ of 3, ratio 0.67]')"
 }
 
+test_normalize_folds_every_target_and_short_form() {
+  t_target say-hi dev
+  t_target zzz dev
+  t_checkout say-hi a.txt="hello say_hi" b.txt="hello sayhi"
+  t_checkout zzz a.txt="hello zzz" b.txt="hello ZZZ"
+  census --normalize
+  t_rc 0
+  t_file "$T/out" "$(
+    cat <<'EOF'
+a.txt
+  ed533ff  say-hi zzz  [reference, 1 lines]
+b.txt
+  ed533ff  say-hi zzz  [reference, 1 lines]
+EOF
+  )"
+}
+
 t_main

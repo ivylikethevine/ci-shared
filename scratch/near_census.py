@@ -12,10 +12,9 @@ group, the differing line count of each group against the largest group's
 copy, with the maturity order say-hi > sharerr-rs > instadroid breaking ties.
 --min N skips paths held by fewer than N checkouts (default 2); --all also
 prints byte-identical paths already in files/; --normalize compares after
-replacing each repository's names (say-hi, sharerr, instadroid, constricter,
-homebrew-tap and their spellings) with __name__, so a file that differs only
-by project name scores as identical. Output is plain text; redirect it under
-local/. CI_SHARED_DIR, as for scripts/, names the tree whose repos/ and files/
+replacing each repos/<name>.toml's name and SPELLINGS with __name__, so a file
+that differs only by project name scores as identical. Output is plain text;
+redirect it under local/. CI_SHARED_DIR, as for scripts/, names the tree whose repos/ and files/
 it reads (default: this checkout).
 """
 import difflib
@@ -32,10 +31,25 @@ from typing import TypeAlias
 Copy: TypeAlias = tuple[str, bytes]
 MATURITY: list[str] = ["say-hi", "sharerr-rs", "instadroid", "python-constricter", "homebrew-tap"]
 HERE: str = os.environ.get("CI_SHARED_DIR") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-NAMES: re.Pattern[str] = re.compile(
-    r"python[-_]constricter|constricter|say[-_]?hi|sharerr[-_]rs|sharerr|instadroid|homebrew[-_]tap",
-    re.IGNORECASE,
-)
+# short forms a target's own name does not cover
+SPELLINGS: list[str] = ["constricter", "sayhi", "sharerr"]
+
+
+def targets() -> list[str]:
+    return [
+        f[:-5]
+        for f in sorted(os.listdir(os.path.join(HERE, "repos")))
+        if f.endswith(".toml") and not f.startswith("_")
+    ]
+
+
+def name_pattern() -> re.Pattern[str]:
+    # longest first, so a short form never leaves the rest of a full name behind
+    spellings: list[str] = sorted([*targets(), *SPELLINGS], key=len, reverse=True)
+    return re.compile(
+        "|".join(re.escape(s).replace(r"\-", "[-_]") for s in spellings),
+        re.IGNORECASE,
+    )
 
 
 def tracked(repo: str) -> list[str]:
@@ -72,11 +86,8 @@ def main(argv: list[str]) -> None:
     root: str = args[0] if args and os.path.isdir(args[0]) else os.path.dirname(HERE)
     names: list[str] = args[1:] if args and os.path.isdir(args[0]) else args
     if not names:
-        names = [
-            f[:-5]
-            for f in sorted(os.listdir(os.path.join(HERE, "repos")))
-            if f.endswith(".toml") and not f.startswith("_")
-        ]
+        names = targets()
+    pattern: re.Pattern[str] = name_pattern()
     names = [n for n in names if os.path.isdir(os.path.join(root, n, ".git"))]
     rank: dict[str, int] = {n: i for i, n in enumerate(MATURITY)}
     names.sort(key=lambda n: rank.get(n, len(rank)))
@@ -91,7 +102,7 @@ def main(argv: list[str]) -> None:
             b, data = blob(os.path.join(root, n, p))
             if normalize:
                 try:
-                    data = NAMES.sub("__name__", data.decode()).encode()
+                    data = pattern.sub("__name__", data.decode()).encode()
                 except UnicodeDecodeError:
                     pass
                 b = hashlib.sha1(data).hexdigest()[:7]

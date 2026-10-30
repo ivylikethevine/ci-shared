@@ -36,30 +36,30 @@ them, or make the repository a target.
 
 ## Layout
 
-| Path                          | Holds                                                                                        |
-| ----------------------------- | -------------------------------------------------------------------------------------------- |
-| `files/`                      | the master copies, at the path they have in a target                                         |
-| `repos/<name>.toml`           | one target: its repository, sync branch, files, template and ruleset values                  |
-| `repos/_base.toml`            | the files most targets receive; a target takes them with `base = true`, less its `skip`      |
-| `USAGE.md`                    | each file against the repositories receiving it, written from `repos/`                       |
-| `scripts/check.sh`            | the shipped checks, run over this repository and `files/`                                    |
-| `scripts/config.py`           | validates `repos/` and prints it as JSON, for the scripts to read                            |
-| `scripts/usage.sh`            | writes `USAGE.md`; `--check` fails when it is stale                                          |
-| `scripts/census.sh`           | groups the CI and tooling files local checkouts share by content, to find drift              |
-| `scripts/sync_local.sh`       | copies `files/` into the checkouts beside this one                                           |
-| `scripts/sync_remote.sh`      | opens or updates a pull request per target through the GitHub API                            |
-| `scripts/check_protection.sh` | fails unless each target's `main` and `dev` are protected from its token                     |
-| `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets                      |
-| `scripts/sync_prs.sh`         | reports each target's open sync pull request: its age and its checks                         |
-| `scripts/own_files.sh`        | writes this repository's own copies of the shared files it uses                              |
-| `docs/SECURITY.md`            | what is in scope here and how to report a vulnerability privately                            |
-| `rulesets/`                   | the rulesets every target shares, in GitHub's import format                                  |
-| `rulesets/self.toml`          | this repository's own values in the shared `main` ruleset                                    |
-| `scratch/`                    | analysis scripts kept for reuse, each with its suite under `tests/`                          |
-| `tests/`                      | a suite per script, run against fixtures and a fake `gh`                                     |
-| `requirements-dev.in`         | the Python dev tools (constricter, coverage.py, pip-audit, reuse); `.txt` is its hashed lock |
-| `pyproject.toml`              | those tools' settings                                                                        |
-| `.github/workflows/`          | `sync.yml`, `checks.yml` and copies of four shared ones                                      |
+| Path                          | Holds                                                                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `files/`                      | the master copies, at the path they have in a target                                                                                  |
+| `repos/<name>.toml`           | one target: its repository, sync branch, files, template and ruleset values                                                           |
+| `repos/_base.toml`            | the files most targets receive; a target takes them with `base = true`, less its `skip`                                               |
+| `USAGE.md`                    | each file against the repositories receiving it, written from `repos/`                                                                |
+| `scripts/check.sh`            | the shipped checks, run over this repository and `files/`                                                                             |
+| `scripts/config.py`           | validates `repos/` and prints it as JSON, for the scripts to read                                                                     |
+| `scripts/usage.sh`            | writes `USAGE.md`; `--check` fails when it is stale                                                                                   |
+| `scripts/census.sh`           | groups the CI and tooling files local checkouts share by content, to find drift                                                       |
+| `scripts/sync_local.sh`       | copies `files/` into the checkouts beside this one                                                                                    |
+| `scripts/sync_remote.sh`      | opens or updates a pull request per target through the GitHub API                                                                     |
+| `scripts/check_protection.sh` | fails unless each target's `main` and `dev` are protected from its token                                                              |
+| `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets                                                               |
+| `scripts/sync_prs.sh`         | reports each target's open sync pull request: its age and its checks                                                                  |
+| `scripts/own_files.sh`        | writes this repository's own copies of the shared files it uses                                                                       |
+| `docs/SECURITY.md`            | what is in scope here and how to report a vulnerability privately                                                                     |
+| `rulesets/`                   | the rulesets every target shares, in GitHub's import format                                                                           |
+| `rulesets/self.toml`          | this repository's own values in the shared `main` ruleset                                                                             |
+| `scratch/`                    | analysis scripts kept for reuse, each with its suite under `tests/`                                                                   |
+| `tests/`                      | a suite per script, run against fixtures and a fake `gh`                                                                              |
+| `requirements-dev.in`         | the Python dev tools (constricter, pip-audit, reuse, and coverage.py from `requirements-coverage.in`); each `.txt` is its hashed lock |
+| `pyproject.toml`              | those tools' settings                                                                                                                 |
+| `.github/workflows/`          | `sync.yml`, `checks.yml` and copies of four shared ones                                                                               |
 
 A file belongs here once two targets hold it byte-identical. Per-repository
 files stay in their repository: `check_tool_versions.local.sh`, the

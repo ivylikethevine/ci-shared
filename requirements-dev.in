@@ -2,7 +2,7 @@
 # coverage. requirements-dev.txt is the hashed lock compiled from this file;
 # regenerate it after editing here (from the repository root):
 #   pip-compile --allow-unsafe --generate-hashes --strip-extras requirements-dev.in
-coverage==7.16.2
+-r requirements-coverage.in
 # Every variable annotated where it's first bound (pyproject.toml's [tool.constricter]).
 python-constricter==0.3.6
 # scripts/check.sh's audit of requirements-dev.txt.
