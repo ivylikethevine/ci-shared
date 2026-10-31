@@ -13,7 +13,7 @@ Which repositories receive each shared file, written by
 | `.github/actions/advisory-note/action.yml`         |              | x          |                    | x      | x          | 3     |
 | `.github/actions/apt/lib.sh`                       | x            | x          | x                  | x      | x          | 5     |
 | `.github/actions/fetch-latest-artifact/action.yml` |              | x          |                    | x      | x          | 3     |
-| `.github/actions/mark-tree/action.yml`             |              |            |                    | x      | x          | 2     |
+| `.github/actions/mark-tree/action.yml`             |              | x          |                    | x      | x          | 3     |
 | `.github/actions/setup-tool/action.yml`            | x            | x          | x                  | x      | x          | 5     |
 | `.github/actions/setup-tool/install.sh`            | x            | x          | x                  | x      | x          | 5     |
 | `.github/actions/setup-tool/lib.sh`                | x            | x          | x                  | x      | x          | 5     |
@@ -29,7 +29,7 @@ Which repositories receive each shared file, written by
 | `.github/package.json`                             |              | x          | x                  | x      | x          | 4     |
 | `.github/pull_request_template.md`                 |              | x          | x                  | x      | x          | 4     |
 | `.github/scripts/check_tool_versions.sh`           | x            | x          | x                  | x      | x          | 5     |
-| `.github/scripts/find_tree_run.sh`                 |              |            |                    | x      | x          | 2     |
+| `.github/scripts/find_tree_run.sh`                 |              | x          |                    | x      | x          | 3     |
 | `.github/scripts/lib.sh`                           | x            | x          | x                  | x      | x          | 5     |
 | `.github/scripts/lint_workflows.sh`                | x            | x          | x                  | x      | x          | 5     |
 | `.github/scripts/release_notes.sh`                 |              | x          | x                  | x      | x          | 4     |
@@ -62,7 +62,7 @@ Which repositories receive each shared file, written by
 | `docs/CODE_OF_CONDUCT.md`                          | x            | x          | x                  | x      | x          | 5     |
 | `lychee.toml`                                      |              | x          | x                  | x      | x          | 4     |
 | `scratch/README.md`                                |              | x          |                    | x      | x          | 3     |
-| **Files per repository**                           | 26           | 55         | 45                 | 54     | 57         | 57    |
+| **Files per repository**                           | 26           | 57         | 45                 | 54     | 57         | 57    |
 
 ## Template values
 

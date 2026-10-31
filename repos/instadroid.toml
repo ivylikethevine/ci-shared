@@ -10,7 +10,9 @@ base = true
 files = [
   ".github/actions/advisory-note/action.yml",
   ".github/actions/fetch-latest-artifact/action.yml",
+  ".github/actions/mark-tree/action.yml",
   ".github/allowed_signers",
+  ".github/scripts/find_tree_run.sh",
   ".github/scripts/scan_pinned_images.sh",
   ".github/scripts/trivy_scan.sh",
   ".github/workflows/advisories.yml",

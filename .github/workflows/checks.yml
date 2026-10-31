@@ -33,21 +33,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      # block: the checkout, the pinned tools' release downloads, the npm
-      # registry, PyPI, the cache service, and the API zizmor's online audits
-      # read.
+      # audit: no write token here, and block leaves the job open until its limit
+      # on a westus2 runner (docs/ROADMAP.md, item 5.1)
       - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
-          egress-policy: block
-          allowed-endpoints: >
-            github.com:443
-            api.github.com:443
-            results-receiver.actions.githubusercontent.com:443
-            release-assets.githubusercontent.com:443
-            objects.githubusercontent.com:443
-            registry.npmjs.org:443
-            pypi.org:443
-            files.pythonhosted.org:443
+          egress-policy: audit
 
       # the whole history, which gitleaks scans
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -89,25 +79,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      # block: the checkout, the cache service, the pinned tools' release
-      # downloads and kcov's source tarball (codeload), PyPI, and the Ubuntu
-      # archive for kcov's build deps and runtime libraries.
+      # audit, as above
       - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
-          egress-policy: block
-          allowed-endpoints: >
-            github.com:443
-            codeload.github.com:443
-            results-receiver.actions.githubusercontent.com:443
-            release-assets.githubusercontent.com:443
-            objects.githubusercontent.com:443
-            pypi.org:443
-            files.pythonhosted.org:443
-            azure.archive.ubuntu.com:80
-            archive.ubuntu.com:80
-            security.ubuntu.com:80
-            esm.ubuntu.com:443
-            motd.ubuntu.com:443
+          egress-policy: audit
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

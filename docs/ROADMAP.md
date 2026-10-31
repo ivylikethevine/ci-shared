@@ -13,10 +13,9 @@ Ranked by value for size; the numbers are the items below. S, M and L are sizes.
 
 1. 3.1, read the first weekly run under the App on 2026-11-02 (S).
 2. 3.2's first live run, once the App is on this repository (S).
-3. 5.3, test `ubuntu-24.04` on one repository and read the scan after (S).
-4. 3.3 and 3.4, the settings to switch on by hand (S).
-5. The batch when it is started: 1.2 (M, one session per repository).
-6. Section 4's templates (M).
+3. 3.3 and 3.4, the settings to switch on by hand (S).
+4. The batch when it is started: 1.2 (M, one session per repository).
+5. Section 4's templates (M).
 
 Waiting on upstream: 1.1, 3.6, 5.1, 5.2. Not worth doing as things stand: 3.5.
 
@@ -284,16 +283,28 @@ with a per-repository tail is a template, not a per-repository file.
   job stayed `in_progress` after its post steps ended, so the run never
   completed and took `gh run cancel` before `gh run rerun --failed`. A retry
   of the download step there would ride it out.
+- **Measured, 2026-10-24 to 10-31:** `scratch/ci_census.py regions` over
+  sharerr-rs, instadroid, homebrew-tap and saffron. Of the 10 jobs that hit a
+  limit, the 9 whose logs remain all ran `block` on westus2; a sample of 400
+  passing jobs held no `block` job on westus2, 20 `audit` jobs on westus2, and 77
+  `block` jobs elsewhere. In one stuck job's post step, the runner's own
+  connection (`Runner.Worker`) is dropped too, which is why a job stays open after
+  its last step.
 - **Upstream:**
   [actions/runner-images#14925](https://github.com/actions/runner-images/issues/14925)
   is open, with no answer from GitHub on the DNS-observation part.
   [step-security/harden-runner#705](https://github.com/step-security/harden-runner/issues/705)
   covers the earlier port conflict on `127.0.0.1:53`, fixed. harden-runner
   v2.22.2 changes DNS tracing for the Enterprise tier only.
-- **Until then:** rerun the job; a runner outside the experiment passes. Two
-  stopgaps, not taken: retry zizmor with `--offline` when its online audit
-  cannot reach GitHub (skips `known-vulnerable-actions` on that run), or
-  `egress-policy: audit` (_batch_).
+- **Until then:** jobs with no write token run `audit` (`release-note.yml`,
+  `pages.yml`'s build). Jobs that keep `block` start with a `dns-experiment` step
+  that refuses the runner when `egress-dns-resolver.service` is active, before the
+  agent engages, so they fail in seconds; `rerun-timeouts.yml` reruns that failure.
+  `scorecard.yml` has no such step, since its publish check restricts the job's
+  steps, so it can still stick. Neither has been seen on a runner in the experiment:
+  the first refusal, or a stuck `block` job with the step, is the check. A stopgap
+  not taken: retry zizmor with `--offline` when its online audit cannot reach
+  GitHub (skips `known-vulnerable-actions` on that run).
 - **Recognize it:** `Region: westus2` in the job's set-up log, and in
   harden-runner's post step every `endpoint called` line has an empty
   `domain:`, with `ip address dropped` for an allowlisted host's IP. Close
@@ -322,9 +333,9 @@ with a per-repository tail is a template, not a per-repository file.
   hit a time limit and passed within two retries, nearly all from 2026-10-21 on
   `ubuntu-26.04`. Its outcome column shows most never ran to their limit: 58
   ended their `Complete job` step yet stayed open, 40 recorded no finished step.
-  A larger limit does not help them. Item 5.1 is the likely cause of many,
-  unconfirmed: one job's log was read, a westus2 checkout refused 5 ms after
-  harden-runner engaged, with `github.com` on its allowed list.
+  A larger limit does not help them, nor a smaller one: `rerun-timeouts.yml`'s
+  5-minute job stayed open 10. Item 5.1 is the cause wherever a log remains, by its
+  measurement above.
 - **Done:** `rerun-timeouts.yml` reruns a run's failed jobs when one hit a time
   limit, at most twice, under `block` since it holds a write token; item 5.1 can
   fail it, which leaves that run for a rerun by hand. Limits were lowered from `scripts/job_durations.py`'s 20 newest passing
@@ -332,14 +343,25 @@ with a per-repository tail is a template, not a per-repository file.
   rounded up to 5 with a floor of 10, and 15 to 20 for jobs that compile or build
   an image, whose cold runs the sample may miss. Release and publish jobs and
   jobs seen under 5 times keep theirs.
-- **Not done:** moving one repository back to `ubuntu-24.04` to test the image,
-  comparing `block` with `audit`, and reporting the jobs that finished yet stayed
-  open to GitHub.
+- **Not done:** reporting the jobs that finished yet stayed open to GitHub. A move
+  back to `ubuntu-24.04` no longer tests anything: 5.1's table separates `block`
+  from `audit` on the one image.
 - **Verify:** after the first automatic rerun of a `CI` run on `main`, that the
   workflows chained off `CI` fired from attempt 2, since a rerun started by
   `GITHUB_TOKEN` may not emit `workflow_run`. A week after the sync merges, rerun
   the scan; a job killed by a new limit shows as `stopped` with active minutes
   near its limit.
+
+### 5.4 Sync pull requests still run sharerr-rs's `CodeQL (rust)`
+
+- **What:** 135 of its 682 runner minutes in the week measured
+  (`scratch/ci_census.py`), and 34% of its minutes were `ci-sync`'s. Its other Rust
+  jobs and both Docker builds now skip a pull request that touches only shared
+  CI files. This one is the shared `codeql.yml`, whose header says a skipped
+  category leaves code scanning waiting on a result, and code scanning is in
+  that repository's ruleset.
+- **Verify first:** whether a skipped `CodeQL (rust)` holds a sync pull request's
+  merge. Needs a real pull request; nothing local shows it.
 
 ## 6. Simplifications
 
