@@ -415,3 +415,34 @@ marks one that changes what runs.
   skipped by homebrew-tap, which has no `scratch/`. python-constricter skips it
   too, since the sync would overwrite its own README and the per-script list in
   it; drop that skip to replace them.
+
+## 7. To consider
+
+Evaluated, not decided: nothing here is on the order of work until it is taken up.
+
+### 7.1 `mise.toml` in place of `tools.txt` (_batch_, L)
+
+- **What:** make `mise.toml` and `mise.lock` the one list of pinned CI tools, in
+  place of `.github/actions/setup-tool/tools.txt` and the `setup-tool` and
+  `setup-tools` actions. say-hi's `mise.toml` copies `tools.txt` today, with a
+  drift check to hold the two together; a single list removes the copy.
+- **What mise covers (2026.10.19):** `mise.lock` records versions, checksums and
+  download URLs per platform, and `--locked` stops an install calling the GitHub
+  or aqua registry APIs for a URL. `mise lock --bump --dry-run --json` lists
+  updates without writing, and `minimum_release_age` is the cooldown.
+- **What blocks a full swap:** `kcov`, `mandoc` and `checkbashisms` are not in
+  mise's registry, and `kcov` and `mandoc` build from source. Each takes apt, at
+  a floating version, or a small kept installer; apt unless the exact version
+  matters.
+- **Verify first:** `cargo-mutants` and `cargo-semver-checks` are not in the
+  registry either and need another backend. `minimum_release_age` skips exact
+  versions, so how it combines with `--bump` on exact pins is untested, as is
+  `mise lock` on a target.
+- **Cost:** every job that needs a tool installs mise, through one more pinned
+  action or a download, and each harden-runner allow list gains mise's hosts.
+  `check_tool_versions.sh`, `scripts/apply_bumps.sh` and say-hi's `tools_test.sh`
+  and `drift_test.sh` are rewritten. Every target using `setup-tool` needs a
+  `mise.toml`.
+- **How, if taken up:** after the open sync pull requests land, try say-hi's
+  `quick lint` job first, the cheapest way to measure what mise adds to a job's
+  time and find the hosts it needs, then move every target as one batch.
