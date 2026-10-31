@@ -70,6 +70,15 @@ jobs:
     env:
       SYNC_TOKEN_CI_SHARED: ${{ github.token }}
     steps:
+      # lint_workflows.sh rule 6 says why this comes first
+      - id: dns-experiment
+        name: Refuse a runner on the DNS experiment
+        run: |
+          if systemctl is-active --quiet egress-dns-resolver.service; then
+            echo "::error title=dns experiment::This runner is on the hosted-runner DNS experiment, where egress-policy block never finishes. Rerun the job."
+            exit 1
+          fi
+
       # block, not audit: the checkout and the GitHub API are all this job
       # reaches.
       - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
@@ -248,6 +257,15 @@ jobs:
     permissions:
       issues: write # upsert (and close) its own tracking issue
     steps:
+      # lint_workflows.sh rule 6 says why this comes first
+      - id: dns-experiment
+        name: Refuse a runner on the DNS experiment
+        run: |
+          if systemctl is-active --quiet egress-dns-resolver.service; then
+            echo "::error title=dns experiment::This runner is on the hosted-runner DNS experiment, where egress-policy block never finishes. Rerun the job."
+            exit 1
+          fi
+
       - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: block

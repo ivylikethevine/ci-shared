@@ -27,27 +27,12 @@ jobs:
     outputs:
       changed: ${{ steps.apply.outputs.changed }}
     steps:
-      # block: the upstreams the version check reads, the pinned tools' assets
-      # (GitHub's, HashiCorp's and Debian's), the npm registry, PyPI and the
-      # artifact service.
+      # audit: no write token here, and block leaves the job open until its limit
+      # on a westus2 runner (docs/ROADMAP.md, item 5.1)
       - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
-          egress-policy: block
+          egress-policy: audit
           disable-sudo: true
-          allowed-endpoints: >
-            github.com:443
-            api.github.com:443
-            codeload.github.com:443
-            release-assets.githubusercontent.com:443
-            objects.githubusercontent.com:443
-            results-receiver.actions.githubusercontent.com:443
-            releases.hashicorp.com:443
-            salsa.debian.org:443
-            hub.docker.com:443
-            crates.io:443
-            registry.npmjs.org:443
-            pypi.org:443
-            files.pythonhosted.org:443
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -111,6 +96,15 @@ jobs:
     permissions:
       contents: read
     steps:
+      # lint_workflows.sh rule 6 says why this comes first
+      - id: dns-experiment
+        name: Refuse a runner on the DNS experiment
+        run: |
+          if systemctl is-active --quiet egress-dns-resolver.service; then
+            echo "::error title=dns experiment::This runner is on the hosted-runner DNS experiment, where egress-policy block never finishes. Rerun the job."
+            exit 1
+          fi
+
       # block: the checkout, the artifact service and the GitHub API are all this
       # job reaches.
       - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
