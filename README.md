@@ -55,7 +55,6 @@ them, or make the repository a target.
 | `docs/SECURITY.md`            | what is in scope here and how to report a vulnerability privately                                                                     |
 | `rulesets/`                   | the rulesets every target shares, in GitHub's import format                                                                           |
 | `rulesets/self.toml`          | this repository's own values in the shared `main` ruleset                                                                             |
-| `scratch/`                    | analysis scripts kept for reuse, each with its suite under `tests/`                                                                   |
 | `tests/`                      | a suite per script, run against fixtures and a fake `gh`                                                                              |
 | `requirements-dev.in`         | the Python dev tools (constricter, pip-audit, reuse, and coverage.py from `requirements-coverage.in`); each `.txt` is its hashed lock |
 | `pyproject.toml`              | those tools' settings                                                                                                                 |
@@ -165,10 +164,9 @@ a symlink, and a template's markers must not reach a copy, so
 `scripts/own_files.sh` writes each as a copy, the other workflows rendered with
 no values, and `scripts/check.sh` fails when one is stale.
 
-Every script and Python file here, `scratch/` included, has a test suite with
-100% coverage, and the Python passes constricter at `suffocate`. A scratch
-script that is not worth a suite is run from a temporary directory and not
-kept.
+Every script and Python file here has a test suite with 100% coverage, and the
+Python passes constricter at `suffocate`. A script that is not worth a suite is
+run from a temporary directory and not kept.
 
 - `scripts/check.sh` runs shellcheck, shfmt, constricter, actionlint,
   `lint_workflows.sh`, zizmor, prettier, markdownlint, lychee offline over the
@@ -188,8 +186,8 @@ kept.
 - `tests/run.sh [SUITE...]` runs the suites (`T_ONLY=<regex>` picks tests
   within one); each builds its own fixture tree and points the scripts at it
   through `CI_SHARED_DIR`. `tests/coverage.sh` runs them under kcov and
-  coverage.py and fails unless every statement of `scripts/*.sh` and
-  `scratch/*.sh` ran and every line and branch of the Python did;
+  coverage.py and fails unless every statement of `scripts/*.sh` ran and every
+  line and branch of the Python did;
   `checks.yml`'s coverage job runs it. It needs upstream kcov 43 or later
   (`tools.txt`'s row; Ubuntu's `43+dfsg-2` records no hit on a multi-line
   array assignment), the `shfmt` and `yq` pins and the virtual environment

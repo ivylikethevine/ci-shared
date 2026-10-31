@@ -4,7 +4,7 @@
 # allowed endpoints, as TSV: repo, workflow, job, runners, policy, endpoints.
 # A runner read from the matrix is matched against every matrix value.
 #
-#   scratch/egress_census.sh [repo...]   # default: every repos/*.toml target
+#   scripts/egress_census.sh [repo...]   # default: every repos/*.toml target
 #
 # Needs bash, jq and mikefarah yq; output also lands in local/egress_census.tsv.
 set -euo pipefail

@@ -19,7 +19,7 @@ Ranked by value for size; the numbers are the items below. S, M and L are sizes.
 5. 3.3 and 3.4, the settings to switch on by hand (S).
 6. 3.2, bumps as a pull request (L), which also shortens 1.3.
 7. The batch when it is started: 1.3 (S), 1.2 (M, one session per repository).
-8. The remaining S items: 6.1 item 7, 6.2 items 12, 17, 19 and 20.
+8. The remaining S items: 6.1 item 7, 6.2 items 12, 17, 19 and 20, 6.3.
 9. 6.2's M items: 10, 15 and 16.
 10. Section 4's templates (M).
 
@@ -47,8 +47,8 @@ Waiting on upstream: 1.1, 3.6, 5.1, 5.2. Not worth doing as things stand: 3.5.
   macOS and Windows runners in the free tier, so those jobs can move from
   `audit`. A weekly external-link check stays `audit`, and Windows arm64 has no
   agent, so those legs stay unmonitored.
-- **How:** `scratch/egress_census.sh` lists the jobs and
-  `scratch/egress_baseline.sh` reads each job's endpoints from its audit runs
+- **How:** `scripts/egress_census.sh` lists the jobs and
+  `scripts/egress_baseline.sh` reads each job's endpoints from its audit runs
   for `allowed-endpoints`. The jobs live in the targets' own workflows, one
   session per repository; update each disabled-rules row that says only audit
   is supported.
@@ -247,7 +247,7 @@ target gains contributors.
 
 ## 4. More files into `files/`
 
-From `scratch/near_census.py --normalize` over the sibling checkouts. The
+From `scripts/near_census.py --normalize` over the sibling checkouts. The
 template engine's `shared:if repo=<name>` blocks already carry per-target
 rows in `dependabot.yml` and `tools.txt`, so a file that is mostly common
 with a per-repository tail is a template, not a per-repository file.
@@ -308,10 +308,10 @@ with a per-repository tail is a template, not a per-repository file.
   every `*.sh` in the tap, which wants `then` and `do` on their own line and
   `case` items indented. Plain shfmt with the shared `.editorconfig` (an
   editor's format-on-save, a format-on-write hook) rewrites both back, so
-  `docs/demo/fixtures.sh` fails `brew style` after any such save. No
+  `docs/tapes/fixtures.sh` fails `brew style` after any such save. No
   EditorConfig key gives Homebrew's `do` placement.
 - **Done:** a `shared:if repo=homebrew-tap` block in `files/.editorconfig`,
-  merged in homebrew-tap, sets `ignore = true` for `[docs/demo/*.sh]`, so
+  merged in homebrew-tap, sets `ignore = true` for `[docs/tapes/*.sh]`, so
   `shfmt -l` over its tree skips `fixtures.sh` and `brew style` alone owns that
   layout.
 - **Left:** shfmt 3.14.1 honors `ignore` only when it walks a directory
@@ -321,7 +321,7 @@ with a per-repository tail is a template, not a per-repository file.
 
 ### 5.3 Jobs that time out without doing the work
 
-- **What:** `scratch/retried_timeouts.py` found 105 jobs since 2026-08-01 that
+- **What:** `scripts/retried_timeouts.py` found 105 jobs since 2026-08-01 that
   hit a time limit and passed within two retries, nearly all from 2026-10-21 on
   `ubuntu-26.04`. Its outcome column shows most never ran to their limit: 58
   ended their `Complete job` step yet stayed open, 40 recorded no finished step.
@@ -330,7 +330,7 @@ with a per-repository tail is a template, not a per-repository file.
   harden-runner engaged, with `github.com` on its allowed list.
 - **Done:** `rerun-timeouts.yml` reruns a run's failed jobs when one hit a time
   limit, at most twice, under `block` since it holds a write token; item 5.1 can
-  fail it, which leaves that run for a rerun by hand. Limits were lowered from `scratch/job_durations.py`'s 20 newest passing
+  fail it, which leaves that run for a rerun by hand. Limits were lowered from `scripts/job_durations.py`'s 20 newest passing
   runs: 5 minutes under a 1-minute longest run, else 1.5 times the longest
   rounded up to 5 with a floor of 10, and 15 to 20 for jobs that compile or build
   an image, whose cold runs the sample may miss. Release and publish jobs and
@@ -367,7 +367,7 @@ marks one that changes what runs.
 - **7. Directory symlinks for `setup-tool` and `setup-tools`** (S): per-file
   symlinks mean a new file in either action needs a link by hand.
 - **8. One runner default in `checks.yml`**: done.
-- **9. Target names in `scratch/near_census.py`**: done: built from the
+- **9. Target names in `scripts/near_census.py`**: done: built from the
   `repos/*.toml` stems, with the short forms in `SPELLINGS`.
 
 ### 6.2 Shared files
@@ -410,3 +410,13 @@ marks one that changes what runs.
   left off the list passes every lint and fails when the job runs. Item 11 needed
   that line added by hand in sharerr-rs's `docker.yml`, whose scan runs only at
   release.
+
+### 6.3 A shared scratch rule
+
+- **22. `scratch/README.md` as a shared file** (S): only python-constricter
+  has one, so the rule for what `scratch/` is goes unsaid in say-hi, sharerr-rs
+  and instadroid. A short file in `files/`, in `repos/_base.toml`: one-off
+  scripts, not linted, typed or tested; each docstring or header says what it
+  does and how to run it; output goes under `local/`; delete any freely. The
+  rule alone, with no per-script list, which only drifts from the docstrings.
+  homebrew-tap has no `scratch/` and skips it; this repository has none either.

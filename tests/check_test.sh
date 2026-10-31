@@ -47,11 +47,10 @@ fixture() {
   local t
   for t in shellcheck shfmt constricter actionlint zizmor lychee typos gitleaks reuse pip-audit; do tool "$t"; done
   npm_fake
-  mkdir -p "$T/tree/scripts" "$T/tree/tests" "$T/tree/scratch" "$T/tree/.github/scripts" \
+  mkdir -p "$T/tree/scripts" "$T/tree/tests" "$T/tree/.github/scripts" \
     "$T/tree/.github/workflows" "$T/tree/.github/node_modules/.bin"
   echo 'true' >"$T/tree/scripts/s.sh"
   echo 'true' >"$T/tree/tests/t_test.sh"
-  echo 'true' >"$T/tree/scratch/x.sh"
   echo 'on: push' >"$T/tree/.github/workflows/own.yml"
   printf 'on: push\n# the setup-tools step\n          tools: shellcheck gitleaks\n' >"$T/tree/.github/workflows/checks.yml"
   printf '# a comment\nshellcheck|1.0.0|raw|u|--version|g||%s\ngitleaks|1.0.0|raw|u|version|g||%s\n' \
@@ -99,8 +98,8 @@ test_runs_every_check_over_the_tree() {
   t_out "== pins" "== shellcheck" "== markdownlint" "== lychee" "== typos" "== gitleaks" "== reuse" "== audit" "== usage" "== own-files" \
     "== config" "== lint-workflows-rendered"
   t_no_out "::error"
-  t_in -x "$T/tools.log" 'shellcheck -x files/.github/scripts/shared.sh scratch/x.sh scripts/s.sh tests/t_test.sh' \
-    'constricter scripts tests scratch' \
+  t_in -x "$T/tools.log" 'shellcheck -x files/.github/scripts/shared.sh scripts/s.sh tests/t_test.sh' \
+    'constricter scripts tests' \
     'lychee --config lychee.toml --offline --include-fragments --no-progress README.md' \
     'typos ' 'gitleaks git --redact --no-banner .' 'reuse --no-multiprocessing lint' \
     'pip-audit --strict --require-hashes --disable-pip -r requirements-dev.txt' 'npm audit --prefix .github --json' \

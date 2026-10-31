@@ -4,7 +4,7 @@
 [tool.constricter]
 # The strictest level, module and class bodies included: every variable is
 # annotated where it's first bound, and no annotation is vague. scripts/check.sh
-# runs it over scripts/, tests/ and scratch/.
+# runs it over scripts/ and tests/.
 level = "suffocate"
 all-scopes = true
 min-python = "3.11"

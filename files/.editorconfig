@@ -21,6 +21,6 @@ indent_size = 4
 # brew style owns these scripts' layout (`then` and `do` on their own line),
 # which plain shfmt would undo; shfmt honors `ignore` only when it walks a
 # directory, so a format-on-save of one file must skip what `shfmt -f .` skips
-[docs/demo/*.sh]
+[docs/tapes/*.sh]
 ignore = true
 # shared:endif

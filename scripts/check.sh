@@ -43,7 +43,7 @@ run() {
 
 scripts=()
 while IFS= read -r f; do scripts+=("$f"); done < <(
-  find scripts tests scratch .github/scripts files -name '*.sh' -type f | LC_ALL=C sort
+  find scripts tests .github/scripts files -name '*.sh' -type f | LC_ALL=C sort
 )
 workflows=(.github/workflows/*.yml files/.github/workflows/*.yml)
 bin=.github/node_modules/.bin
@@ -90,7 +90,7 @@ for f in "${workflows[@]}"; do
 done
 run shellcheck shellcheck -x "${scripts[@]}"
 run shfmt shfmt -d "${scripts[@]}"
-run constricter constricter scripts tests scratch
+run constricter constricter scripts tests
 run actionlint actionlint "${workflows[@]}"
 run lint-workflows .github/scripts/lint_workflows.sh "${raw_lint_workflows[@]}" files/.github/actions/*/action.yml
 run zizmor zizmor --config .github/zizmor.yml ${offline[@]+"${offline[@]}"} .github/workflows files/.github

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scratch/job_durations.py: one row per workflow and job from passing executions,
+# scripts/job_durations.py: one row per workflow and job from passing executions,
 # a limit suggested only from enough of them, and every page of a run's jobs.
 # shellcheck disable=SC2329 # t_main calls the test_* functions by name
 # shellcheck source=./lib.sh
@@ -33,7 +33,7 @@ EOF
 
 test_rows_from_passing_jobs_with_a_suggested_limit() {
   fixture
-  t_run "$REPO_DIR/scratch/job_durations.py" --runs 5 owner/a
+  t_run "$REPO_DIR/scripts/job_durations.py" --runs 5 owner/a
   t_rc 0
   t_file "$T/out" "$(
     printf 'owner/a\t.github/workflows/ci.yml\tbuild\t5\t7.0\t7.0\t15\n'
@@ -53,7 +53,7 @@ case $ep in
 *jobs*page=2) reply "{\"jobs\":[$one]}" ;;
 esac
 EOF
-  t_run "$REPO_DIR/scratch/job_durations.py" owner/a
+  t_run "$REPO_DIR/scripts/job_durations.py" owner/a
   t_rc 0
   t_file "$T/out" "$(printf 'owner/a\tci.yml\tbig\t101\t1.0\t1.0\t5')"
 }
@@ -71,17 +71,17 @@ repos/owner/a/*) reply '{"workflow_runs":[]}' ;;
 *) fail "HTTP 502: down" ;;
 esac
 EOF
-  t_run "$REPO_DIR/scratch/job_durations.py" owner/a
+  t_run "$REPO_DIR/scripts/job_durations.py" owner/a
   t_rc 0
   [ ! -s "$T/out" ] || t_fail "printed: $(cat "$T/out")"
-  t_run "$REPO_DIR/scratch/job_durations.py" owner/b
+  t_run "$REPO_DIR/scripts/job_durations.py" owner/b
   t_rc 1
   t_eq "$(grep -c 'repos/owner/b/' "$GH_LOG")" 3 "502 tries"
 }
 
 test_a_failure_is_reported_and_the_rest_still_print() {
   fixture
-  t_run "$REPO_DIR/scratch/job_durations.py" owner/gone owner/bad owner/a
+  t_run "$REPO_DIR/scripts/job_durations.py" owner/gone owner/bad owner/a
   t_rc 1
   t_out 'HTTP 404: gone' 'HTTP 403: no'
   t_match "$T/out" '^owner/a.*build'

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Logs each GitHub Actions job that timed out and passed when rerun.
 
-    scratch/retried_timeouts.py [--since YYYY-MM-DD] [--max-retries N] [--log PATH] [REPO...]
+    scripts/retried_timeouts.py [--since YYYY-MM-DD] [--max-retries N] [--log PATH] [REPO...]
 
 REPO is a name or owner/name the token's user owns; the default is every owned
 repository that is neither a fork nor archived. --since (default: 30 days ago)

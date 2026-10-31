@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Measures how long each job takes when it passes, to size `timeout-minutes`.
 
-    scratch/job_durations.py [--runs N] OWNER/NAME...
+    scripts/job_durations.py [--runs N] OWNER/NAME...
 
 Reads each active workflow's newest N successful runs (default 20), the latest
 attempt of each, and prints one tab-separated row per repository, workflow file

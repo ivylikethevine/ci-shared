@@ -3,7 +3,7 @@
 and how alike their copies are, to find files that could become shared or
 templated.
 
-    scratch/near_census.py [--min N] [--all] [--normalize] [ROOT] [REPO...]
+    scripts/near_census.py [--min N] [--all] [--normalize] [ROOT] [REPO...]
 
 ROOT holds one checkout per repos/<name>.toml (default: this checkout's
 parent); REPO names restrict the set. Each path prints with its content groups

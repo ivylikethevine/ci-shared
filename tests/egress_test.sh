@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scratch/egress_census.sh and scratch/egress_baseline.sh: the census lists
+# scripts/egress_census.sh and scripts/egress_baseline.sh: the census lists
 # each macOS or Windows job with its harden-runner policy, and the baseline
 # folds StepSecurity's recorded endpoints into one row per job and endpoint.
 # shellcheck disable=SC2329 # t_main calls the test_* functions by name
@@ -45,7 +45,7 @@ EOF
 
 test_census_lists_each_macos_and_windows_job() {
   census_fixture
-  t_run "$REPO_DIR/scratch/egress_census.sh"
+  t_run "$REPO_DIR/scripts/egress_census.sh"
   t_rc 0
   t_file "$T/tree/local/egress_census.tsv" "$(
     printf 'repo\tworkflow\tjob\trunners\tpolicy\tendpoints\n'
@@ -54,7 +54,7 @@ test_census_lists_each_macos_and_windows_job() {
     printf "a\tci.yml\tcond\tmacos-14\taudit [if runner.os == 'macOS']\t0\n"
   )"
   t_match "$T/out" '^a +ci\.yml +mac +macos-latest +block +2$'
-  t_run "$REPO_DIR/scratch/egress_census.sh" b
+  t_run "$REPO_DIR/scripts/egress_census.sh" b
   t_rc 0
   t_file "$T/tree/local/egress_census.tsv" "$(printf 'repo\tworkflow\tjob\trunners\tpolicy\tendpoints')"
 }
@@ -89,7 +89,7 @@ EOF
 
 test_baseline_folds_runs_into_one_row_per_endpoint() {
   baseline_fixture
-  t_run "$REPO_DIR/scratch/egress_baseline.sh" owner/a ci.yml 2
+  t_run "$REPO_DIR/scripts/egress_baseline.sh" owner/a ci.yml 2
   t_rc 0
   t_out "# owner/a ci.yml: 2 runs, 2 with macOS/Windows endpoint data"
   t_in "$T/gh.log" "gh run list -R owner/a -w ci.yml -s success -L 2 --json databaseId --jq .[].databaseId"
@@ -106,7 +106,7 @@ test_baseline_folds_runs_into_one_row_per_endpoint() {
 
 test_baseline_needs_a_successful_run() {
   baseline_fixture
-  t_run "$REPO_DIR/scratch/egress_baseline.sh" owner/a other.yml
+  t_run "$REPO_DIR/scripts/egress_baseline.sh" owner/a other.yml
   t_rc 1
   t_out "no successful other.yml runs in owner/a"
 }
