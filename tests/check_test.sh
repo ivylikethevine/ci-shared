@@ -41,8 +41,8 @@ EOF
 
 # Target a receives a template workflow (values and a block), a plain
 # workflow and a non-workflow file; target b receives the template alone. The
-# tree keeps its own copies of codeql.yml, link-check.yml, scorecard.yml,
-# tool-versions.yml, dependabot.yml, .gitignore and REUSE.toml.
+# tree keeps its own copies of codeql.yml, link-check.yml, rerun-timeouts.yml,
+# scorecard.yml, tool-versions.yml, dependabot.yml, .gitignore and REUSE.toml.
 fixture() {
   local t
   for t in shellcheck shfmt constricter actionlint zizmor lychee typos gitleaks reuse pip-audit; do tool "$t"; done
@@ -68,6 +68,7 @@ fixture() {
     t_shared .github/workflows/marked.yml
   echo 'on: push' | t_shared .github/workflows/plain.yml
   echo 'on: push' | t_shared .github/workflows/link-check.yml
+  echo 'on: push' | t_shared .github/workflows/rerun-timeouts.yml
   echo 'on: push' | t_shared .github/workflows/scorecard.yml
   echo 'on: push' | t_shared .github/workflows/tool-versions.yml
   echo 'version: 2' | t_shared .github/dependabot.yml
@@ -105,7 +106,7 @@ test_runs_every_check_over_the_tree() {
     'pip-audit --strict --require-hashes --disable-pip -r requirements-dev.txt' 'npm audit --prefix .github --json' \
     'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' \
     'prettier --check .' \
-    'lint_workflows.sh .github/workflows/checks.yml .github/workflows/codeql.yml .github/workflows/link-check.yml .github/workflows/own.yml .github/workflows/scorecard.yml .github/workflows/tool-versions.yml files/.github/workflows/link-check.yml files/.github/workflows/plain.yml files/.github/workflows/scorecard.yml files/.github/workflows/tool-versions.yml files/.github/actions/a/action.yml'
+    'lint_workflows.sh .github/workflows/checks.yml .github/workflows/codeql.yml .github/workflows/link-check.yml .github/workflows/own.yml .github/workflows/rerun-timeouts.yml .github/workflows/scorecard.yml .github/workflows/tool-versions.yml files/.github/workflows/link-check.yml files/.github/workflows/plain.yml files/.github/workflows/rerun-timeouts.yml files/.github/workflows/scorecard.yml files/.github/workflows/tool-versions.yml files/.github/actions/a/action.yml'
   # the renderings read the shared runner labels and prettier config
   t_match "$T/tools.log" '^actionlint -config-file .github/actionlint.yaml .*/ci-tmp\.[^/]*/render/' \
     '^prettier --check --config .prettierrc.yaml .*/ci-tmp\.[^/]*/render/'

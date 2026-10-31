@@ -12,15 +12,16 @@ _batch_ are shared CI items: they go to every repository as one hand-run batch
 Ranked by value for size; the numbers are the items below. S, M and L are sizes.
 
 1. 3.1, read the first weekly run under the App on 2026-11-02 (S).
-2. 6.1 item 5, the check on `sync.yml`'s mint steps (S).
-3. 6.2 item 21, `lint_workflows.sh` reading `source` lines (M): a miss only
+2. 5.3, test `ubuntu-24.04` on one repository and read the scan after (S).
+3. 6.1 item 5, the check on `sync.yml`'s mint steps (S).
+4. 6.2 item 21, `lint_workflows.sh` reading `source` lines (M): a miss only
    fails at release.
-4. 3.3 and 3.4, the settings to switch on by hand (S).
-5. 3.2, bumps as a pull request (L), which also shortens 1.3.
-6. The batch when it is started: 1.3 (S), 1.2 (M, one session per repository).
-7. The remaining S items: 6.1 item 7, 6.2 items 12, 17, 19 and 20.
-8. 6.2's M items: 10, 15 and 16.
-9. Section 4's templates (M).
+5. 3.3 and 3.4, the settings to switch on by hand (S).
+6. 3.2, bumps as a pull request (L), which also shortens 1.3.
+7. The batch when it is started: 1.3 (S), 1.2 (M, one session per repository).
+8. The remaining S items: 6.1 item 7, 6.2 items 12, 17, 19 and 20.
+9. 6.2's M items: 10, 15 and 16.
+10. Section 4's templates (M).
 
 Waiting on upstream: 1.1, 3.6, 5.1, 5.2. Not worth doing as things stand: 3.5.
 
@@ -317,6 +318,31 @@ with a per-repository tail is a template, not a per-repository file.
   (`shfmt -d <file>` still reformats it), so whatever formats one file on
   save must also skip a file `shfmt -f <dir>` leaves out. Until it does,
   apply `brew style --fix`'s diff by hand and do not reformat afterwards.
+
+### 5.3 Jobs that time out without doing the work
+
+- **What:** `scratch/retried_timeouts.py` found 105 jobs since 2026-08-01 that
+  hit a time limit and passed within two retries, nearly all from 2026-10-21 on
+  `ubuntu-26.04`. Its outcome column shows most never ran to their limit: 58
+  ended their `Complete job` step yet stayed open, 40 recorded no finished step.
+  A larger limit does not help them. Item 5.1 is the likely cause of many,
+  unconfirmed: one job's log was read, a westus2 checkout refused 5 ms after
+  harden-runner engaged, with `github.com` on its allowed list.
+- **Done:** `rerun-timeouts.yml` reruns a run's failed jobs when one hit a time
+  limit, at most twice, under `block` since it holds a write token; item 5.1 can
+  fail it, which leaves that run for a rerun by hand. Limits were lowered from `scratch/job_durations.py`'s 20 newest passing
+  runs: 5 minutes under a 1-minute longest run, else 1.5 times the longest
+  rounded up to 5 with a floor of 10, and 15 to 20 for jobs that compile or build
+  an image, whose cold runs the sample may miss. Release and publish jobs and
+  jobs seen under 5 times keep theirs.
+- **Not done:** moving one repository back to `ubuntu-24.04` to test the image,
+  comparing `block` with `audit`, and reporting the jobs that finished yet stayed
+  open to GitHub.
+- **Verify:** after the first automatic rerun of a `CI` run on `main`, that the
+  workflows chained off `CI` fired from attempt 2, since a rerun started by
+  `GITHUB_TOKEN` may not emit `workflow_run`. A week after the sync merges, rerun
+  the scan; a job killed by a new limit shows as `stopped` with active minutes
+  near its limit.
 
 ## 6. Simplifications
 

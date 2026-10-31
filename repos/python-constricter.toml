@@ -17,6 +17,9 @@ language = "python"
 [templates.".gitignore"]
 stray_files = "true"
 
+[templates.".github/workflows/rerun-timeouts.yml"]
+workflows = "CI, Security, CodeQL, Scorecard, Release note, Link check, Tool versions"
+
 # this repository's values in rulesets/main.json
 [rulesets.main]
 required_status_checks = []
