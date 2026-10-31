@@ -157,10 +157,10 @@ One file is this repository's own:
 Markdown tools' and Python tools' manifests and the action pins under `files/`.
 
 It runs four of the workflows it ships, as its targets do: `codeql.yml` (the
-`actions` language alone), `scorecard.yml`, `link-check.yml` and
-`tool-versions.yml`, the last three following `checks.yml`, which is named `CI`
-for them. Its `tool-versions.yml`, `dependabot.yml` and `.gitignore` are the
-templates rendered for `repo=ci-shared`. A workflow or a `.gitignore` cannot be
+`actions` language alone), `scorecard.yml`, `link-check.yml`,
+`rerun-timeouts.yml` and `tool-versions.yml`, the last four following
+`checks.yml`, which is named `CI` for them. Its `tool-versions.yml`,
+`dependabot.yml` and `.gitignore` are the templates rendered for `repo=ci-shared`. A workflow or a `.gitignore` cannot be
 a symlink, and a template's markers must not reach a copy, so
 `scripts/own_files.sh` writes each as a copy, the other workflows rendered with
 no values, and `scripts/check.sh` fails when one is stale.

@@ -40,6 +40,9 @@ description = "A real, logged-in Instagram Android app running in redroid, publi
 [templates.".github/workflows/advisories.yml"]
 tool = "pip-audit"
 
+[templates.".github/workflows/rerun-timeouts.yml"]
+workflows = "CI, Coverage, CodeQL, Scorecard, Image scan, Release note, Link check, Tool versions, Advisories"
+
 # this repository's values in rulesets/main.json
 [rulesets.main]
 required_status_checks = [

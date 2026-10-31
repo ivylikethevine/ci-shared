@@ -28,7 +28,7 @@ jobs:
     name: Checks
     if: github.event.pull_request.draft != true
     runs-on: ${{ inputs.runner || 'ubuntu-26.04' }}
-    timeout-minutes: 10
+    timeout-minutes: 5
     # job-scoped, not workflow-level, for Scorecard's Token-Permissions check
     permissions:
       contents: read
@@ -85,7 +85,7 @@ jobs:
     name: Coverage
     if: github.event.pull_request.draft != true
     runs-on: ${{ inputs.runner || 'ubuntu-26.04' }}
-    timeout-minutes: 15
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:

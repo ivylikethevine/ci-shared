@@ -43,7 +43,7 @@ jobs:
     name: CodeQL (__language__)
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 15
     permissions:
       contents: read
       security-events: write # the SARIF upload
@@ -74,7 +74,7 @@ jobs:
     name: CodeQL (actions)
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-26.04
-    timeout-minutes: 15
+    timeout-minutes: 10
     permissions:
       contents: read
       security-events: write # the SARIF upload

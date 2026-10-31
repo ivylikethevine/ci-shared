@@ -19,6 +19,7 @@ OWN=(
   .github/workflows/codeql.yml
   .github/workflows/link-check.yml
   .github/workflows/scorecard.yml
+  ".github/workflows/rerun-timeouts.yml workflows=CI,%20CodeQL,%20Scorecard,%20Link%20check,%20Tool%20versions"
   ".github/workflows/tool-versions.yml repo=ci-shared"
   ".github/dependabot.yml repo=ci-shared"
   ".gitignore repo=ci-shared"

@@ -42,6 +42,7 @@ Which repositories receive each shared file, written by
 | `.github/workflows/link-check.yml`                 |              | x          | x                  | x      | x          | 4     |
 | `.github/workflows/pages.yml`                      |              | x          |                    |        | x          | 2     |
 | `.github/workflows/release-note.yml`               |              | x          | x                  | x      | x          | 4     |
+| `.github/workflows/rerun-timeouts.yml`             |              | x          | x                  | x      | x          | 4     |
 | `.github/workflows/scorecard.yml`                  |              | x          | x                  | x      | x          | 4     |
 | `.github/workflows/tool-versions.yml`              | x            | x          | x                  | x      | x          | 5     |
 | `.github/zizmor.yml`                               | x            | x          | x                  | x      | x          | 5     |
@@ -60,7 +61,7 @@ Which repositories receive each shared file, written by
 | `_config.yml`                                      |              | x          |                    | x      | x          | 3     |
 | `docs/CODE_OF_CONDUCT.md`                          | x            | x          | x                  | x      | x          | 5     |
 | `lychee.toml`                                      |              | x          | x                  | x      | x          | 4     |
-| **Files per repository**                           | 26           | 53         | 44                 | 52     | 55         | 55    |
+| **Files per repository**                           | 26           | 54         | 45                 | 53     | 56         | 56    |
 
 ## Template values
 
@@ -68,14 +69,18 @@ Which repositories receive each shared file, written by
 - every template in instadroid: `language=python`
 - `.github/workflows/advisories.yml` in instadroid: `tool=pip-audit`
 - `.github/workflows/image-scan.yml` in instadroid: `pins_egress=audit image_name=instadroid trivyignore=.trivyignore`
+- `.github/workflows/rerun-timeouts.yml` in instadroid: `workflows=CI, Coverage, CodeQL, Scorecard, Image scan, Release note, Link check, Tool versions, Advisories`
 - `.gitignore` in instadroid: `images=true stray_files=true`
 - `_config.yml` in instadroid: `title=instadroid description=A real, logged-in Instagram Android app running in redroid, publishing the chronological Following feed as Atom for FreshRSS.`
 - every template in python-constricter: `language=python`
+- `.github/workflows/rerun-timeouts.yml` in python-constricter: `workflows=CI, Security, CodeQL, Scorecard, Release note, Link check, Tool versions`
 - `.gitignore` in python-constricter: `stray_files=true`
 - `.github/workflows/image-scan.yml` in say-hi: `pins_egress=block`
+- `.github/workflows/rerun-timeouts.yml` in say-hi: `workflows=CI, Coverage, CodeQL, Scorecard, Image scan, Release note, Link check, Tool versions, Dependency review`
 - `.gitignore` in say-hi: `images=true stray_files=true`
 - `_config.yml` in say-hi: `title=say-hi description=A greeting, a prompt, and your aliases on every machine you ssh, docker, podman, nomad, or kubectl into - without installing anything there.`
 - every template in sharerr-rs: `language=rust`
 - `.github/workflows/advisories.yml` in sharerr-rs: `tool=cargo-deny`
 - `.github/workflows/image-scan.yml` in sharerr-rs: `pins_egress=audit image_name=sharerr trivyignore=docker/.trivyignore`
+- `.github/workflows/rerun-timeouts.yml` in sharerr-rs: `workflows=CI, Coverage, CodeQL, Scorecard, Image scan, Release note, Link check, Tool versions, Advisories`
 - `_config.yml` in sharerr-rs: `title=sharerr description=Share your media library with friends, over the tools you already run.`

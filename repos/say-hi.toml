@@ -30,6 +30,9 @@ description = "A greeting, a prompt, and your aliases on every machine you ssh, 
 [templates.".github/workflows/image-scan.yml"]
 pins_egress = "block"
 
+[templates.".github/workflows/rerun-timeouts.yml"]
+workflows = "CI, Coverage, CodeQL, Scorecard, Image scan, Release note, Link check, Tool versions, Dependency review"
+
 # this repository's values in rulesets/main.json
 [rulesets.main]
 required_status_checks = [

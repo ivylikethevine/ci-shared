@@ -28,6 +28,7 @@ files = [
   ".github/workflows/codeql.yml",
   ".github/workflows/link-check.yml",
   ".github/workflows/release-note.yml",
+  ".github/workflows/rerun-timeouts.yml",
   ".github/workflows/scorecard.yml",
   ".github/workflows/tool-versions.yml",
   ".github/zizmor.yml",
