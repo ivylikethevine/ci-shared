@@ -1,1 +1,0 @@
-../../../files/.github/actions/setup-tools/resolve.sh

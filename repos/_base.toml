@@ -46,4 +46,5 @@ files = [
   "REUSE.toml",
   "docs/CODE_OF_CONDUCT.md",
   "lychee.toml",
+  "scratch/README.md",
 ]

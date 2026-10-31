@@ -1,0 +1,149 @@
+name: Bump tools
+
+# Turns what tool-versions.yml reports behind into one draft pull request on this
+# repository, whose merge the sync then carries to every target. Weekly, half an
+# hour after that report. The first job edits with no secret in reach; the second
+# holds the sync App's token, scoped to this repository, and only writes what the
+# first produced: scripts/apply_bumps.sh and scripts/bump_pr.sh say how.
+on:
+  schedule:
+    - cron: "53 7 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: bump-tools
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: Apply the bumps
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    # job-scoped, not workflow-level, for Scorecard's Token-Permissions check
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.apply.outputs.changed }}
+    steps:
+      # block: the upstreams the version check reads, the pinned tools' assets
+      # (GitHub's, HashiCorp's and Debian's), the npm registry, PyPI and the
+      # artifact service.
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: block
+          disable-sudo: true
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            codeload.github.com:443
+            release-assets.githubusercontent.com:443
+            objects.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            releases.hashicorp.com:443
+            salsa.debian.org:443
+            hub.docker.com:443
+            crates.io:443
+            registry.npmjs.org:443
+            pypi.org:443
+            files.pythonhosted.org:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+
+      # the runner's python3, a venv holding requirements-dev.txt's hashed pins
+      - name: Install the pinned Python tools
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet --require-hashes --no-deps -r requirements-dev.txt
+          echo "$RUNNER_TEMP/venv/bin" >>"$GITHUB_PATH"
+
+      # A bump that could not be made fails the last step, after the others have
+      # gone to the pull request.
+      - id: apply
+        name: Apply what the version check reports
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FIX_LIST: ${{ runner.temp }}/fixes
+        run: |
+          set -uo pipefail
+          : >"$CI_FIX_LIST"
+          .github/scripts/check_tool_versions.sh || true
+          rc=0
+          scripts/apply_bumps.sh "$CI_FIX_LIST" >"$RUNNER_TEMP/body.md" || rc=$?
+          git diff --binary >"$RUNNER_TEMP/bumps.patch"
+          echo "failed=$rc" >>"$GITHUB_OUTPUT"
+          if [ -s "$RUNNER_TEMP/bumps.patch" ]; then
+            echo "changed=true" >>"$GITHUB_OUTPUT"
+          fi
+          cat "$RUNNER_TEMP/body.md" >>"$GITHUB_STEP_SUMMARY"
+
+      - if: steps.apply.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bumps
+          path: |
+            ${{ runner.temp }}/bumps.patch
+            ${{ runner.temp }}/body.md
+          retention-days: 1
+
+      - name: Fail on a bump left for a hand
+        env:
+          FAILED: ${{ steps.apply.outputs.failed }}
+        run: exit "$FAILED"
+
+  pull-request:
+    name: Open the pull request
+    needs: apply
+    if: ${{ !cancelled() && needs.apply.outputs.changed == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    # SYNC_APP_PRIVATE_KEY is a secret of this environment, whose deployment
+    # branches are main alone, so no other ref's run reads it
+    environment: sync
+    permissions:
+      contents: read
+    steps:
+      # block: the checkout, the artifact service and the GitHub API are all this
+      # job reaches.
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: block
+          disable-sudo: true
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            results-receiver.actions.githubusercontent.com:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: bumps
+          path: ${{ runner.temp }}/bumps
+
+      # this repository alone, with the App's permissions a pull request that
+      # edits workflows needs (zizmor: github-app)
+      - id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Open or update the pull request
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: scripts/bump_pr.sh "$RUNNER_TEMP/bumps/bumps.patch" "$RUNNER_TEMP/bumps/body.md"

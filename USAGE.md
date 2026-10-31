@@ -61,7 +61,8 @@ Which repositories receive each shared file, written by
 | `_config.yml`                                      |              | x          |                    | x      | x          | 3     |
 | `docs/CODE_OF_CONDUCT.md`                          | x            | x          | x                  | x      | x          | 5     |
 | `lychee.toml`                                      |              | x          | x                  | x      | x          | 4     |
-| **Files per repository**                           | 26           | 54         | 45                 | 53     | 56         | 56    |
+| `scratch/README.md`                                |              | x          |                    | x      | x          | 3     |
+| **Files per repository**                           | 26           | 55         | 45                 | 54     | 57         | 57    |
 
 ## Template values
 

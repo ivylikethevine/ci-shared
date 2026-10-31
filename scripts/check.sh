@@ -152,6 +152,22 @@ run own-files "$CI_SCRIPTS_DIR/own_files.sh" --check
 run config ci_load
 rows="$(ci_rows)"
 
+# Every target has a mint step in sync.yml and a TOKEN_<NAME> line taking its
+# token: one missing otherwise only shows when a run skips the target.
+# shellcheck disable=SC2329 # run calls it by name
+mint() {
+  local ok=0 name secret
+  while read -r name secret; do
+    if ! grep -qE "^ +repositories: $name\$" .github/workflows/sync.yml ||
+      ! grep -qF "${secret#SYNC_}: \${{ steps.app-$name.outputs.token }}" .github/workflows/sync.yml; then
+      echo "$name has no mint step or ${secret#SYNC_} line in .github/workflows/sync.yml"
+      ok=1
+    fi
+  done < <(ci_configs | jq -r '.[] | "\(.name) \(.token_secret)"')
+  return "$ok"
+}
+run mint mint
+
 # files/.gitignore is the template with every target's block active, so git
 # applies a target's blanket rule (*.toml, *.txt) to files/ here, and a new
 # shared file it matches never reaches a commit unless the template negates

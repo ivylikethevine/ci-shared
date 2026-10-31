@@ -26,8 +26,9 @@ does not preserve on every platform.
 ```
 
 `advisory-note`, `fetch-latest-artifact`, `mark-tree` and
-`upsert-tracking-issue` need nothing else: each uses `github.token` and reads
-no file of this repository. `setup-tool` and `setup-tools` read `tools.txt`
+`upsert-tracking-issue` need nothing else: each uses `github.token`, and the
+ones that read `.github/scripts/lib.sh` find it beside the action in the
+downloaded repository. `setup-tool` and `setup-tools` read `tools.txt`
 beside the action, in `files/` the unrendered template with every target's
 rows; a caller with a roster of its own sets `CI_TOOLS_TXT` on the step to it.
 The scripts under
@@ -52,13 +53,15 @@ them, or make the repository a target.
 | `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets                                                               |
 | `scripts/sync_prs.sh`         | reports each target's open sync pull request: its age and its checks                                                                  |
 | `scripts/own_files.sh`        | writes this repository's own copies of the shared files it uses                                                                       |
+| `scripts/apply_bumps.sh`      | edits the pins the version check reports behind, sha256s and locks included                                                           |
+| `scripts/bump_pr.sh`          | opens or updates the pull request holding those edits                                                                                 |
 | `docs/SECURITY.md`            | what is in scope here and how to report a vulnerability privately                                                                     |
 | `rulesets/`                   | the rulesets every target shares, in GitHub's import format                                                                           |
 | `rulesets/self.toml`          | this repository's own values in the shared `main` ruleset                                                                             |
 | `tests/`                      | a suite per script, run against fixtures and a fake `gh`                                                                              |
 | `requirements-dev.in`         | the Python dev tools (constricter, pip-audit, reuse, and coverage.py from `requirements-coverage.in`); each `.txt` is its hashed lock |
 | `pyproject.toml`              | those tools' settings                                                                                                                 |
-| `.github/workflows/`          | `sync.yml`, `checks.yml` and copies of four shared ones                                                                               |
+| `.github/workflows/`          | `sync.yml`, `checks.yml`, `bump-tools.yml` and copies of four shared ones                                                             |
 
 A file belongs here once two targets hold it byte-identical. Per-repository
 files stay in their repository: `check_tool_versions.local.sh`, the
@@ -182,7 +185,11 @@ run from a temporary directory and not kept.
   `python3 -m venv local/venv && local/venv/bin/pip install --require-hashes --no-deps -r requirements-dev.txt`.
 - `.github/scripts/check_tool_versions.sh` reports every pin behind the newest
   release past the cooldown; `tool-versions.yml` runs it weekly and keeps a
-  `tool-versions` issue open while one is behind.
+  `tool-versions` issue open while one is behind. `bump-tools.yml` follows it
+  weekly: `scripts/apply_bumps.sh` makes the edits with no secret in reach, and
+  `scripts/bump_pr.sh` writes them to one draft pull request on `tool-bumps`,
+  with a commit GitHub signs for the sync App. A bump it cannot make is listed in
+  that pull request's body and fails the run.
 - `tests/run.sh [SUITE...]` runs the suites (`T_ONLY=<regex>` picks tests
   within one); each builds its own fixture tree and points the scripts at it
   through `CI_SHARED_DIR`. `tests/coverage.sh` runs them under kcov and
@@ -198,7 +205,8 @@ run from a temporary directory and not kept.
 
 The sync writes through a GitHub App the repository owner creates and
 installs (_Settings → Developer settings → GitHub Apps → New GitHub App_), no
-webhook, installable only on this account, and installed on every target.
+webhook, installable only on this account, and installed on every target and,
+for `bump-tools.yml`'s pull request, on this repository.
 Each `sync.yml` run mints one installation token per target with
 `actions/create-github-app-token`, scoped to that repository alone, valid
 for an hour at most and revoked when the job ends. Nothing expires to renew.

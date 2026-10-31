@@ -82,17 +82,6 @@ open_pr() {
   ci_open_sync_pr "$1" "$2" '"\(.number) \(.node_id) \(.draft) \(.html_url)"'
 }
 
-# Uploads one file as a blob and checks GitHub stored the bytes git hashes.
-upload_blob() {
-  local slug=$1 src=$2 sha
-  sha="$(base64 <"$src" | tr -d '\n' | jq -Rs '{encoding: "base64", content: .}' |
-    gh api "repos/$slug/git/blobs" --input - --jq .sha)"
-  [ "$sha" = "$(git hash-object "$src")" ] || {
-    echo "blob for $src came back as $sha" >&2
-    return 1
-  }
-}
-
 # create_commit <slug> <tree> <parent> <message> - creates the commit, signed
 # with the sync key, and prints its sha. Fails unless GitHub stored the bytes
 # that were signed and verified the signature.
@@ -149,7 +138,7 @@ sync_repo() {
     echo "$name: $path differs"
     files="$files- \`$path\`"$'\n'
     entries="$entries$path"$'\t'"$mode"$'\t'"${want%% *}"$'\n'
-    [ "$dry" = 1 ] || upload_blob "$slug" "$rendered"
+    [ "$dry" = 1 ] || ci_upload_blob "$slug" "$rendered"
   done < <(ci_targets "$name")
 
   if [ -z "$files" ]; then
