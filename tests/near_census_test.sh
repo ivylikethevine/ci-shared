@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scratch/near_census.py: groups each path's copies across the checkouts,
+# scripts/near_census.py: groups each path's copies across the checkouts,
 # skips what --min and files/ rule out, scores each copy against the largest
 # group's, and with --normalize ignores the project names.
 # shellcheck disable=SC2329 # t_main calls the test_* functions by name
@@ -27,7 +27,7 @@ fixture() {
 }
 
 census() {
-  t_run "$REPO_DIR/scratch/near_census.py" "$@"
+  t_run "$REPO_DIR/scripts/near_census.py" "$@"
 }
 
 test_scores_each_copy_against_the_largest_group() {

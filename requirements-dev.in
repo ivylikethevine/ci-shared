@@ -4,8 +4,10 @@
 #   pip-compile --allow-unsafe --generate-hashes --strip-extras requirements-dev.in
 -r requirements-coverage.in
 # Every variable annotated where it's first bound (pyproject.toml's [tool.constricter]).
-python-constricter==0.3.6
+python-constricter==0.4.2
 # scripts/check.sh's audit of requirements-dev.txt.
 pip-audit==2.10.1
 # scripts/check.sh's REUSE check: every file licensed, every license's text present.
 reuse==6.2.0
+# scripts/apply_bumps.sh's locks, these two among them.
+pip-tools==7.6.2

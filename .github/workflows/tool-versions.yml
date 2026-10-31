@@ -64,7 +64,7 @@ jobs:
       #                       the JSON API
       #   salsa.debian.org    the gitlab: row for checkbashisms; anonymous GET
       #                       of the tags API
-      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: block
           disable-sudo: true
@@ -97,24 +97,6 @@ jobs:
           .github/scripts/check_tool_versions.sh | tee "$RUNNER_TEMP/tool-versions.txt" || rc=$?
           echo "problems=$rc" >>"$GITHUB_OUTPUT"
 
-      - name: Compose the tracking issue body
-        if: steps.check.outputs.problems != '0'
-        env:
-          PROBLEMS: ${{ steps.check.outputs.problems }}
-        run: |
-          set -euo pipefail
-          {
-            echo "$PROBLEMS row(s) marked fix below: a pin behind a release past the cooldown, or a"
-            echo "check that could not run. Ages are days since release; a release still inside the"
-            echo "cooldown is not offered yet. Bump each fix row under files/, which the sync then"
-            echo "carries to every target; every use of an action SHA moves together, and such a row"
-            echo "ends with the value to pin."
-            echo
-            echo '```'
-            cat "$RUNNER_TEMP/tool-versions.txt"
-            echo '```'
-          } >"$RUNNER_TEMP/issue.md"
-
       - uses: ./.github/actions/upsert-tracking-issue
         with:
           label: tool-versions
@@ -124,4 +106,10 @@ jobs:
           resolved: ${{ steps.check.outputs.problems == '0' }}
           close-comment: Every pin is current again.
           resolved-when: every pin is current
-          body-file: ${{ runner.temp }}/issue.md
+          preamble: |-
+            ${{ steps.check.outputs.problems }} row(s) marked fix below: a pin behind a release past the cooldown, or a
+            check that could not run. Ages are days since release; a release still inside the
+            cooldown is not offered yet. Bump each fix row under files/, which the sync then
+            carries to every target; every use of an action SHA moves together, and such a row
+            ends with the value to pin.
+          report-file: ${{ runner.temp }}/tool-versions.txt

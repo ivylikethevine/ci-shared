@@ -25,6 +25,7 @@ skip = [
   ".scorecard.yml",
   ".zed/settings.json",
   "lychee.toml",
+  "scratch/README.md",
 ]
 
 # the values a template takes, by path

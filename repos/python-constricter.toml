@@ -8,6 +8,9 @@ immutable_releases = true
 
 # repos/_base.toml's paths, less any `skip` names
 base = true
+skip = [
+  "scratch/README.md",
+]
 
 # the values every template takes
 [values]

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Runs every suite under kcov and coverage.py, and fails unless every
-# statement of scripts/*.sh and scratch/*.sh ran (tests/coverage.py says how a
+# statement of scripts/*.sh ran (tests/coverage.py says how a
 # statement is judged from kcov's lines) and every line and branch of the
-# Python in scripts/, tests/ and scratch/ did (pyproject.toml's
+# Python in scripts/ and tests/ did (pyproject.toml's
 # [tool.coverage]). The checks workflow's coverage job runs it.
 #
 #   tests/coverage.sh [OUT]
@@ -47,7 +47,7 @@ while [ \$# -gt 0 ] && [ "\${1#-}" != "\$1" ] && [ "\$1" != - ]; do
 done
 case \${1:-} in
 $repo/*) exec "$python" \${opts[@]+"\${opts[@]}"} -m coverage run --rcfile="$repo/pyproject.toml" \\
-  --source="$repo/scripts,$repo/tests,$repo/scratch" --parallel-mode "\$@" ;;
+  --source="$repo/scripts,$repo/tests" --parallel-mode "\$@" ;;
 esac
 exec "$python" \${opts[@]+"\${opts[@]}"} "\$@"
 EOF
@@ -59,11 +59,11 @@ chmod +x "$out/bin/python3"
 rc=0
 for suite in "$repo"/tests/*_test.sh; do
   suite="$(basename "$suite" _test.sh)"
-  PATH="$out/bin:$PATH" kcov --include-path="$repo/scripts,$repo/scratch" \
-    --bash-parse-files-in-dir="$repo/scripts,$repo/scratch" "$out/kcov/$suite" "$repo/tests/run.sh" "$suite" || rc=1
+  PATH="$out/bin:$PATH" kcov --include-path="$repo/scripts" \
+    --bash-parse-files-in-dir="$repo/scripts" "$out/kcov/$suite" "$repo/tests/run.sh" "$suite" || rc=1
 done
 echo "reports: $out/kcov/<suite>/index.html"
-"$python" -I "$repo/tests/coverage.py" "$out"/kcov/*/run.sh/cobertura.xml "$repo"/scripts/*.sh "$repo"/scratch/*.sh || rc=1
+"$python" -I "$repo/tests/coverage.py" "$out"/kcov/*/run.sh/cobertura.xml "$repo"/scripts/*.sh || rc=1
 "$python" -m coverage combine --rcfile="$repo/pyproject.toml" --quiet "$out/python"
 "$python" -m coverage report --rcfile="$repo/pyproject.toml" || rc=1
 exit "$rc"

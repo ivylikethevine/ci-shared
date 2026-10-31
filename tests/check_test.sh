@@ -47,13 +47,19 @@ fixture() {
   local t
   for t in shellcheck shfmt constricter actionlint zizmor lychee typos gitleaks reuse pip-audit; do tool "$t"; done
   npm_fake
-  mkdir -p "$T/tree/scripts" "$T/tree/tests" "$T/tree/scratch" "$T/tree/.github/scripts" \
+  mkdir -p "$T/tree/scripts" "$T/tree/tests" "$T/tree/.github/scripts" \
     "$T/tree/.github/workflows" "$T/tree/.github/node_modules/.bin"
   echo 'true' >"$T/tree/scripts/s.sh"
   echo 'true' >"$T/tree/tests/t_test.sh"
-  echo 'true' >"$T/tree/scratch/x.sh"
   echo 'on: push' >"$T/tree/.github/workflows/own.yml"
   printf 'on: push\n# the setup-tools step\n          tools: shellcheck gitleaks\n' >"$T/tree/.github/workflows/checks.yml"
+  cat >"$T/tree/.github/workflows/sync.yml" <<'EOF'
+on: push
+          repositories: a
+          TOKEN_A: ${{ steps.app-a.outputs.token }}
+          repositories: b
+          TOKEN_B: ${{ steps.app-b.outputs.token }}
+EOF
   printf '# a comment\nshellcheck|1.0.0|raw|u|--version|g||%s\ngitleaks|1.0.0|raw|u|version|g||%s\n' \
     "$(printf 'a%.0s' {1..64})" "$(printf 'b%.0s' {1..64})" | t_shared .github/actions/setup-tool/tools.txt
   echo '{}' >"$T/tree/.github/zizmor.yml"
@@ -97,16 +103,16 @@ test_runs_every_check_over_the_tree() {
   t_run "$SCRIPTS/check.sh"
   t_rc 0
   t_out "== pins" "== shellcheck" "== markdownlint" "== lychee" "== typos" "== gitleaks" "== reuse" "== audit" "== usage" "== own-files" \
-    "== config" "== lint-workflows-rendered"
+    "== config" "== mint" "== lint-workflows-rendered"
   t_no_out "::error"
-  t_in -x "$T/tools.log" 'shellcheck -x files/.github/scripts/shared.sh scratch/x.sh scripts/s.sh tests/t_test.sh' \
-    'constricter scripts tests scratch' \
+  t_in -x "$T/tools.log" 'shellcheck -x files/.github/scripts/shared.sh scripts/s.sh tests/t_test.sh' \
+    'constricter scripts tests' \
     'lychee --config lychee.toml --offline --include-fragments --no-progress README.md' \
     'typos ' 'gitleaks git --redact --no-banner .' 'reuse --no-multiprocessing lint' \
     'pip-audit --strict --require-hashes --disable-pip -r requirements-dev.txt' 'npm audit --prefix .github --json' \
     'zizmor --config .github/zizmor.yml --offline .github/workflows files/.github' \
     'prettier --check .' \
-    'lint_workflows.sh .github/workflows/checks.yml .github/workflows/codeql.yml .github/workflows/link-check.yml .github/workflows/own.yml .github/workflows/rerun-timeouts.yml .github/workflows/scorecard.yml .github/workflows/tool-versions.yml files/.github/workflows/link-check.yml files/.github/workflows/plain.yml files/.github/workflows/rerun-timeouts.yml files/.github/workflows/scorecard.yml files/.github/workflows/tool-versions.yml files/.github/actions/a/action.yml'
+    'lint_workflows.sh .github/workflows/checks.yml .github/workflows/codeql.yml .github/workflows/link-check.yml .github/workflows/own.yml .github/workflows/rerun-timeouts.yml .github/workflows/scorecard.yml .github/workflows/sync.yml .github/workflows/tool-versions.yml files/.github/workflows/link-check.yml files/.github/workflows/plain.yml files/.github/workflows/rerun-timeouts.yml files/.github/workflows/scorecard.yml files/.github/workflows/tool-versions.yml files/.github/actions/a/action.yml'
   # the renderings read the shared runner labels and prettier config
   t_match "$T/tools.log" '^actionlint -config-file .github/actionlint.yaml .*/ci-tmp\.[^/]*/render/' \
     '^prettier --check --config .prettierrc.yaml .*/ci-tmp\.[^/]*/render/'
@@ -214,6 +220,20 @@ test_counts_and_annotates_each_failure() {
     "::error title=audit::audit failed"
   # online, with a token
   t_in -x "$T/tools.log" 'zizmor --config .github/zizmor.yml .github/workflows files/.github'
+}
+
+test_a_target_without_a_mint_step_or_token_line_fails() {
+  fixture
+  sed -i -e '/repositories: b/d' "$T/tree/.github/workflows/sync.yml"
+  t_run "$SCRIPTS/check.sh"
+  t_rc 1
+  t_out "b has no mint step or TOKEN_B line in .github/workflows/sync.yml" "::error title=mint::mint failed"
+  t_no_out "a has no mint step"
+  # shellcheck disable=SC2016 # the workflow's own expression
+  printf '          repositories: a\n          repositories: b\n          TOKEN_B: ${{ steps.app-b.outputs.token }}\n' >"$T/tree/.github/workflows/sync.yml"
+  t_run "$SCRIPTS/check.sh"
+  t_rc 1
+  t_out "a has no mint step or TOKEN_A line in .github/workflows/sync.yml"
 }
 
 test_a_tool_off_its_pin_fails() {

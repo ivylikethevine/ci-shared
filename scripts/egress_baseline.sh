@@ -6,7 +6,7 @@
 # only macOS or Windows system processes did (`os`), which an allowlist can
 # usually leave out.
 #
-#   scratch/egress_baseline.sh <owner/repo> <workflow file> [runs=5] [label regex]
+#   scripts/egress_baseline.sh <owner/repo> <workflow file> [runs=5] [label regex]
 #
 # A reusable workflow's jobs appear under the caller's runs, so name the
 # caller. Matrix and shard numbers in job names are folded together. Needs

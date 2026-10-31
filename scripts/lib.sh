@@ -271,6 +271,18 @@ ci_render() {
   ' "$src"
 }
 
+# ci_upload_blob <slug> <file> - uploads the file as a blob and checks GitHub
+# stored the bytes git hashes.
+ci_upload_blob() {
+  local slug=$1 src=$2 sha
+  sha="$(base64 <"$src" | tr -d '\n' | jq -Rs '{encoding: "base64", content: .}' |
+    gh api "repos/$slug/git/blobs" --input - --jq .sha)"
+  [ "$sha" = "$(git hash-object "$src")" ] || {
+    echo "blob for $src came back as $sha" >&2
+    return 1
+  }
+}
+
 # Prints git's mode for a file: 100755 if executable, else 100644.
 ci_mode() {
   if [ -x "$1" ]; then echo 100755; else echo 100644; fi

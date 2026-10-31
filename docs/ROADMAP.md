@@ -12,16 +12,11 @@ _batch_ are shared CI items: they go to every repository as one hand-run batch
 Ranked by value for size; the numbers are the items below. S, M and L are sizes.
 
 1. 3.1, read the first weekly run under the App on 2026-11-02 (S).
-2. 5.3, test `ubuntu-24.04` on one repository and read the scan after (S).
-3. 6.1 item 5, the check on `sync.yml`'s mint steps (S).
-4. 6.2 item 21, `lint_workflows.sh` reading `source` lines (M): a miss only
-   fails at release.
-5. 3.3 and 3.4, the settings to switch on by hand (S).
-6. 3.2, bumps as a pull request (L), which also shortens 1.3.
-7. The batch when it is started: 1.3 (S), 1.2 (M, one session per repository).
-8. The remaining S items: 6.1 item 7, 6.2 items 12, 17, 19 and 20.
-9. 6.2's M items: 10, 15 and 16.
-10. Section 4's templates (M).
+2. 3.2's first live run, once the App is on this repository (S).
+3. 5.3, test `ubuntu-24.04` on one repository and read the scan after (S).
+4. 3.3 and 3.4, the settings to switch on by hand (S).
+5. The batch when it is started: 1.2 (M, one session per repository).
+6. Section 4's templates (M).
 
 Waiting on upstream: 1.1, 3.6, 5.1, 5.2. Not worth doing as things stand: 3.5.
 
@@ -47,18 +42,26 @@ Waiting on upstream: 1.1, 3.6, 5.1, 5.2. Not worth doing as things stand: 3.5.
   macOS and Windows runners in the free tier, so those jobs can move from
   `audit`. A weekly external-link check stays `audit`, and Windows arm64 has no
   agent, so those legs stay unmonitored.
-- **How:** `scratch/egress_census.sh` lists the jobs and
-  `scratch/egress_baseline.sh` reads each job's endpoints from its audit runs
+- **How:** `scripts/egress_census.sh` lists the jobs and
+  `scripts/egress_baseline.sh` reads each job's endpoints from its audit runs
   for `allowed-endpoints`. The jobs live in the targets' own workflows, one
   session per repository; update each disabled-rules row that says only audit
   is supported.
 
 ### 1.3 The bumps the `tool-versions` issue lists (_batch_)
 
-- **What:** issue #3 names each pin past the cooldown. As of its 2026-10-28 run:
-  trivy, terraform, `github/codeql-action`, `step-security/harden-runner`,
-  markdownlint-cli2 and python-constricter. actionlint 1.7.12 is still the
-  newest, which keeps 1.1 blocked.
+- **Done in the tree:** the ten rows of issue #3's 2026-10-30 run: trivy 0.76.1,
+  terraform 1.17.0, `actions/setup-python` 7.1.0, `docker/login-action` 4.7.0,
+  `github/codeql-action` 4.39.1, `step-security/harden-runner` 2.22.2,
+  markdownlint-cli2 0.24.0, katex 0.19.1, python-constricter 0.4.2 and coverage
+  7.17.0. actionlint 1.7.12 is still the newest, which keeps 1.1 blocked.
+- **Override:** markdownlint 0.42.0, which markdownlint-cli2 0.24.0 pulls in, pins
+  `re2js` 2.8.6 under GHSA-gg6h-894w-4m9c, fixed in 2.8.7. `overrides` holds
+  `re2js` at 2.9.0, the newest past the cooldown; drop it once markdownlint's
+  own pin passes the advisory.
+- **Left:** the targets' own workflows keep the old action SHAs until each moves
+  them, as its own `tool-versions` issue will say. In the batch, say-hi goes
+  first.
 
 ## 2. Platform changes with a date
 
@@ -143,37 +146,31 @@ knows 26.04. What changed under them, from GitHub's image comparison
   2026-11-02 run is the first under the App, and closes it if every check
   passes.
 - **Still by hand per target:** a mint step and a `TOKEN_<NAME>` line in
-  `sync.yml` (6.1 item 5).
+  `sync.yml`, which `scripts/check.sh` now fails without.
 
 ### 3.2 Bumps as a pull request, not a hand edit
 
-The weekly `tool-versions` issue already names every bump and, for action
-SHAs, the commit to pin. Three ways to turn it into a pull request on this
-repository, which the sync then carries everywhere:
-
-- **In-house `--apply`** (recommended): `check_tool_versions.sh` gains a mode
-  that edits what it reported: `tools.txt` rows (pin, then the sha256 by
-  fetching the new asset for each platform the row names), the `-> @sha`
-  lines across every `uses:`, `npm install --prefix .github <pkg>@<ver>`
-  for the Markdown tools, `pip-compile --upgrade-package` for
-  `requirements-dev.in` and `requirements-coverage.in`. A workflow runs it after the weekly check and opens
-  one pull request. The sha256 recomputation is the one step no off-the-shelf
-  tool does for this roster format.
-- **pinact** (v5.0.0, 2026-09-12) for the action SHAs alone:
-  `pinact run --update` rewrites `uses:` pins with their version comments and
-  `pinact run --check` is a lint; it does not know `tools.txt` or the npm lock.
-  If adopted, its check mode joins `check.sh` beside `lint_workflows.sh`: it also verifies
-  that each SHA is reachable from the tag its comment names, which rule 5 does
-  not.
-- **Renovate**: self-hosted through
-  `renovatebot/github-action` (v46.3.8), Renovate 44.3.1 or later
-  (CVE-2026-88884), regex custom managers for `tools.txt` plus
-  `postUpgradeTasks` for the sha256, `ignorePaths` for the root symlinks, its
-  endpoints in harden-runner. A second bot and a config dialect for a roster
-  the in-house script already parses.
-- **Either way** the pull request edits `.github/workflows/`, which
-  `GITHUB_TOKEN` may not push: the App of 3.1 (installed on this repository
-  too) is the token.
+- **Done in the tree:** `.github/workflows/bump-tools.yml`, weekly after the
+  version check. `check_tool_versions.sh` stays read-only and lists what is behind
+  in `CI_FIX_LIST`; `scripts/apply_bumps.sh` edits it, in this repository alone
+  since the sync owns the targets' copies and only this repository's manifest
+  kinds are handled: `tools.txt` rows with each asset's sha256, every `uses:`, the
+  inline pin, the npm manifest and lock, and the `.in` files and their locks.
+  `scripts/bump_pr.sh` writes one draft pull request on `tool-bumps`, in a job of
+  its own holding the App's token; a commit naming no author is signed by GitHub
+  for the App, so it needs no SSH key and keeps file modes.
+- **Run:** the scripts on a copy of the tree with no cooldown moved
+  `step-security/harden-runner`, python-constricter and reuse and recompiled the
+  dev lock. Not run on GitHub: nothing here has minted the token or written a
+  commit.
+- **Left:** install the sync App on this repository, then dispatch the workflow.
+  Check on that run that the commit shows as verified, and that block lets the
+  artifact upload through with `results-receiver` alone allowed, as the targets'
+  jobs do.
+- **Not taken:** pinact (v5.0.0), whose `pinact run --check` would add that each
+  SHA is reachable from the tag its comment names, which rule 5 does not; and
+  self-hosted Renovate (44.3.1 or later for CVE-2026-88884), a second bot and a
+  config dialect for a roster the check already parses.
 
 ### 3.3 "Require actions to be pinned to a full-length commit SHA" (by hand)
 
@@ -247,7 +244,7 @@ target gains contributors.
 
 ## 4. More files into `files/`
 
-From `scratch/near_census.py --normalize` over the sibling checkouts. The
+From `scripts/near_census.py --normalize` over the sibling checkouts. The
 template engine's `shared:if repo=<name>` blocks already carry per-target
 rows in `dependabot.yml` and `tools.txt`, so a file that is mostly common
 with a per-repository tail is a template, not a per-repository file.
@@ -308,10 +305,10 @@ with a per-repository tail is a template, not a per-repository file.
   every `*.sh` in the tap, which wants `then` and `do` on their own line and
   `case` items indented. Plain shfmt with the shared `.editorconfig` (an
   editor's format-on-save, a format-on-write hook) rewrites both back, so
-  `docs/demo/fixtures.sh` fails `brew style` after any such save. No
+  `docs/tapes/fixtures.sh` fails `brew style` after any such save. No
   EditorConfig key gives Homebrew's `do` placement.
 - **Done:** a `shared:if repo=homebrew-tap` block in `files/.editorconfig`,
-  merged in homebrew-tap, sets `ignore = true` for `[docs/demo/*.sh]`, so
+  merged in homebrew-tap, sets `ignore = true` for `[docs/tapes/*.sh]`, so
   `shfmt -l` over its tree skips `fixtures.sh` and `brew style` alone owns that
   layout.
 - **Left:** shfmt 3.14.1 honors `ignore` only when it walks a directory
@@ -321,7 +318,7 @@ with a per-repository tail is a template, not a per-repository file.
 
 ### 5.3 Jobs that time out without doing the work
 
-- **What:** `scratch/retried_timeouts.py` found 105 jobs since 2026-08-01 that
+- **What:** `scripts/retried_timeouts.py` found 105 jobs since 2026-08-01 that
   hit a time limit and passed within two retries, nearly all from 2026-10-21 on
   `ubuntu-26.04`. Its outcome column shows most never ran to their limit: 58
   ended their `Complete job` step yet stayed open, 40 recorded no finished step.
@@ -330,7 +327,7 @@ with a per-repository tail is a template, not a per-repository file.
   harden-runner engaged, with `github.com` on its allowed list.
 - **Done:** `rerun-timeouts.yml` reruns a run's failed jobs when one hit a time
   limit, at most twice, under `block` since it holds a write token; item 5.1 can
-  fail it, which leaves that run for a rerun by hand. Limits were lowered from `scratch/job_durations.py`'s 20 newest passing
+  fail it, which leaves that run for a rerun by hand. Limits were lowered from `scripts/job_durations.py`'s 20 newest passing
   runs: 5 minutes under a 1-minute longest run, else 1.5 times the longest
   rounded up to 5 with a floor of 10, and 15 to 20 for jobs that compile or build
   an image, whose cold runs the sample may miss. Release and publish jobs and
@@ -358,55 +355,63 @@ marks one that changes what runs.
 - **3. A shared base file list**: done: `repos/_base.toml`, `base = true`,
   `skip`.
 - **4. Repository-wide template values**: done: a target's `[values]`.
-- **5. Check `sync.yml`'s mint steps** (S): each target's mint step and
-  `TOKEN_<NAME>` line are listed by hand; a `check.sh` assertion against the
-  entries' `token_secret` catches a missing one before a run does.
+- **5. Check `sync.yml`'s mint steps**: done: `check.sh`'s `mint`, against the
+  entries' `token_secret`.
 - **6. `REUSE.toml` as an own file**: done. This repository's copy drops the
   code-of-conduct annotation, which `files/REUSE.toml`, read as a nested
   REUSE.toml, already makes for `files/docs/`.
-- **7. Directory symlinks for `setup-tool` and `setup-tools`** (S): per-file
-  symlinks mean a new file in either action needs a link by hand.
+- **7. Directory symlinks for `setup-tool` and `setup-tools`**: done, as `apt` and
+  `upsert-tracking-issue` already were.
 - **8. One runner default in `checks.yml`**: done.
-- **9. Target names in `scratch/near_census.py`**: done: built from the
+- **9. Target names in `scripts/near_census.py`**: done: built from the
   `repos/*.toml` stems, with the short forms in `SPELLINGS`.
 
 ### 6.2 Shared files
 
-- **10. One workflow-command escaper** (M): `check_tool_versions.sh`,
-  `upsert-tracking-issue`, `advisory-note` and `fetch-latest-artifact` each
-  escape `%`, CR, LF and title separators. `lib.sh` is the place: the sparse
-  checkout in image-scan's scan job now lists it, but any other sparse checkout
-  of these actions must too (item 21).
+- **10. One workflow-command escaper**: done: `_ci_esc_data`, `_ci_esc_prop` and
+  `_ci_fenced` in `lib.sh`, which the three actions source through
+  `$GITHUB_ACTION_PATH`, so a sparse checkout of one lists `lib.sh` too (item 21).
+  No target's own sparse job uses one.
 - **11. One set of trivy flags**: done: `_CI_TRIVY_FLAGS` in `lib.sh`, so a
   sparse checkout of `trivy_scan.sh` lists `lib.sh` too. sharerr-rs's own
   `docker.yml` has one, so its edit lands before the sync pull request that
   carries this.
-- **12. Label created only with an issue** (S, behaviour):
-  `upsert-tracking-issue` runs `gh label create --force` on every call.
-  Check first that listing by a missing label returns empty, not an error.
+- **12. Label created only with an issue**: done. Listing by a missing label
+  returns `[]`. A label's color or description changed in a workflow now reaches
+  GitHub only with the next new issue.
 - **13. No skip in `setup-tools/install-missing.sh`**: done; a cache miss
   installs every tool from its pin, as `setup-tool` does.
 - **14. Image references read once**: done: `_ci_refs_pinned` filters the one
   read.
-- **15. Report sections in `upsert-tracking-issue`** (M): `tool-versions.yml`
-  and `link-check.yml` compose the issue body by hand, and tool-versions'
-  plain fence breaks on backticks. `preamble` and `report-file` inputs reuse
-  `advisory-note`'s fence.
-- **16. One search for the latest run holding an artifact** (M):
-  `fetch-latest-artifact` makes up to 20 calls one after another and
-  `find_tree_run.sh` searches another way; one artifacts listing intersected
-  with the run list is two calls.
-- **17. `npm audit` once** (S): `advisories.yml` runs it again only to print a
-  table of the JSON it holds.
+- **15. Report sections in `upsert-tracking-issue`**: done: `preamble` and
+  `report-file` inputs. `link-check.yml` keeps `body-file`, since lychee's report
+  is Markdown; `body-file` alone still works for every other caller.
+- **16. One search for the latest run holding an artifact**: done:
+  `fetch-latest-artifact` lists the artifacts of each name against the run list,
+  one call per name and page past the run list's, where it took up to 21. It picked the
+  same run as the old search over say-hi's, sharerr-rs's and instadroid's
+  `coverage.yml`. An `artifact-name` is now a name or a `{a,b}` list, the forms
+  every caller uses; a wildcard no longer matches. `find_tree_run.sh` keeps its
+  run lookups for the event and conclusion, which an artifact does not carry.
+- **17. `npm audit` once**: done: `advisories.yml` prints its rows from the JSON
+  it holds.
 - **18. `install.sh` branches**: done: one `tar -xf` for the tar kinds (a zip
   still takes `unzip`), and one "no binary" check after the `case`.
-- **19. `_ci_files` in `_ci_extract`** (S, behaviour): `compgen -G` and git
-  pathspecs give roster and image globs different meanings; check each
-  target's roster globs first.
-- **20. `release_notes.sh`'s `section()`** (S): one `awk` in place of a
-  five-process pipeline, which also drops its SIGPIPE caveats.
-- **21. `lint_workflows.sh` reads `source` lines** (M): rule 7 checks a sparse
-  checkout's list for `./` refs only, so a listed script that sources a file
-  left off the list passes every lint and fails when the job runs. Item 11 needed
-  that line added by hand in sharerr-rs's `docker.yml`, whose scan runs only at
-  release.
+- **19. `_ci_files` in `_ci_extract`**: done: an inline pin now reads tracked files
+  alone. Every target's roster row names one literal tracked path, so none
+  changes.
+- **20. `release_notes.sh`'s `section()`**: done: one `awk`, and a here-string in
+  `check`. Old and new agree on `--check` and `--extract` over the template and a
+  dozen crafted bodies.
+- **21. `lint_workflows.sh` reads `source` lines**: done, in rule 7: a listed
+  script's or local action's sources, followed through what those source, must
+  be on the list. An indented `source` in a script is conditional and not judged,
+  since `setup-tool`'s `install.sh` reaches its apt library only for some kinds.
+  Tried on a throwaway tree; `files/` scripts sit outside the coverage gate.
+
+### 6.3 A shared scratch rule
+
+- **22. `scratch/README.md` as a shared file**: done: in `repos/_base.toml`,
+  skipped by homebrew-tap, which has no `scratch/`. python-constricter skips it
+  too, since the sync would overwrite its own README and the per-script list in
+  it; drop that skip to replace them.

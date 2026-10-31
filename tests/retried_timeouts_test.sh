@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scratch/retried_timeouts.py: tells a timeout from another cancel by its
+# scripts/retried_timeouts.py: tells a timeout from another cancel by its
 # annotation, counts retries without copied jobs, appends each new job once,
 # and reads past the runs search limit, a second page and a 5xx.
 # shellcheck disable=SC2329 # t_main calls the test_* functions by name
@@ -64,7 +64,7 @@ EOF
 }
 
 scan() {
-  t_run "$REPO_DIR/scratch/retried_timeouts.py" --log "$T/log/x.jsonl" "$@"
+  t_run "$REPO_DIR/scripts/retried_timeouts.py" --log "$T/log/x.jsonl" "$@"
 }
 
 test_logs_each_timeout_that_passed_within_the_retries() {
