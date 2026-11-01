@@ -11,11 +11,13 @@ _batch_ are shared CI items: they go to every repository as one hand-run batch
 
 Ranked by value for size; the numbers are the items below. S, M and L are sizes.
 
-1. 3.1, read the first weekly run under the App on 2026-11-02 (S).
-2. 3.2's first live run, once the App is on this repository (S).
-3. 3.3 and 3.4, the settings to switch on by hand (S).
-4. The batch when it is started: 1.2 (M, one session per repository).
-5. Section 4's templates (M).
+1. 3.2's first run that finds a bump, the weekly one from 2026-11-02 at 07:53
+   UTC (S).
+2. 3.1, read the first weekly run under the App, 2026-11-02 at 14:41 UTC (S).
+3. 5.3's and 5.4's checks, each on the next run that shows it (S).
+4. 3.4, say-hi's and instadroid's release workflows (M).
+5. The batch when it is started, say-hi first: 1.4 (S), 1.3 (S), 1.2 (M, one
+   session per repository).
 
 Waiting on upstream: 1.1, 3.6, 5.1, 5.2. Not worth doing as things stand: 3.5.
 
@@ -27,9 +29,13 @@ Waiting on upstream: 1.1, 3.6, 5.1, 5.2. Not worth doing as things stand: 3.5.
   reads `uses: $/...` as a local action, so the rewrite of every
   `uses: ./.github/...` to `$/.github/...` and `self-repository` back on in
   `.github/zizmor.yml` could follow. Blocked: actionlint 1.7.12, the newest,
-  rejects `$/` ("ref is missing"), and no actionlint issue or pull request
-  tracks it. Every repository's lint gate runs actionlint. jactionlint
-  accepts it but is not taken for now (3.6).
+  rejects `$/` ("ref is missing"). Every repository's lint gate runs actionlint.
+  [rhysd/actionlint#711](https://github.com/rhysd/actionlint/issues/711) and pull
+  request 732 are open, but its last release is 2026-03-30 and its last commit
+  2026-04-19, so a fix may not come. jactionlint accepts it but is not taken for
+  now (3.6). Not evaluated: the fork `kjanat/actionlint`, which says it is a
+  drop-in CLI with `$/` and `ubuntu-26.04`, and a `paths` ignore in
+  `.github/actionlint.yaml` for the two `$/` messages, as #711 suggests.
 - **How, once actionlint accepts it:** rewrite the shared workflows and each
   target's own, extend `lint_workflows.sh` rule 7 to `$/` (it checks the
   sparse-checkout list for `./` refs only), re-enable the rule, and update
@@ -47,13 +53,8 @@ Waiting on upstream: 1.1, 3.6, 5.1, 5.2. Not worth doing as things stand: 3.5.
   session per repository; update each disabled-rules row that says only audit
   is supported.
 
-### 1.3 The bumps the `tool-versions` issue lists (_batch_)
+### 1.3 The targets' own action SHAs (_batch_)
 
-- **Done in the tree:** the ten rows of issue #3's 2026-10-30 run: trivy 0.76.1,
-  terraform 1.17.0, `actions/setup-python` 7.1.0, `docker/login-action` 4.7.0,
-  `github/codeql-action` 4.39.1, `step-security/harden-runner` 2.22.2,
-  markdownlint-cli2 0.24.0, katex 0.19.1, python-constricter 0.4.2 and coverage
-  7.17.0. actionlint 1.7.12 is still the newest, which keeps 1.1 blocked.
 - **Override:** markdownlint 0.42.0, which markdownlint-cli2 0.24.0 pulls in, pins
   `re2js` 2.8.6 under GHSA-gg6h-894w-4m9c, fixed in 2.8.7. `overrides` holds
   `re2js` at 2.9.0, the newest past the cooldown; drop it once markdownlint's
@@ -61,6 +62,14 @@ Waiting on upstream: 1.1, 3.6, 5.1, 5.2. Not worth doing as things stand: 3.5.
 - **Left:** the targets' own workflows keep the old action SHAs until each moves
   them, as its own `tool-versions` issue will say. In the batch, say-hi goes
   first.
+
+### 1.4 Drop `setup-tool`'s `version` and `sha256` inputs (_batch_)
+
+No target's workflow passes them, and the drift check reads `tools.txt` directly,
+so the inputs, their refusal logic in `install.sh` and the cases pinning them go
+together; `setup-tool` then reads the row's pin and sha256 alone. About 20 lines,
+and say-hi's `tests/packaging/packaging_ci_workflows_test.sh` loses its override
+cases in the same pass.
 
 ## 2. Platform changes with a date
 
@@ -95,20 +104,14 @@ knows 26.04. What changed under them, from GitHub's image comparison
 - **Since:** this repository's `CI`, `CodeQL`, `Link check`, `Scorecard` and
   `Sync` pass on `ubuntu-26.04` (2026-10-24), and `tool-versions.yml` does too
   (run 40754857850, 2026-10-28). say-hi's renamed suite jobs are on its `main`,
-  and its live `main` ruleset requires them.
-- **instadroid:** its own 21 `ubuntu-latest` jobs now name `ubuntu-26.04`; its
-  next CI run on them is the check.
-- **Not the image's:** the 2026-10-24 sync pull requests' CI failures were a
-  new RustSec advisory in sharerr-rs's `cargo-deny`, `filelock` and `setuptools`
-  advisories in instadroid's `pip-audit`, and in say-hi a `test_runner_ci`
-  cost-table test and a harden-runner agent that exited when `cdn.dl.k8s.io` did
-  not resolve. Those pull requests are closed; later syncs replaced them.
+  and its live `main` ruleset requires them. instadroid's own jobs name
+  `ubuntu-26.04`, and its `main` CI passes on them (run 41258224153, 2026-10-31).
 - **kcov:** 26.04 packages kcov `43+dfsg-2`, which records no hit on a
   multi-line array assignment; this repository's coverage job and say-hi's
   build upstream kcov 43 from `tools.txt`'s `cmake` row instead.
 - **Still exposed:** `checks.yml` and `coverage` build their venv on the
   system python3 (3.14: fine for constricter's `min-python = "3.11"` and
-  coverage 7.16); `image-scan.yml` meets docker 29.
+  coverage 7.17); `image-scan.yml` meets docker 29.
 
 ### 2.2 Dependabot's default cooldown
 
@@ -162,8 +165,10 @@ knows 26.04. What changed under them, from GitHub's image comparison
   `step-security/harden-runner`, python-constricter and reuse and recompiled the
   dev lock. Not run on GitHub: nothing here has minted the token or written a
   commit.
-- **Left:** install the sync App on this repository, then dispatch the workflow.
-  Check on that run that the commit shows as verified, and that block lets the
+- **Left:** the App is on this repository. The first dispatch (run 41261382260,
+  2026-10-31) passed with nothing to bump, so its pull request job was skipped and
+  neither point below has been tested. On the first run that finds a bump, check
+  that the commit shows as verified, and that block lets the
   artifact upload through with `results-receiver` alone allowed, as the targets'
   jobs do.
 - **Not taken:** pinact (v5.0.0), whose `pinact run --check` would add that each
@@ -171,25 +176,17 @@ knows 26.04. What changed under them, from GitHub's image comparison
   self-hosted Renovate (44.3.1 or later for CVE-2026-88884), a second bot and a
   config dialect for a roster the check already parses.
 
-### 3.3 "Require actions to be pinned to a full-length commit SHA" (by hand)
-
-- **Left:** switch it on in every repository, this one included, with the
-  README's `gh api -X PUT .../actions/permissions` (The rulesets). The field
-  is `sha_pinning_required`; `scripts/rulesets.sh diff` compares it when its
-  token has Administration read, which the sync App lacks (granting it also
-  needs `permission-administration: read` on `sync.yml`'s mint steps), so the weekly run
-  names it as hidden.
-
-### 3.4 Immutable releases on the releasing targets (by hand)
+### 3.4 Immutable releases on the other releasing targets
 
 - **What:** once on, a published release's tag and assets are locked and the
   release carries a Sigstore attestation, beside `protect-stable` and
-  `.github/allowed_signers`. sharerr-rs and python-constricter set
-  `immutable_releases = true`: sharerr-rs's release has no assets, and
-  python-constricter's `gh release create TAG assets/*` keeps the release a
-  draft until its uploads finish.
-- **Left:** `gh api -X PUT repos/OWNER/REPO/immutable-releases` on those two
-  by hand. say-hi and instadroid cannot take it yet: each publishes its
+  `.github/allowed_signers`. On in sharerr-rs and python-constricter since
+  2026-10-31, as is the SHA-pinning requirement in every repository, both set by
+  hand with the README's `gh api` calls. `scripts/rulesets.sh diff` compares them
+  when its token has Administration read, which the sync App lacks (granting it
+  also needs `permission-administration: read` on `sync.yml`'s mint steps), so the
+  weekly run names them as hidden.
+- **Left:** say-hi and instadroid cannot take it yet: each publishes its
   release before attaching assets (say-hi's `_ci_upload_assets` and package
   repository after `gh release create`; instadroid's
   `gh release upload --clobber`), which a locked release refuses. Each needs
@@ -250,14 +247,16 @@ with a per-repository tail is a template, not a per-repository file.
 
 | Path                    | Held by                     | Alike                         | Call                                   |
 | ----------------------- | --------------------------- | ----------------------------- | -------------------------------------- |
-| `.prettierignore`       | 4 repos, 6 to 8 lines       | differ by build dirs          | template with repo blocks              |
-| `.typos.toml`           | 4 repos, 14 to 50 lines     | a common head, per-repo words | template with repo blocks              |
-| `.hadolint.yaml`        | say-hi, sharerr-rs (34, 29) | instadroid's is 3 lines       | template for the two                   |
+| `.prettierignore`       | 4 repos, 6 to 8 lines       | differ by build dirs          | leave                                  |
+| `.typos.toml`           | 4 repos, 14 to 50 lines     | a common head, per-repo words | leave                                  |
+| `.hadolint.yaml`        | say-hi, sharerr-rs (34, 29) | instadroid's is 3 lines       | leave                                  |
 | `.tool-versions`        | 3 repos, 2 to 4 lines       | different tools               | leave                                  |
 | `docs/GOVERNANCE.md`    | 3 repos, 51 to 82 lines     | ratio 0.24 to 0.27            | leave, or template its policy sections |
 | `.claude/settings.json` | 3 repos                     | differ                        | leave: project settings                |
 
-`bug_report.yml` and `feature_request.yml` stay per-repository by decision.
+`bug_report.yml` and `feature_request.yml` stay per-repository by decision. So do
+`.prettierignore`, `.typos.toml` and `.hadolint.yaml`: they share a line or two,
+and a template would be mostly per-repository blocks.
 
 ## 5. Known issues
 
@@ -292,7 +291,8 @@ with a per-repository tail is a template, not a per-repository file.
   its last step.
 - **Upstream:**
   [actions/runner-images#14925](https://github.com/actions/runner-images/issues/14925)
-  is open, with no answer from GitHub on the DNS-observation part.
+  is open, last updated 2026-10-19, with no answer from GitHub on the
+  DNS-observation part.
   [step-security/harden-runner#705](https://github.com/step-security/harden-runner/issues/705)
   covers the earlier port conflict on `127.0.0.1:53`, fixed. harden-runner
   v2.22.2 changes DNS tracing for the Enterprise tier only.
@@ -338,14 +338,14 @@ with a per-repository tail is a template, not a per-repository file.
   measurement above.
 - **Done:** `rerun-timeouts.yml` reruns a run's failed jobs when one hit a time
   limit, at most twice, under `block` since it holds a write token; item 5.1 can
-  fail it, which leaves that run for a rerun by hand. Limits were lowered from `scripts/job_durations.py`'s 20 newest passing
-  runs: 5 minutes under a 1-minute longest run, else 1.5 times the longest
-  rounded up to 5 with a floor of 10, and 15 to 20 for jobs that compile or build
-  an image, whose cold runs the sample may miss. Release and publish jobs and
-  jobs seen under 5 times keep theirs.
+  fail it, which leaves that run for a rerun by hand. Limits were lowered from
+  `scripts/job_durations.py`'s 20 newest passing runs: 5 minutes under a 1-minute
+  longest run, else 1.5 times the longest rounded up to 5 with a floor of 10, and
+  15 to 20 for jobs that compile or build an image, whose cold runs the sample may
+  miss. Release and publish jobs and jobs seen under 5 times keep theirs.
 - **Not done:** reporting the jobs that finished yet stayed open to GitHub. A move
-  back to `ubuntu-24.04` no longer tests anything: 5.1's table separates `block`
-  from `audit` on the one image.
+  back to `ubuntu-24.04` no longer tests anything: 5.1's measurement separates
+  `block` from `audit` on the one image.
 - **Verify:** after the first automatic rerun of a `CI` run on `main`, that the
   workflows chained off `CI` fired from attempt 2, since a rerun started by
   `GITHUB_TOKEN` may not emit `workflow_run`. A week after the sync merges, rerun
@@ -365,78 +365,22 @@ with a per-repository tail is a template, not a per-repository file.
 
 ## 6. Simplifications
 
-From a review of the whole tree for reuse, simplification, efficiency and
-fixes at the right depth. Each item is S, M or L in size; **(behaviour)**
-marks one that changes what runs.
+The review's 22 items are done. What they left in force:
 
-### 6.1 This repository's own CI and configuration
-
-- **1. A coverage-only lock**: done: `requirements-coverage.in`, pulled into
-  `requirements-dev.in` with `-r`, and installed alone by the coverage job.
-- **2. kcov from `setup-tools`**: done; the one-line array rule is gone.
-- **3. A shared base file list**: done: `repos/_base.toml`, `base = true`,
-  `skip`.
-- **4. Repository-wide template values**: done: a target's `[values]`.
-- **5. Check `sync.yml`'s mint steps**: done: `check.sh`'s `mint`, against the
-  entries' `token_secret`.
-- **6. `REUSE.toml` as an own file**: done. This repository's copy drops the
-  code-of-conduct annotation, which `files/REUSE.toml`, read as a nested
-  REUSE.toml, already makes for `files/docs/`.
-- **7. Directory symlinks for `setup-tool` and `setup-tools`**: done, as `apt` and
-  `upsert-tracking-issue` already were.
-- **8. One runner default in `checks.yml`**: done.
-- **9. Target names in `scripts/near_census.py`**: done: built from the
-  `repos/*.toml` stems, with the short forms in `SPELLINGS`.
-
-### 6.2 Shared files
-
-- **10. One workflow-command escaper**: done: `_ci_esc_data`, `_ci_esc_prop` and
-  `_ci_fenced` in `lib.sh`, which the three actions source through
-  `$GITHUB_ACTION_PATH`, so a sparse checkout of one lists `lib.sh` too (item 21).
-  No target's own sparse job uses one.
-- **11. One set of trivy flags**: done: `_CI_TRIVY_FLAGS` in `lib.sh`, so a
-  sparse checkout of `trivy_scan.sh` lists `lib.sh` too. sharerr-rs's own
-  `docker.yml` has one, so its edit lands before the sync pull request that
-  carries this.
-- **12. Label created only with an issue**: done. Listing by a missing label
-  returns `[]`. A label's color or description changed in a workflow now reaches
-  GitHub only with the next new issue.
-- **13. No skip in `setup-tools/install-missing.sh`**: done; a cache miss
-  installs every tool from its pin, as `setup-tool` does.
-- **14. Image references read once**: done: `_ci_refs_pinned` filters the one
-  read.
-- **15. Report sections in `upsert-tracking-issue`**: done: `preamble` and
-  `report-file` inputs. `link-check.yml` keeps `body-file`, since lychee's report
-  is Markdown; `body-file` alone still works for every other caller.
-- **16. One search for the latest run holding an artifact**: done:
-  `fetch-latest-artifact` lists the artifacts of each name against the run list,
-  one call per name and page past the run list's, where it took up to 21. It picked the
-  same run as the old search over say-hi's, sharerr-rs's and instadroid's
-  `coverage.yml`. An `artifact-name` is now a name or a `{a,b}` list, the forms
-  every caller uses; a wildcard no longer matches. `find_tree_run.sh` keeps its
-  run lookups for the event and conclusion, which an artifact does not carry.
-- **17. `npm audit` once**: done: `advisories.yml` prints its rows from the JSON
-  it holds.
-- **18. `install.sh` branches**: done: one `tar -xf` for the tar kinds (a zip
-  still takes `unzip`), and one "no binary" check after the `case`.
-- **19. `_ci_files` in `_ci_extract`**: done: an inline pin now reads tracked files
-  alone. Every target's roster row names one literal tracked path, so none
-  changes.
-- **20. `release_notes.sh`'s `section()`**: done: one `awk`, and a here-string in
-  `check`. Old and new agree on `--check` and `--extract` over the template and a
-  dozen crafted bodies.
-- **21. `lint_workflows.sh` reads `source` lines**: done, in rule 7: a listed
-  script's or local action's sources, followed through what those source, must
-  be on the list. An indented `source` in a script is conditional and not judged,
-  since `setup-tool`'s `install.sh` reaches its apt library only for some kinds.
-  Tried on a throwaway tree; `files/` scripts sit outside the coverage gate.
-
-### 6.3 A shared scratch rule
-
-- **22. `scratch/README.md` as a shared file**: done: in `repos/_base.toml`,
-  skipped by homebrew-tap, which has no `scratch/`. python-constricter skips it
-  too, since the sync would overwrite its own README and the per-script list in
-  it; drop that skip to replace them.
+- A label is created only with an issue, so a color or description changed in a
+  workflow reaches GitHub only with the next new issue.
+- `fetch-latest-artifact`'s `artifact-name` is a name or a `{a,b}` list, the forms
+  every caller uses; a wildcard no longer matches. `find_tree_run.sh` keeps its run
+  lookups for the event and conclusion, which an artifact does not carry.
+- `link-check.yml` keeps `upsert-tracking-issue`'s `body-file`, since lychee's
+  report is Markdown.
+- `lint_workflows.sh` rule 7 does not judge an indented `source` in a script: it is
+  conditional, and `setup-tool`'s `install.sh` reaches its apt library only for
+  some kinds. A sparse checkout of an action or of `trivy_scan.sh` lists `lib.sh`
+  too.
+- `scratch/README.md` is shared and skipped by homebrew-tap, which has no
+  `scratch/`, and by python-constricter, since the sync would overwrite its own
+  README and the per-script list in it; drop that skip to replace them.
 
 ## 7. To consider
 
@@ -465,6 +409,6 @@ Evaluated, not decided: nothing here is on the order of work until it is taken u
   `check_tool_versions.sh`, `scripts/apply_bumps.sh` and say-hi's `tools_test.sh`
   and `drift_test.sh` are rewritten. Every target using `setup-tool` needs a
   `mise.toml`.
-- **How, if taken up:** after the open sync pull requests land, try say-hi's
+- **How, if taken up:** try say-hi's
   `quick lint` job first, the cheapest way to measure what mise adds to a job's
   time and find the hosts it needs, then move every target as one batch.
