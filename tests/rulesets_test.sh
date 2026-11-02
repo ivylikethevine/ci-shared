@@ -19,7 +19,6 @@ EOF
 }
 
 test_render_main_adds_each_target_value() {
-  fixture
   t_run "$SCRIPTS/rulesets.sh" render a main
   t_rc 0
   t_eq "$(jq -c '[.rules[].type]' "$T/out")" \
@@ -36,7 +35,6 @@ test_render_main_adds_each_target_value() {
 
 test_render_dev_and_stable_are_the_shared_files() {
   local kind
-  fixture
   for kind in dev stable; do
     t_run "$SCRIPTS/rulesets.sh" render a "$kind"
     t_rc 0
@@ -45,7 +43,6 @@ test_render_dev_and_stable_are_the_shared_files() {
 }
 
 test_render_refuses_bad_arguments() {
-  fixture
   t_run "$SCRIPTS/rulesets.sh" render a release
   t_rc 2
   t_out "unknown ruleset release: main, dev or stable"
@@ -65,7 +62,8 @@ test_render_refuses_bad_arguments() {
 # failing stable's read. Actions require SHA pins and releases are not
 # immutable, unless UNPINNED or IMMUTABLE says otherwise; SETTINGS is `hidden`
 # (403) or `error` (500) for both.
-fake_github() {
+t_once() {
+  fixture
   local kind id=0
   for kind in main dev stable; do
     id=$((id + 1))
@@ -115,8 +113,6 @@ EOF
 }
 
 test_diff_matches_rulesets_as_github_returns_them() {
-  fixture
-  fake_github
   t_run env GH_TOKEN=t "$SCRIPTS/rulesets.sh" diff a
   t_rc 0
   t_not_logged owner/b
@@ -126,16 +122,12 @@ test_diff_matches_rulesets_as_github_returns_them() {
 }
 
 test_diff_shows_drift_and_missing_rulesets() {
-  fixture
-  fake_github
   t_run env GH_TOKEN=t DRIFT=1 MISSING=1 "$SCRIPTS/rulesets.sh" diff a
   t_rc 2
   t_out "--- a main (live)" "+++ a main (shared)" '"type": "code_quality"' "a: no protect-dev ruleset"
 }
 
 test_diff_compares_hidden_bypass_actors_without_them() {
-  fixture
-  fake_github
   t_run env GH_TOKEN=t HIDDEN=1 "$SCRIPTS/rulesets.sh" diff a
   t_rc 0
   t_out "a main: bypass_actors hidden from this token; compared without them"
@@ -146,16 +138,12 @@ test_diff_compares_hidden_bypass_actors_without_them() {
 }
 
 test_diff_counts_a_ruleset_it_cannot_read() {
-  fixture
-  fake_github
   t_run env GH_TOKEN=t READ_ERROR=1 "$SCRIPTS/rulesets.sh" diff a
   t_rc 1
   t_out "a: cannot read its protect-stable ruleset"
 }
 
 test_diff_reads_each_target_with_its_own_token() {
-  fixture
-  fake_github
   t_run env GH_TOKEN=shared SYNC_TOKEN_A=own "$SCRIPTS/rulesets.sh" diff
   t_in "$T/tokens.log" "own repos/owner/a/rulesets?includes_parents=false" "shared repos/owner/b/rulesets?includes_parents=false"
   t_not_in "$T/tokens.log" "shared repos/owner/a/" "own repos/owner/b/"
@@ -165,8 +153,6 @@ test_diff_reads_each_target_with_its_own_token() {
 }
 
 test_diff_checks_sha_pinning_and_immutable_releases() {
-  fixture
-  fake_github
   t_run env GH_TOKEN=t UNPINNED=1 IMMUTABLE=1 "$SCRIPTS/rulesets.sh" diff a
   t_rc 2
   t_out "a: actions are not required to be pinned to a full-length commit SHA" \
@@ -179,8 +165,6 @@ test_diff_checks_sha_pinning_and_immutable_releases() {
 }
 
 test_diff_names_settings_hidden_from_the_token() {
-  fixture
-  fake_github
   t_run env GH_TOKEN=t SETTINGS=hidden "$SCRIPTS/rulesets.sh" diff a
   t_rc 0
   t_out "a: Actions settings hidden from this token; SHA pinning not compared" \
@@ -192,7 +176,6 @@ test_diff_names_settings_hidden_from_the_token() {
 
 # rulesets/self.toml: this repository's main alone, with its own token
 test_diff_covers_its_own_main_alone() {
-  fixture
   t_self own <<'EOF'
 [rulesets.main]
 required_status_checks = [{ context = "tests", integration_id = 1 }]
@@ -200,7 +183,6 @@ code_scanning_tools = ["CodeQL"]
 code_quality = true
 code_coverage = { minimum_coverage = 80, max_coverage_drop = 2 }
 EOF
-  fake_github
   t_run "$SCRIPTS/rulesets.sh" render own main
   t_rc 0
   t_eq "$(jq -c '.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks' "$T/out")" \
@@ -226,8 +208,6 @@ EOF
 }
 
 test_diff_counts_each_target_it_cannot_read() {
-  fixture
-  fake_github
   t_run env GH_TOKEN=t LIST_ERROR=1 "$SCRIPTS/rulesets.sh" diff
   t_rc 2
   t_out "a: cannot list its rulesets" "b: cannot list its rulesets"

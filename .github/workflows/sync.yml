@@ -97,11 +97,14 @@ jobs:
       # scoped to its target alone and to the README's permissions, which the
       # App must hold (zizmor: github-app). A target the App cannot reach (not
       # installed there) gets none: the tokens step fails and the scripts
-      # skip that target, while the others still sync.
+      # skip that target, while the others still sync. Each step differs by
+      # its id and TARGET alone.
       - id: app-homebrew-tap
         continue-on-error: true
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
+        env:
+          TARGET: homebrew-tap
+        with: &mint
           client-id: ${{ vars.SYNC_APP_CLIENT_ID }}
           private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
           permission-contents: write
@@ -109,77 +112,50 @@ jobs:
           permission-workflows: write
           permission-checks: read
           permission-statuses: read
-          repositories: homebrew-tap
+          repositories: ${{ env.TARGET }}
       - id: app-instadroid
         continue-on-error: true
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          client-id: ${{ vars.SYNC_APP_CLIENT_ID }}
-          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
-          permission-contents: write
-          permission-pull-requests: write
-          permission-workflows: write
-          permission-checks: read
-          permission-statuses: read
-          repositories: instadroid
+        env:
+          TARGET: instadroid
+        with: *mint
       - id: app-python-constricter
         continue-on-error: true
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          client-id: ${{ vars.SYNC_APP_CLIENT_ID }}
-          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
-          permission-contents: write
-          permission-pull-requests: write
-          permission-workflows: write
-          permission-checks: read
-          permission-statuses: read
-          repositories: python-constricter
+        env:
+          TARGET: python-constricter
+        with: *mint
       - id: app-say-hi
         continue-on-error: true
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          client-id: ${{ vars.SYNC_APP_CLIENT_ID }}
-          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
-          permission-contents: write
-          permission-pull-requests: write
-          permission-workflows: write
-          permission-checks: read
-          permission-statuses: read
-          repositories: say-hi
+        env:
+          TARGET: say-hi
+        with: *mint
       - id: app-sharerr-rs
         continue-on-error: true
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          client-id: ${{ vars.SYNC_APP_CLIENT_ID }}
-          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
-          permission-contents: write
-          permission-pull-requests: write
-          permission-workflows: write
-          permission-checks: read
-          permission-statuses: read
-          repositories: sharerr-rs
+        env:
+          TARGET: sharerr-rs
+        with: *mint
 
       # the scripts read target <name>'s token as SYNC_TOKEN_<NAME>, its name
-      # in capitals with `-` as `_`; each TOKEN_<NAME> below becomes one. The
-      # steps after run whatever this one finds.
+      # in capitals with `-` as `_`; each app-<name> step above becomes one.
+      # The steps after run whatever this one finds.
       - id: tokens
         name: Pass the targets' tokens to the steps below
         env:
-          TOKEN_HOMEBREW_TAP: ${{ steps.app-homebrew-tap.outputs.token }}
-          TOKEN_INSTADROID: ${{ steps.app-instadroid.outputs.token }}
-          TOKEN_PYTHON_CONSTRICTER: ${{ steps.app-python-constricter.outputs.token }}
-          TOKEN_SAY_HI: ${{ steps.app-say-hi.outputs.token }}
-          TOKEN_SHARERR_RS: ${{ steps.app-sharerr-rs.outputs.token }}
+          STEPS: ${{ toJSON(steps) }}
         run: |
           set -euo pipefail
           missing=()
-          for var in $(compgen -v TOKEN_); do
-            if [ -n "${!var}" ]; then
-              echo "SYNC_$var=${!var}" >>"$GITHUB_ENV"
+          while read -r name token; do
+            if [ -n "$token" ]; then
+              echo "SYNC_TOKEN_$name=$token" >>"$GITHUB_ENV"
             else
-              missing+=("${var#TOKEN_}")
+              missing+=("$name")
             fi
-          done
+          done < <(jq -r 'to_entries[] | select(.key | startswith("app-"))
+            | "\(.key | ltrimstr("app-") | ascii_upcase | gsub("[^A-Z0-9]"; "_")) \(.value.outputs.token // "")"' <<<"$STEPS")
           if [ ${#missing[@]} -gt 0 ]; then
             echo "::error title=tokens::the sync App minted no token for ${missing[*]}"
             exit 1
@@ -198,8 +174,6 @@ jobs:
       - id: drift
         name: Check the targets for drift
         if: ${{ !cancelled() && github.event_name == 'schedule' }}
-        env:
-          SOURCE_SHA: ${{ github.sha }}
         run: scripts/sync_remote.sh --drift
 
       # the weekly run: a ruleset edited by hand on a target. A push that
@@ -229,7 +203,6 @@ jobs:
         # via env, never inline ${{ }} in the run block (zizmor:
         # template-injection)
         env:
-          SOURCE_SHA: ${{ github.sha }}
           # the targets require signed commits; the key's public half is a
           # signing key of the account that owns this email
           SYNC_SIGNING_KEY: ${{ secrets.SYNC_SIGNING_KEY }}
@@ -300,19 +273,16 @@ jobs:
             *) echo "- \`$2\`: did not run (${1:-no outcome})" ;;
             esac
           }
-          {
-            echo "The weekly sync checks did not pass; the run's log has the details."
-            echo
+          lines="$(
             line "$TOKENS" create-github-app-token "the sync App minted no token for a target: not installed there, lacking a permission the mint step requests, or SYNC_APP_CLIENT_ID or SYNC_APP_PRIVATE_KEY is unset"
             line "$PROTECTION" scripts/check_protection.sh "a target's main or dev is not protected from its token"
             line "$DRIFT" "scripts/sync_remote.sh --drift" "a target differs from files/ with no sync pull request open, or could not be read"
             line "$RULESETS" "scripts/rulesets.sh diff" "a target's rulesets differ from rulesets/, or could not be read"
             line "$PRS" scripts/sync_prs.sh "a sync pull request has a failed check, no checks or has been open over two weeks, or could not be read"
-          } >"$RUNNER_TEMP/issue.md"
-          ok=true
-          for outcome in "$TOKENS" "$PROTECTION" "$DRIFT" "$RULESETS" "$PRS"; do
-            [ "$outcome" = success ] || [ "$outcome" = off ] || ok=false
-          done
+          )"
+          printf "The weekly sync checks did not pass; the run's log has the details.\n\n%s\n" "$lines" >"$RUNNER_TEMP/issue.md"
+          ok=false
+          [ -n "$lines" ] || ok=true
           echo "resolved=$ok" >>"$GITHUB_OUTPUT"
 
       - uses: ./.github/actions/upsert-tracking-issue

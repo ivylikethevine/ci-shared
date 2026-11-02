@@ -25,10 +25,8 @@ import subprocess
 import sys
 from collections.abc import Iterator
 from io import BufferedReader
-from typing import TypeAlias
+from typing import NamedTuple
 
-# one checkout's copy of a path: its short blob and its bytes
-Copy: TypeAlias = tuple[str, bytes]
 MATURITY: list[str] = ["say-hi", "sharerr-rs", "instadroid", "python-constricter", "homebrew-tap"]
 HERE: str = os.environ.get("CI_SHARED_DIR") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # short forms a target's own name does not cover
@@ -59,14 +57,16 @@ def tracked(repo: str) -> list[str]:
     return [p for p in out.splitlines() if os.path.isfile(os.path.join(repo, p))]
 
 
-def blob(path: str) -> tuple[str, bytes]:
-    fh: BufferedReader
-    with open(path, "rb") as fh:
-        data: bytes = fh.read()
-    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()[:7], data
+class Options(NamedTuple):
+    minimum: int
+    show_all: bool
+    # the names --normalize folds, or None without it
+    pattern: re.Pattern[str] | None
+    root: str
+    names: list[str]
 
 
-def main(argv: list[str]) -> None:
+def parse(argv: list[str]) -> Options:
     minimum: int
     show_all: bool
     normalize: bool
@@ -85,63 +85,83 @@ def main(argv: list[str]) -> None:
             args.append(a)
     root: str = args[0] if args and os.path.isdir(args[0]) else os.path.dirname(HERE)
     names: list[str] = args[1:] if args and os.path.isdir(args[0]) else args
-    if not names:
-        names = targets()
-    pattern: re.Pattern[str] = name_pattern()
-    names = [n for n in names if os.path.isdir(os.path.join(root, n, ".git"))]
-    rank: dict[str, int] = {n: i for i, n in enumerate(MATURITY)}
-    names.sort(key=lambda n: rank.get(n, len(rank)))
+    return Options(minimum, show_all, name_pattern() if normalize else None, root, names or targets())
 
-    copies: dict[str, dict[str, Copy]] = {}  # path -> {repo: (blob, bytes)}
+
+def read_copy(path: str, pattern: re.Pattern[str] | None) -> tuple[str, bytes]:
+    """A copy's short blob and its bytes, folded by the pattern when there is one."""
+    fh: BufferedReader
+    with open(path, "rb") as fh:
+        data: bytes = fh.read()
+    if pattern is None:
+        return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()[:7], data
+    try:
+        data = pattern.sub("__name__", data.decode()).encode()
+    except UnicodeDecodeError:
+        pass
+    return hashlib.sha1(data).hexdigest()[:7], data
+
+
+def collect(options: Options, names: list[str]) -> dict[str, dict[str, str]]:
+    """Each tracked path's {repository: short blob}, so no copy stays in memory."""
+    copies: dict[str, dict[str, str]] = {}
     n: str
     p: str
-    b: str
-    data: bytes
     for n in names:
-        for p in tracked(os.path.join(root, n)):
-            b, data = blob(os.path.join(root, n, p))
-            if normalize:
-                try:
-                    data = pattern.sub("__name__", data.decode()).encode()
-                except UnicodeDecodeError:
-                    pass
-                b = hashlib.sha1(data).hexdigest()[:7]
-            copies.setdefault(p, {})[n] = (b, data)
+        for p in tracked(os.path.join(options.root, n)):
+            copies.setdefault(p, {})[n] = read_copy(os.path.join(options.root, n, p), options.pattern)[0]
+    return copies
 
+
+def difference(ref: bytes, other: bytes) -> str:
+    """How a copy differs from the reference, for its line of the report."""
+    a: str
+    c: str
+    try:
+        a, c = ref.decode(), other.decode()
+    except UnicodeDecodeError:
+        return "binary"
+    al: list[str]
+    cl: list[str]
+    al, cl = a.splitlines(), c.splitlines()
+    sm: difflib.SequenceMatcher[str] = difflib.SequenceMatcher(None, al, cl, autojunk=False)
+    changed: int = sum(max(i2 - i1, j2 - j1) for op, i1, i2, j1, j2 in sm.get_opcodes() if op != "equal")
+    return f"{changed} lines differ of {len(cl)}, ratio {sm.ratio():.2f}"
+
+
+def report_path(options: Options, p: str, held: dict[str, str], rank: dict[str, int]) -> None:
+    groups: dict[str, list[str]] = {}
+    n: str
+    b: str
+    for n, b in held.items():
+        groups.setdefault(b, []).append(n)
+    shared: bool = os.path.isfile(os.path.join(HERE, "files", p))
+    if len(groups) == 1 and shared and not options.show_all:
+        return
+    ref_blob: str = max(groups, key=lambda b: (len(groups[b]), -rank.get(groups[b][0], 99)))
+
+    def copy_of(repo: str) -> bytes:
+        return read_copy(os.path.join(options.root, repo, p), options.pattern)[1]
+
+    ref: bytes = copy_of(groups[ref_blob][0])
+    tag: str = " (files/)" if shared else ""
+    print(f"{p}{tag}")
+    rs: list[str]
+    for b, rs in sorted(groups.items(), key=lambda kv: (kv[0] != ref_blob, kv[1])):
+        note: str = f"reference, {len(ref.splitlines())} lines" if b == ref_blob else difference(ref, copy_of(rs[0]))
+        print(f"  {b}  {' '.join(rs)}  [{note}]")
+
+
+def main(argv: list[str]) -> None:
+    options: Options = parse(argv)
+    names: list[str] = [n for n in options.names if os.path.isdir(os.path.join(options.root, n, ".git"))]
+    rank: dict[str, int] = {n: i for i, n in enumerate(MATURITY)}
+    names.sort(key=lambda n: rank.get(n, len(rank)))
+    copies: dict[str, dict[str, str]] = collect(options, names)
+    p: str
     for p in sorted(copies):
-        held: dict[str, Copy] = copies[p]
-        if len(held) < minimum:
-            continue
-        groups: dict[str, list[str]] = {}
-        for n, (b, _) in held.items():
-            groups.setdefault(b, []).append(n)
-        shared: bool = os.path.isfile(os.path.join(HERE, "files", p))
-        if len(groups) == 1 and shared and not show_all:
-            continue
-        ref_blob: str = max(groups, key=lambda b: (len(groups[b]), -rank.get(groups[b][0], 99)))
-        ref: bytes = held[groups[ref_blob][0]][1]
-        tag: str = " (files/)" if shared else ""
-        print(f"{p}{tag}")
-        rs: list[str]
-        for b, rs in sorted(groups.items(), key=lambda kv: (kv[0] != ref_blob, kv[1])):
-            if b == ref_blob:
-                print(f"  {b}  {' '.join(rs)}  [reference, {len(ref.splitlines())} lines]")
-                continue
-            other: bytes = held[rs[0]][1]
-            c: str
-            try:
-                a, c = ref.decode(), other.decode()
-            except UnicodeDecodeError:
-                print(f"  {b}  {' '.join(rs)}  [binary]")
-                continue
-            al: list[str]
-            cl: list[str]
-            al, cl = a.splitlines(), c.splitlines()
-            sm: difflib.SequenceMatcher[str] = difflib.SequenceMatcher(None, al, cl, autojunk=False)
-            changed: int = sum(
-                max(i2 - i1, j2 - j1) for op, i1, i2, j1, j2 in sm.get_opcodes() if op != "equal"
-            )
-            print(f"  {b}  {' '.join(rs)}  [{changed} lines differ of {len(cl)}, ratio {sm.ratio():.2f}]")
+        if len(copies[p]) >= options.minimum:
+            report_path(options, p, copies[p], rank)
 
 
 if __name__ == "__main__":

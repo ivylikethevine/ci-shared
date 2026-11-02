@@ -37,5 +37,3 @@ stray_files = "true"
 required_status_checks = [
   { context = "tests" },
 ]
-code_scanning_tools = []
-code_quality = false

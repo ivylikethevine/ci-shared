@@ -25,7 +25,6 @@ workflows = "CI, Security, CodeQL, Scorecard, Release note, Link check, Tool ver
 
 # this repository's values in rulesets/main.json
 [rulesets.main]
-required_status_checks = []
 code_scanning_tools = ["CodeQL"]
 code_quality = true
 code_coverage = { minimum_coverage = 100, max_coverage_drop = 0 }

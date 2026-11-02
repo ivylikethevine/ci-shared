@@ -81,6 +81,7 @@ if [ "$mode" = gaps ]; then
   exit
 fi
 
+declare -A rendered=()
 while read -r slug _; do
   name="${slug#*/}"
   [ -d "$root/$name/.git" ] || continue
@@ -98,8 +99,11 @@ done < <(ci_repos) |
     here=""
     if [ -f "$CI_SHARED_DIR/files/$path" ]; then
       vars="${values["$repo $path"]:-}"
+      # each rendering hashed once, since a plain path renders alike for every target
+      key="$path $vars"
       # shellcheck disable=SC2086 # $vars is key=value words, split on purpose
-      if [ "$(ci_render "$path" $vars | git hash-object --stdin | cut -c1-7)" = "$blob" ]; then
+      [ -n "${rendered[$key]:-}" ] || rendered[$key]="$(ci_render "$path" $vars | git hash-object --stdin)"
+      if [ "${rendered[$key]:0:7}" = "$blob" ]; then
         here=" = files/"
       fi
     fi

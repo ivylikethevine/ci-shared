@@ -24,6 +24,7 @@ if [ "${1:-}" = --check ]; then
 fi
 root="${1:-$(dirname "$CI_SHARED_DIR")}"
 
+rows="$(ci_rows)"
 problems=0
 while read -r slug _; do
   name="${slug#*/}"
@@ -56,7 +57,7 @@ while read -r slug _; do
     if [ -x "$src" ]; then chmod +x "$dst"; else chmod -x "$dst"; fi
     echo "$name: $path updated"
     changed=$((changed + 1))
-  done < <(ci_targets "$name")
+  done < <(ci_targets "$name" "$rows")
   [ "$check" = 1 ] || echo "$name: $changed file(s) updated"
 done < <(ci_repos)
 

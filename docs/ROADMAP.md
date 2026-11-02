@@ -14,12 +14,16 @@ Ranked by value for size; the numbers are the items below. S, M and L are sizes.
 1. 3.2's first run that finds a bump, the weekly one from 2026-11-02 at 07:53
    UTC (S).
 2. 3.1, read the first weekly run under the App, 2026-11-02 at 14:41 UTC (S).
-3. 5.3's and 5.4's checks, each on the next run that shows it (S).
-4. 3.4, say-hi's and instadroid's release workflows (M).
-5. The batch when it is started, say-hi first: 1.4 (S), 1.3 (S), 1.2 (M, one
-   session per repository).
+3. 5.1's first refusal and 5.3's first automatic rerun on `main`, each on the
+   next run that shows it (S).
+4. 5.3's rescan of the lowered limits, from 2026-11-08 (S).
+5. 5.4's check, which needs a real pull request (S).
+6. 3.4, say-hi's and instadroid's release workflows (M).
+7. The batch when it is started, say-hi first: 1.4 (S), 1.5 (M), 1.3 (S), 1.2 (M,
+   one session per repository).
 
-Waiting on upstream: 1.1, 3.6, 5.1, 5.2. Not worth doing as things stand: 3.5.
+Waiting on upstream: 1.1, 2.1's runner label, 3.6, 5.1, 5.2. Not worth doing as
+things stand: 3.5.
 
 ## 1. Fixes in this repository
 
@@ -71,6 +75,17 @@ together; `setup-tool` then reads the row's pin and sha256 alone. About 20 lines
 and say-hi's `tests/packaging/packaging_ci_workflows_test.sh` loses its override
 cases in the same pass.
 
+### 1.5 Remove `setup-tool` for `setup-tools` (_batch_, after 1.4)
+
+Once 1.4 lands, `setup-tool` is `setup-tools` with one name: `resolve.sh` and
+`install-missing.sh` already loop over `install.sh`. Deleting it removes a 59-line
+action, `install.sh`'s `image=` output and a `repos/_base.toml` row. The action
+cannot leave `files/` first: 22 caller sites in the targets move to `tools: <name>`
+in the same batch (say-hi 3, sharerr-rs 11, instadroid 4, python-constricter 4,
+counted 2026-11-01, rendered shared workflows included), and `image-scan.yml`'s
+sparse list gains `setup-tools/`. Each tool downloads once more, since the cache key
+changes.
+
 ## 2. Platform changes with a date
 
 ### 2.1 `ubuntu-latest` becomes Ubuntu 26.04 between 2026-10-19 and 2026-11-19
@@ -91,27 +106,19 @@ knows 26.04. What changed under them, from GitHub's image comparison
 | gcc            | 12 to 14 | 13 to 15                                                        |
 | removed        |          | miniconda, julia, mercurial, pulumi, fastlane, global npm tools |
 
-- **Done ahead of it:** kcov 43 builds under cmake 4.4 and gcc 16, newer
-  than the image's; `apt/lib.sh` now drops vendor `*.sources` files as well
-  as `*.list`, so a deb822 vendor repository on 26.04 cannot fail
-  `apt-get update`; `setup-tool`'s cache keys carry the image name
-  (`ImageOS`), so a kcov built on 24.04 is not restored on 26.04 against
-  libraries it was not linked to; `checks.yml` takes a `runner` input on
+- **Runs:** this repository's workflows pass on `ubuntu-26.04`, as do instadroid's
+  `main` CI (run 41258224153, 2026-10-31) and `image-scan.yml` under docker 29 in
+  sharerr-rs (run 41302164981, 2026-11-01). say-hi's live `main` ruleset requires
+  its renamed suite jobs.
+- **Kept for it:** `setup-tool`'s cache keys carry the image name (`ImageOS`), so a
+  kcov built on 24.04 is not restored on 26.04; `apt/lib.sh` drops vendor
+  `*.sources` files as well as `*.list`; `checks.yml` takes a `runner` input on
   dispatch.
-- **Run:** `checks.yml` on `ubuntu-26.04` (run 39189568504): both jobs
-  green, kcov 43 built from source in under a minute on a cold cache keyed
-  `ubuntu26`, the checks and the 100% coverage gate as on 24.04.
-- **Since:** this repository's `CI`, `CodeQL`, `Link check`, `Scorecard` and
-  `Sync` pass on `ubuntu-26.04` (2026-10-24), and `tool-versions.yml` does too
-  (run 40754857850, 2026-10-28). say-hi's renamed suite jobs are on its `main`,
-  and its live `main` ruleset requires them. instadroid's own jobs name
-  `ubuntu-26.04`, and its `main` CI passes on them (run 41258224153, 2026-10-31).
 - **kcov:** 26.04 packages kcov `43+dfsg-2`, which records no hit on a
   multi-line array assignment; this repository's coverage job and say-hi's
   build upstream kcov 43 from `tools.txt`'s `cmake` row instead.
-- **Still exposed:** `checks.yml` and `coverage` build their venv on the
-  system python3 (3.14: fine for constricter's `min-python = "3.11"` and
-  coverage 7.17); `image-scan.yml` meets docker 29.
+- **Left:** drop the label from `.github/actionlint.yaml` once an actionlint
+  release knows 26.04.
 
 ### 2.2 Dependabot's default cooldown
 
@@ -147,8 +154,12 @@ knows 26.04. What changed under them, from GitHub's image comparison
   weekly run, the last under the PATs, naming drift and rulesets. The
   2026-11-02 run is the first under the App, and closes it if every check
   passes.
-- **Still by hand per target:** a mint step and a `TOKEN_<NAME>` line in
-  `sync.yml`, which `scripts/check.sh` now fails without.
+- **Still by hand per target:** a mint step in `sync.yml`, which
+  `scripts/check.sh` fails without.
+- **Verify:** the mint steps now share one `with:` through a YAML anchor, reading
+  `repositories` from each step's `env.TARGET`. Nothing here has run that form on
+  GitHub: run `sync.yml` by dispatch with `dry-run` before relying on it, and check
+  that all five tokens mint.
 
 ### 3.2 Bumps as a pull request, not a hand edit
 
@@ -192,7 +203,9 @@ knows 26.04. What changed under them, from GitHub's image comparison
   `gh release upload --clobber`), which a locked release refuses. Each needs
   its release created with `--draft`, its assets attached, then
   `gh release edit --draft=false`, in its own workflow, before its
-  `immutable_releases` turns on.
+  `immutable_releases` turns on. say-hi's `demos.yml` also attaches `demo.gif` to
+  the published release, in a later workflow, so that upload moves before the
+  publish too or the GIF goes elsewhere.
 
 ### 3.5 A shared push ruleset
 
@@ -208,9 +221,9 @@ target gains contributors.
 - **What:** [jdx/jactionlint](https://github.com/jdx/jactionlint), an
   MIT-licensed fork of actionlint that accepts `uses: $/...`, which would
   unblock 1.1. Not taken: the first release was 2026-10-05, it reached v2.3.0
-  within three weeks with a major bump four days in, and it has one
-  maintainer. Revisit once it has a settled release history, or drop it if
-  actionlint accepts `$/` first.
+  within three weeks with a major bump four days in (v2.4.0 on 2026-10-29), and
+  it has one maintainer. Revisit once it has a settled release history, or drop
+  it if actionlint accepts `$/` first.
 - **Tried (v2.3.0, on a copy of the tree with every local `uses:` rewritten
   to `$/`):** `--profile=correctness` is clean where actionlint 1.7.12 fails
   every `$/` line; it reads a `$/` action's `action.yml`, so an unknown or
@@ -282,8 +295,9 @@ and a template would be mostly per-repository blocks.
   job stayed `in_progress` after its post steps ended, so the run never
   completed and took `gh run cancel` before `gh run rerun --failed`. A retry
   of the download step there would ride it out.
-- **Measured, 2026-10-24 to 10-31:** `scratch/ci_census.py regions` over
-  sharerr-rs, instadroid, homebrew-tap and saffron. Of the 10 jobs that hit a
+- **Measured, 2026-10-24 to 10-31,** with a one-off script over the runner region
+  in each job's log, across sharerr-rs, instadroid, homebrew-tap and saffron. Of
+  the 10 jobs that hit a
   limit, the 9 whose logs remain all ran `block` on westus2; a sample of 400
   passing jobs held no `block` job on westus2, 20 `audit` jobs on westus2, and 77
   `block` jobs elsewhere. In one stuck job's post step, the runner's own
@@ -348,14 +362,14 @@ and a template would be mostly per-repository blocks.
   `block` from `audit` on the one image.
 - **Verify:** after the first automatic rerun of a `CI` run on `main`, that the
   workflows chained off `CI` fired from attempt 2, since a rerun started by
-  `GITHUB_TOKEN` may not emit `workflow_run`. A week after the sync merges, rerun
-  the scan; a job killed by a new limit shows as `stopped` with active minutes
-  near its limit.
+  `GITHUB_TOKEN` may not emit `workflow_run`. From 2026-11-08, a week after the
+  limits' sync merged, rerun the scan; a job killed by a new limit shows as
+  `stopped` with active minutes near its limit.
 
 ### 5.4 Sync pull requests still run sharerr-rs's `CodeQL (rust)`
 
-- **What:** 135 of its 682 runner minutes in the week measured
-  (`scratch/ci_census.py`), and 34% of its minutes were `ci-sync`'s. Its other Rust
+- **What:** 135 of its 682 runner minutes in the week measured, and 34% of its
+  minutes were `ci-sync`'s. Its other Rust
   jobs and both Docker builds now skip a pull request that touches only shared
   CI files. This one is the shared `codeql.yml`, whose header says a skipped
   category leaves code scanning waiting on a result, and code scanning is in

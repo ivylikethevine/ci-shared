@@ -31,7 +31,7 @@ ci_summary '## Sync pull requests' '' '| Target | Pull request | Open | Passed |
 # shellcheck disable=SC2329 # ci_as_target calls it by name
 report() {
   local slug=$1 base=$2 name=${1#*/} pr number url sha created days checks passed failed pending names
-  pr="$(ci_open_sync_pr "$slug" "$base" "$PR_FIELDS")" || {
+  pr="$(ci_open_pr "$slug" "$CI_SYNC_BRANCH" "$base" "$PR_FIELDS")" || {
     echo "$name: cannot list its pull requests"
     return 1
   }

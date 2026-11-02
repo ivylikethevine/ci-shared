@@ -29,6 +29,7 @@ ci_configs() {
 # this repository's main through it; the sync never reads it.
 ci_load_self() {
   CI_SELF="$(python3 -I "$CI_SCRIPTS_DIR/config.py" --self "$CI_SHARED_DIR")"
+  # shellcheck disable=SC2034 # the scripts read it
   CI_SELF_REPO="$(jq -r '.repository // empty' <<<"$CI_SELF")"
 }
 
@@ -49,20 +50,28 @@ ci_entries() {
   ci_configs | jq -c --argjson s "${CI_SELF:-null}" '. + ([$s] - [null])'
 }
 
+# _ci_slugs <entries> [NAME...] - prints "owner/name branch" for each of the JSON
+# entries, or for each NAME given alone; branch is `-` for an entry with none.
+# Fails, naming them, when a NAME is not among them.
+_ci_slugs() {
+  local entries=$1 unknown
+  shift
+  unknown="$(jq -r '($ARGS.positional - [.[].name])[]' --args "$@" <<<"$entries")"
+  if [ -n "$unknown" ]; then
+    echo "repos/ has no target ${unknown//$'\n'/, }" >&2
+    return 1
+  fi
+  jq -r '.[] | select($ARGS.positional == [] or (.name | IN($ARGS.positional[])))
+    | "\(.repository) \(.sync_branch // "-")"' --args "$@" <<<"$entries"
+}
+
 # ci_covered [NAME...] - prints a row per repository the rulesets and
 # protection checks cover: ci_repos' rows, then "owner/name -" for this
-# repository when no NAME is given or one is its name. Fails as ci_repos does
-# on a NAME that is neither.
+# repository. Fails as ci_repos does on a NAME that is neither.
 ci_covered() {
-  local self="${CI_SELF_REPO:-}" own=0 n names=()
-  [ $# -gt 0 ] || own=1
-  for n; do
-    if [ -n "$self" ] && [ "$n" = "${self#*/}" ]; then own=1; else names+=("$n"); fi
-  done
-  if [ $# = 0 ] || [ ${#names[@]} -gt 0 ]; then
-    ci_repos ${names[@]+"${names[@]}"} || return 1
-  fi
-  if [ -n "$self" ] && [ "$own" = 1 ]; then echo "$self -"; fi
+  local entries
+  entries="$(ci_entries)" || return 1
+  _ci_slugs "$entries" "$@"
 }
 
 # ci_repos [NAME...] - prints "owner/name branch" for each target, or for each
@@ -72,18 +81,10 @@ ci_covered() {
 # through a process substitution, whose failure it would not see.
 # shellcheck disable=SC2120 # NAME is optional
 ci_repos() {
-  local unknown
-  unknown="$(ci_configs | jq -r '($ARGS.positional - [.[].name])[]' --args "$@")"
-  if [ -n "$unknown" ]; then
-    echo "repos/ has no target ${unknown//$'\n'/, }" >&2
-    return 1
-  fi
-  ci_configs | jq -r '.[] | select($ARGS.positional == [] or (.name | IN($ARGS.positional[])))
-    | "\(.repository) \(.sync_branch)"' --args "$@"
+  local entries
+  entries="$(ci_configs)" || return 1
+  _ci_slugs "$entries" "$@"
 }
-
-# a jq `pairs` filter: a table as the key=value words ci_rows prints
-CI_JQ_PAIRS='def pairs: [to_entries[] | "\(.key)=\(.value | gsub(" "; "%20"))"] | join(" ");'
 
 # ci_rows [NAME...] - prints a row per path each target, or each NAME alone,
 # receives: the target's name, the path in files/, then any key=value pairs
@@ -98,7 +99,8 @@ ci_rows() {
   local -A template=()
   ci_repos "$@" >/dev/null || return 1
   # unit separators between the fields, since IFS whitespace would merge empty ones
-  ci_configs | jq -r "$CI_JQ_PAIRS"'
+  ci_configs | jq -r '
+    def pairs: [to_entries[] | "\(.key)=\(.value | gsub(" "; "%20"))"] | join(" ");
     .[] | select($ARGS.positional == [] or (.name | IN($ARGS.positional[])))
     | .name as $n
     | .templates as $t
@@ -121,18 +123,47 @@ ci_rows() {
     done
 }
 
-# ci_targets <name> - ci_rows for target <name>, without the name column
+# ci_targets <name> <rows> - target <name>'s lines of ci_rows' <rows>, without
+# the name column, so a script looping over targets runs ci_rows once
 ci_targets() {
-  ci_rows "$1" | cut -d' ' -f2-
+  awk -v n="$1" '$1 == n { sub(/^[^ ]+ /, ""); print }' <<<"$2"
 }
 
 # the branch the sync pull requests come from on every target
+# shellcheck disable=SC2034 # the scripts read it
 CI_SYNC_BRANCH=ci-sync
 
-# ci_open_sync_pr <slug> <base> <fields> - prints the jq string <fields> of the
-# sync pull request open into <base>, if any
-ci_open_sync_pr() {
-  gh api "repos/$1/pulls?head=${1%%/*}:$CI_SYNC_BRANCH&base=$2&state=open" --jq ".[0] | select(. != null) | $3"
+# ci_open_pr <slug> <head> <base> <fields> - prints the jq string <fields> of the
+# pull request open from branch <head> into <base>, if any
+ci_open_pr() {
+  gh api "repos/$1/pulls?head=${1%%/*}:$2&base=$3&state=open" --jq ".[0] | select(. != null) | $4"
+}
+
+# ci_create_tree <slug> <base tree> <entries> - creates a tree on <base tree>
+# from one `path<TAB>mode<TAB>sha` line per entry, and prints its sha
+ci_create_tree() {
+  printf '%s' "$3" | jq -Rn --arg b "$2" \
+    '{base_tree: $b, tree: [inputs | split("\t") | {path: .[0], mode: .[1], type: "blob", sha: .[2]}]}' |
+    gh api "repos/$1/git/trees" --input - --jq .sha
+}
+
+# ci_check_verified <sha verified reason> - fails, with the reason, unless
+# GitHub verified the commit it just answered with
+ci_check_verified() {
+  [ "$(cut -d' ' -f2 <<<"$1")" = true ] || {
+    echo "GitHub did not verify the commit's signature: ${1##* }" >&2
+    return 1
+  }
+}
+
+# ci_move_branch <slug> <branch> <commit> - points the branch at the commit,
+# force-moved, or makes it
+ci_move_branch() {
+  if gh api "repos/$1/git/ref/heads/$2" >/dev/null 2>&1; then
+    gh api -X PATCH "repos/$1/git/refs/heads/$2" -f sha="$3" -F force=true >/dev/null
+  else
+    gh api "repos/$1/git/refs" -f ref="refs/heads/$2" -f sha="$3" >/dev/null
+  fi
 }
 
 # ci_summary <line>... - appends the lines to the job summary, when there is one

@@ -71,33 +71,29 @@ test_passes_a_fully_protected_target() {
   check 0
 }
 
+# each scenario, and what it prints where a test pins that
 test_fails_each_bent_answer() {
-  local s
+  local row
+  local rows=(
+    'bypass-always|::error title=protection owner/repo main::lacks non_fast_forward, deletion, pull_request; not counted: r1 (active, bypass always)'
+    'bypass-unknown|'
+    'bypass-missing|'
+    'evaluate|'
+    'main-unprotected|lacks non_fast_forward, pull_request'
+    'rules-error|cannot read its rules'
+    'rules-object|unexpected rules response'
+    'rules-garbage|'
+    'ruleset-error|cannot read ruleset 1'
+    'ruleset-id|'
+    'dev-missing|owner/repo dev::no such branch'
+    'refs-error|cannot list its refs'
+  )
   fake_github
   t_target repo dev
-  for s in bypass-always bypass-unknown bypass-missing evaluate rules-error \
-    rules-object rules-garbage ruleset-error ruleset-id dev-missing refs-error; do
-    check 1 "$s"
+  for row in "${rows[@]}"; do
+    check 1 "${row%%|*}"
+    [ -z "${row#*|}" ] || t_out "${row#*|}"
   done
-}
-
-test_names_what_is_missing_and_what_did_not_count() {
-  fake_github
-  t_target repo dev
-  check 1 bypass-always
-  t_out "::error title=protection owner/repo main::lacks non_fast_forward, deletion, pull_request; not counted: r1 (active, bypass always)"
-  check 1 main-unprotected
-  t_out "lacks non_fast_forward, pull_request"
-  check 1 ruleset-error
-  t_out "cannot read ruleset 1"
-  check 1 rules-error
-  t_out "cannot read its rules"
-  check 1 rules-object
-  t_out "unexpected rules response"
-  check 1 dev-missing
-  t_out "owner/repo dev::no such branch"
-  check 1 refs-error
-  t_out "cannot list its refs"
 }
 
 test_fails_without_a_token() {

@@ -42,24 +42,13 @@ while IFS= read -r path; do
   entries="$entries$path"$'\t'"$(ci_mode "$path")"$'\t'"$(git hash-object "$path")"$'\n'
 done < <(git diff --name-only)
 
-tree="$(printf '%s' "$entries" | jq -Rn --arg b "$(git rev-parse 'HEAD^{tree}')" \
-  '{base_tree: $b, tree: [inputs | split("\t") | {path: .[0], mode: .[1], type: "blob", sha: .[2]}]}' |
-  gh api "repos/$slug/git/trees" --input - --jq .sha)"
+tree="$(ci_create_tree "$slug" "$(git rev-parse 'HEAD^{tree}')" "$entries")"
 got="$(jq -n --arg m "$TITLE" --arg t "$tree" --arg p "$head" '{message: $m, tree: $t, parents: [$p]}' |
   gh api "repos/$slug/git/commits" --input - --jq '"\(.sha) \(.verification.verified) \(.verification.reason)"')"
-if [ "$(cut -d' ' -f2 <<<"$got")" != true ]; then
-  echo "GitHub did not verify the commit's signature: ${got##* }" >&2
-  exit 1
-fi
-commit="${got%% *}"
+ci_check_verified "$got"
+ci_move_branch "$slug" "$BRANCH" "${got%% *}"
 
-if gh api "repos/$slug/git/ref/heads/$BRANCH" >/dev/null 2>&1; then
-  gh api -X PATCH "repos/$slug/git/refs/heads/$BRANCH" -f sha="$commit" -F force=true >/dev/null
-else
-  gh api "repos/$slug/git/refs" -f ref="refs/heads/$BRANCH" -f sha="$commit" >/dev/null
-fi
-
-number="$(gh api "repos/$slug/pulls?head=${slug%%/*}:$BRANCH&base=main&state=open" --jq '.[0].number // empty')"
+number="$(ci_open_pr "$slug" "$BRANCH" main .number)"
 if [ -n "$number" ]; then
   gh api -X PATCH "repos/$slug/pulls/$number" -f body="$body" >/dev/null
   echo "updated pull request #$number"

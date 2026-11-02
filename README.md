@@ -22,6 +22,7 @@ does not preserve on every platform.
     title: Pinned tools and dependencies are behind upstream
     resolved: ${{ steps.check.outputs.problems == '0' }}
     close-comment: Every pin is current again.
+    resolved-when: every pin is current
     body-file: ${{ runner.temp }}/issue.md
 ```
 
@@ -41,7 +42,7 @@ them, or make the repository a target.
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `files/`                      | the master copies, at the path they have in a target                                                                                  |
 | `repos/<name>.toml`           | one target: its repository, sync branch, files, template and ruleset values                                                           |
-| `repos/_base.toml`            | the files most targets receive; a target takes them with `base = true`, less its `skip`                                               |
+| `repos/_<group>.toml`         | a group of files; a target takes `_base` with `base = true`, or a list with `base = ["_base", "_images"]`, less its `skip`            |
 | `USAGE.md`                    | each file against the repositories receiving it, written from `repos/`                                                                |
 | `scripts/check.sh`            | the shipped checks, run over this repository and `files/`                                                                             |
 | `scripts/config.py`           | validates `repos/` and prints it as JSON, for the scripts to read                                                                     |
@@ -58,7 +59,7 @@ them, or make the repository a target.
 | `docs/SECURITY.md`            | what is in scope here and how to report a vulnerability privately                                                                     |
 | `rulesets/`                   | the rulesets every target shares, in GitHub's import format                                                                           |
 | `rulesets/self.toml`          | this repository's own values in the shared `main` ruleset                                                                             |
-| `tests/`                      | a suite per script, run against fixtures and a fake `gh`                                                                              |
+| `tests/`                      | a suite per script, run side by side against fixtures and a fake `gh`                                                                 |
 | `requirements-dev.in`         | the Python dev tools (constricter, pip-audit, reuse, and coverage.py from `requirements-coverage.in`); each `.txt` is its hashed lock |
 | `pyproject.toml`              | those tools' settings                                                                                                                 |
 | `.github/workflows/`          | `sync.yml`, `checks.yml`, `bump-tools.yml` and copies of four shared ones                                                             |
@@ -138,14 +139,11 @@ tool = "cargo-deny"
 ```
 
 Every script renders before comparing or copying, so a target never sees a
-marker, and `scripts/check.sh` lints each template as every target receives it
-(actionlint and `lint_workflows.sh` for a workflow, markdownlint for Markdown,
-prettier for both) and fails when a rendering still holds a `__key__` some
-target sets. A Markdown template is skipped by the lint over the raw tree,
-since its markers break the list structure around them. A workflow template
-is skipped by the raw `lint_workflows.sh` run, since a block may hold a value a
-target chooses, such as an egress policy; actionlint and zizmor still read it
-raw.
+marker, and `scripts/check.sh` lints each template as every target receives it,
+and fails when a rendering still holds a `__key__` some target sets. Its comments
+say which raw lints skip a template. actionlint and zizmor read every workflow
+raw, so a key whose value differs between targets is one line spelling
+`__key__`, not two `shared:if` branches, which they reject as a duplicate.
 
 ## Checking this repository
 
@@ -171,15 +169,9 @@ Every script and Python file here has a test suite with 100% coverage, and the
 Python passes constricter at `suffocate`. A script that is not worth a suite is
 run from a temporary directory and not kept.
 
-- `scripts/check.sh` runs shellcheck, shfmt, constricter, actionlint,
-  `lint_workflows.sh`, zizmor, prettier, markdownlint, lychee offline over the
-  tracked Markdown, typos, gitleaks over the
-  history, `reuse lint`, pip-audit over `requirements-dev.txt` and npm audit over the
-  Markdown tools' lock (less the advisories `files/.github/osv-scanner.toml`
-  accepts, as `advisories.yml` reads it), `scripts/usage.sh --check`,
-  `scripts/own_files.sh --check`, and a check that `files/.gitignore`
-  (every target's block active here) ignores no shared file;
-  `checks.yml` runs it on every push and pull request. Locally it needs the
+- `scripts/check.sh` runs every linter and audit these repositories share, and
+  checks that this repository's generated files are current; its `run` lines are
+  the list. `checks.yml` runs it on every push and pull request. Locally it needs the
   `tools.txt` pins on `PATH`, `npm ci --prefix .github` once, and
   `requirements-dev.txt` in a virtual environment whose `bin/` is on `PATH`:
   `python3 -m venv local/venv && local/venv/bin/pip install --require-hashes --no-deps -r requirements-dev.txt`.
@@ -229,11 +221,10 @@ for an hour at most and revoked when the job ends. Nothing expires to renew.
   read them.
 
 The scripts read target `<name>`'s token as `SYNC_TOKEN_<NAME>`, the name in
-capitals with `-` as `_` (`SYNC_TOKEN_SAY_HI`). In `sync.yml`, a mint step
-per target feeds a `TOKEN_<NAME>` line of the `tokens` step, which exports
-each as `SYNC_TOKEN_<NAME>`. A new target needs the App installed on it, its
-mint step and its `TOKEN_<NAME>` line; until then the `tokens` step fails and
-the sync skips it. The job's `env` passes its own token as
+capitals with `-` as `_` (`SYNC_TOKEN_SAY_HI`). In `sync.yml`, the `tokens` step
+exports each `app-<name>` mint step's token under that name. A new target needs
+the App installed on it and its mint step: an `id: app-<name>`, `TARGET: <name>`
+and `with: *mint`; until then the sync skips it. The job's `env` passes its own token as
 `SYNC_TOKEN_CI_SHARED`, for this repository's protection and rulesets checks;
 it is no secret, and no sync writes with it.
 
@@ -270,18 +261,9 @@ verify it. A local run sets `SYNC_SIGNING_KEY`, `SYNC_COMMITTER_NAME` and
 
 `rulesets/main.json`, `rulesets/dev.json` and `rulesets/stable.json` are the
 rulesets every target shares; the `[rulesets.main]` table of
-`repos/<name>.toml` holds what is a target's own on `main`: the required status
-checks (each `{ context = "<name>" }`, with an `integration_id` only when an
-app other than GitHub Actions reports it), the code scanning tools, the
-coverage floor and whether code quality is gated.
-
-- **`main`:** no force push or deletion, signed commits, a pull request with
-  checks passing on an up-to-date branch, merge or squash. Repository admins
-  bypass it only through a pull request.
-- **`dev`:** no force push or deletion, signed commits, no bypass. Direct
-  pushes stay open to signed commits.
-- **`stable`** (`protect-stable`, the `v*` and `*-rc` tags): no move or
-  deletion, signed commits, no bypass.
+`repos/<name>.toml` holds what is a target's own on `main`, its required status
+checks each `{ context = "<name>" }`, with an `integration_id` only when an app
+other than GitHub Actions reports it.
 
 No review approval is required, so the repository owner merges their own pull
 requests; Scorecard's Branch-Protection check scores that 3/10, and a required

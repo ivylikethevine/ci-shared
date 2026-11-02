@@ -136,6 +136,24 @@ test_merges_the_base_list_and_keeps_values() {
     "the merged files"
 }
 
+test_base_names_several_groups() {
+  for f in a b c; do echo x | t_shared "$f"; done
+  printf 'files = ["a"]\n' >"$T/tree/repos/_base.toml"
+  printf 'files = ["a", "b", "c"]\n' >"$T/tree/repos/_extra.toml"
+  t_target one dev
+  printf 'base = ["_base", "_extra"]\nskip = ["c"]\n' | t_toml one
+  t_target two dev
+  echo 'base = false' | t_toml two
+  config
+  t_rc 0
+  t_eq "$(jq -c '[.[] | [.name, .files]]' "$T/out")" '[["one",["a","b"]],["two",[]]]' "the files"
+  t_target three dev
+  echo 'base = ["_gone"]' | t_toml three
+  config
+  t_rc 1
+  t_in "$T/err" "repos/three.toml: base names _gone, but there is no repos/_gone.toml"
+}
+
 test_reports_base_and_values_mistakes() {
   echo x | t_shared a
   printf 'files = ["a", "a", "gone"]\n' >"$T/tree/repos/_base.toml"
@@ -160,10 +178,10 @@ EOF
   t_in "$T/err" \
     "repos/_base.toml: a is listed twice" \
     "repos/_base.toml: gone is listed but files/gone does not exist" \
-    "repos/one.toml: a is in repos/_base.toml too" \
-    "repos/one.toml: skip b is not in repos/_base.toml" \
-    "repos/two.toml: base must be true or false" \
-    "repos/two.toml: skip needs base = true" \
+    "repos/one.toml: a is in its base too" \
+    "repos/one.toml: skip b is not in its base" \
+    "repos/two.toml: base must be true, false or a list of repos/_<group>.toml stems" \
+    "repos/two.toml: skip needs base" \
     "repos/three.toml: skip must be a list of paths" \
     "repos/three.toml: values key 'bad-key' is not letters and _" \
     "repos/three.toml: values.repo is set by the sync, from the file's name" \

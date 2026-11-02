@@ -32,16 +32,11 @@ EOF
   printf '# a comment|with|bars\none|1.0|raw|https://x/%%v/one|--version|github:o/one||%s\nmany|1.0|tar.gz|https://x/%%v/%%a|--version|github:o/many||linux-x86_64:lin=%s,darwin-aarch64=%s\nkeep|1.0|raw|u|v|c||%s\n' \
     "$(printf '1%.0s' {1..64})" "$(printf '2%.0s' {1..64})" "$(printf '3%.0s' {1..64})" "$(printf '4%.0s' {1..64})" |
     t_shared .github/actions/setup-tool/tools.txt
-  for f in codeql link-check scorecard rerun-timeouts tool-versions; do
-    printf 'name: %s\n' "$f" | t_shared ".github/workflows/$f.yml"
-  done
+  t_own_sources
   printf '    - uses: o/act@%s # v1.0.0\n    - uses: o/act/sub@%s # v1.0.0\n    - uses: o/act@%s # v0.9.0\n    - uses: o/other@%s # v1.0.0\n' \
     "$OLD_SHA" "$OLD_SHA" "$OLD_SHA" "$OLD_SHA" | t_shared .github/workflows/scorecard.yml
   printf '    - uses: o/act@%s # v1.0.0\n' "$OLD_SHA" | t_shared .github/actions/a/action.yml
   printf '    - uses: o/act@%s # v1.0.0\n' "$OLD_SHA" >"$T/tree/.github/workflows/sync.yml"
-  echo 'version: 2' | t_shared .github/dependabot.yml
-  echo 'local/' | t_shared .gitignore
-  echo 'version = 1' | t_shared REUSE.toml
   echo 'theme: t/t@v1.0' | t_shared _config.yml
   printf '{\n  "devDependencies": {\n    "lint": "1.0.0"\n  },\n  "overrides": {\n    "tex": "1.0.0"\n  }\n}\n' |
     t_shared .github/package.json

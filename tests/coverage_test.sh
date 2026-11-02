@@ -40,14 +40,12 @@ test_judges_each_statement() {
   fixture
   t_run python3 -I "$TESTS_DIR/coverage.py" "$T/cobertura.xml" "$T/t.sh" "$T/empty.sh"
   t_rc 1
-  t_file "$T/out" "$(
-    cat <<EOF
+  t_file "$T/out" - <<EOF
 $T/t.sh: 9/11 statements (81.8%)
   $T/t.sh:6: not run
   $T/t.sh:12: not seen by kcov
 $T/empty.sh: 0/0 statements (0.0%)
 EOF
-  )"
 }
 
 test_adds_up_several_reports() {

@@ -6,6 +6,9 @@
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
+# owner/a as the repositories listing holds it; the fakes read it too
+export REPO_A='{"name":"a","full_name":"owner/a","fork":false,"archived":false}'
+
 # job <id> <name> <attempt> <conclusion> <started minute> <completed minute>
 # [steps]: a job's JSON, whose failed step is named "stuck" unless it passed.
 # Its steps end a minute after it starts and the last has no end; steps
@@ -64,7 +67,7 @@ EOF
 }
 
 scan() {
-  t_run "$REPO_DIR/scripts/retried_timeouts.py" --log "$T/log/x.jsonl" "$@"
+  t_run "$SCRIPTS/retried_timeouts.py" --log "$T/log/x.jsonl" "$@"
 }
 
 test_logs_each_timeout_that_passed_within_the_retries() {
@@ -107,9 +110,9 @@ test_max_retries_widens_and_narrows_the_cut() {
 }
 
 test_default_window_and_no_runs_print_no_table() {
-  t_fake_gh <<'EOF'
-case $ep in
-user/repos*) reply '[{"name":"a","full_name":"owner/a","fork":false,"archived":false}]' ;;
+  t_fake_gh <<EOF
+case \$ep in
+user/repos*) reply '[$REPO_A]' ;;
 *per_page=1) reply '{"total_count":0}' ;;
 *) reply '{"workflow_runs":[]}' ;;
 esac
@@ -124,10 +127,9 @@ test_a_big_span_is_halved_and_every_page_read() {
   t_fake_gh <<'EOF'
 run() { printf '{"id":%s,"run_attempt":1}' "$1"; }
 case $ep in
-user/repos*) reply '[{"name":"a","full_name":"owner/a","fork":false,"archived":false}]' ;;
+user/repos*) reply "[$REPO_A]" ;;
 *per_page=1)
-  if ! [ -e "$T/halved" ]; then
-    : >"$T/halved"
+  if first_call halved; then
     reply '{"total_count":1001}'
   else
     reply '{"total_count":3}'
@@ -156,10 +158,7 @@ user/repos*)
 repos/owner/a/*) fail "HTTP 403: no" ;;
 repos/owner/b/*) fail "HTTP 502: down" ;;
 repos/owner/c/*per_page=1)
-  if ! [ -e "$T/flaked" ]; then
-    : >"$T/flaked"
-    fail "HTTP 502: once"
-  fi
+  if first_call flaked; then fail "HTTP 502: once"; fi
   reply '{"total_count":0}' ;;
 *per_page=1) reply '{"total_count":0}' ;;
 *) reply '{"workflow_runs":[]}' ;;
@@ -177,7 +176,7 @@ EOF
 test_an_unreadable_run_does_not_stop_its_repo() {
   t_fake_gh <<EOF
 case \$ep in
-user/repos*) reply '[{"name":"a","full_name":"owner/a","fork":false,"archived":false}]' ;;
+user/repos*) reply '[$REPO_A]' ;;
 *actions/runs\?*per_page=1) reply '{"total_count":2}' ;;
 *actions/runs\?*)
   reply '{"workflow_runs":[

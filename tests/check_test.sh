@@ -43,7 +43,7 @@ EOF
 # workflow and a non-workflow file; target b receives the template alone. The
 # tree keeps its own copies of codeql.yml, link-check.yml, rerun-timeouts.yml,
 # scorecard.yml, tool-versions.yml, dependabot.yml, .gitignore and REUSE.toml.
-fixture() {
+t_once() {
   local t
   for t in shellcheck shfmt constricter actionlint zizmor lychee typos gitleaks reuse pip-audit; do tool "$t"; done
   npm_fake
@@ -55,31 +55,25 @@ fixture() {
   printf 'on: push\n# the setup-tools step\n          tools: shellcheck gitleaks\n' >"$T/tree/.github/workflows/checks.yml"
   cat >"$T/tree/.github/workflows/sync.yml" <<'EOF'
 on: push
-          repositories: a
-          TOKEN_A: ${{ steps.app-a.outputs.token }}
-          repositories: b
-          TOKEN_B: ${{ steps.app-b.outputs.token }}
+      - id: app-a
+          TARGET: a
+      - id: app-b
+          TARGET: b
 EOF
   printf '# a comment\nshellcheck|1.0.0|raw|u|--version|g||%s\ngitleaks|1.0.0|raw|u|version|g||%s\n' \
     "$(printf 'a%.0s' {1..64})" "$(printf 'b%.0s' {1..64})" | t_shared .github/actions/setup-tool/tools.txt
   echo '{}' >"$T/tree/.github/zizmor.yml"
   : >"$T/tree/requirements-dev.txt"
   printf '[[IgnoredVulns]]\nid = "GHSA-vfj7-8cjw-p6xm"\n' | t_shared .github/osv-scanner.toml
-  ln -s "$T/bin/actionlint" "$T/tree/.github/scripts/lint_workflows.sh"
-  ln -s "$T/bin/actionlint" "$T/tree/.github/node_modules/.bin/prettier"
-  ln -s "$T/bin/actionlint" "$T/tree/.github/node_modules/.bin/markdownlint-cli2"
+  ln -s ../../../bin/actionlint "$T/tree/.github/scripts/lint_workflows.sh"
+  ln -s ../../../../bin/actionlint "$T/tree/.github/node_modules/.bin/prettier"
+  ln -s ../../../../bin/actionlint "$T/tree/.github/node_modules/.bin/markdownlint-cli2"
+  t_own_sources
   printf 'name: __Language__\n# shared:if language\nlang: __language__\n# shared:endif\n' |
     t_shared .github/workflows/codeql.yml
   printf '# shared:unless language\nactions-only: true\n# shared:endif\n' |
     t_shared .github/workflows/marked.yml
   echo 'on: push' | t_shared .github/workflows/plain.yml
-  echo 'on: push' | t_shared .github/workflows/link-check.yml
-  echo 'on: push' | t_shared .github/workflows/rerun-timeouts.yml
-  echo 'on: push' | t_shared .github/workflows/scorecard.yml
-  echo 'on: push' | t_shared .github/workflows/tool-versions.yml
-  echo 'version: 2' | t_shared .github/dependabot.yml
-  echo 'local/' | t_shared .gitignore
-  echo 'version = 1' | t_shared REUSE.toml
   echo 'x' | t_shared .github/actions/a/action.yml
   echo 'true' | t_shared .github/scripts/shared.sh
   t_target a dev .github/workflows/codeql.yml .github/workflows/plain.yml .github/actions/a/action.yml
@@ -95,7 +89,6 @@ EOF
 }
 
 test_runs_every_check_over_the_tree() {
-  fixture
   # lychee reads the tracked Markdown alone
   echo '# t' >"$T/tree/README.md"
   echo '# u' >"$T/tree/untracked.md"
@@ -131,7 +124,6 @@ EOF
 }
 
 test_lints_a_markdown_template_rendered_not_raw() {
-  fixture
   printf '# __repo__\n\n<!-- shared:if repo=a -->\n- only a\n<!-- shared:endif -->\n' | t_shared docs/t.md
   printf '# shared:if repo=a\n*.apk binary\n# shared:endif\n' | t_shared .gitattributes
   t_target a dev .github/workflows/plain.yml docs/t.md .gitattributes
@@ -148,8 +140,7 @@ test_lints_a_markdown_template_rendered_not_raw() {
   t_match "$T/tools.log" '^prettier --check --config .prettierrc.yaml --ignore-unknown .*/a/.gitattributes .*/a/docs/t.md .*/b/docs/t.md$'
   # prettier sees every rendering (a's .gitattributes keeps its block on the
   # implicit repo alone), markdownlint the Markdown alone
-  t_file "$T/rendered.log" "$(
-    cat <<'EOF'
+  t_file "$T/rendered.log" - <<'EOF'
 == a/.gitattributes
 *.apk binary
 == a/docs/t.md
@@ -167,11 +158,9 @@ test_lints_a_markdown_template_rendered_not_raw() {
 # b
 
 EOF
-  )"
 }
 
 test_lints_a_json_template_rendered_not_raw() {
-  fixture
   printf '{\n# shared:if repo=a\n  "a": true,\n# shared:endif\n  "b": true\n}\n' | t_shared .vscode/settings.json
   t_target a dev .github/workflows/plain.yml .vscode/settings.json
   t_target b dev .vscode/settings.json
@@ -181,8 +170,7 @@ test_lints_a_json_template_rendered_not_raw() {
   # the raw template is kept from prettier; markdownlint's raw list is unchanged
   t_in -x "$T/tools.log" 'prettier --check . !files/.vscode/settings.json' 'markdownlint-cli2 **/*.md #**/node_modules #.claude #local'
   t_match "$T/tools.log" '^prettier --check --config .prettierrc.yaml --ignore-unknown .*/a/.vscode/settings.json .*/b/.vscode/settings.json$'
-  t_file "$T/rendered.log" "$(
-    cat <<'EOF'
+  t_file "$T/rendered.log" - <<'EOF'
 == a/.vscode/settings.json
 {
   "a": true,
@@ -193,11 +181,9 @@ test_lints_a_json_template_rendered_not_raw() {
   "b": true
 }
 EOF
-  )"
 }
 
 test_a_value_a_target_lacks_fails() {
-  fixture
   printf 'name: __tool__\n# shared:if tool\nrun: __tool__\n# shared:endif\n' | t_shared .github/workflows/u.yml
   t_target a dev .github/workflows/u.yml
   t_toml a <<'EOF'
@@ -213,7 +199,6 @@ EOF
 }
 
 test_counts_and_annotates_each_failure() {
-  fixture
   t_run env FAIL="shellcheck zizmor pip-audit" GH_TOKEN=t "$SCRIPTS/check.sh"
   t_rc 3
   t_out "::error title=shellcheck::shellcheck failed" "::error title=zizmor::zizmor failed" \
@@ -222,22 +207,19 @@ test_counts_and_annotates_each_failure() {
   t_in -x "$T/tools.log" 'zizmor --config .github/zizmor.yml .github/workflows files/.github'
 }
 
-test_a_target_without_a_mint_step_or_token_line_fails() {
-  fixture
-  sed -i -e '/repositories: b/d' "$T/tree/.github/workflows/sync.yml"
+test_a_target_without_a_mint_step_fails() {
+  sed -i -e '/TARGET: b/d' "$T/tree/.github/workflows/sync.yml"
   t_run "$SCRIPTS/check.sh"
   t_rc 1
-  t_out "b has no mint step or TOKEN_B line in .github/workflows/sync.yml" "::error title=mint::mint failed"
+  t_out "b has no mint step in .github/workflows/sync.yml" "::error title=mint::mint failed"
   t_no_out "a has no mint step"
-  # shellcheck disable=SC2016 # the workflow's own expression
-  printf '          repositories: a\n          repositories: b\n          TOKEN_B: ${{ steps.app-b.outputs.token }}\n' >"$T/tree/.github/workflows/sync.yml"
+  printf '      - id: app-b\n          TARGET: a\n          TARGET: b\n' >"$T/tree/.github/workflows/sync.yml"
   t_run "$SCRIPTS/check.sh"
   t_rc 1
-  t_out "a has no mint step or TOKEN_A line in .github/workflows/sync.yml"
+  t_out "a has no mint step in .github/workflows/sync.yml"
 }
 
 test_a_tool_off_its_pin_fails() {
-  fixture
   t_run env STALE=gitleaks "$SCRIPTS/check.sh"
   t_rc 1
   t_out "gitleaks is not the pinned 1.0.0: gitleaks 0.9.0" "::error title=pins::pins failed"
@@ -245,7 +227,6 @@ test_a_tool_off_its_pin_fails() {
 }
 
 test_a_tool_missing_or_without_a_row_fails() {
-  fixture
   printf 'on: push\n          tools: shellcheck nosuchtool typos\n' >"$T/tree/.github/workflows/checks.yml"
   echo "nosuchtool|1.0.0|raw|u|--version|g||$(printf 'c%.0s' {1..64})" >>"$T/tree/files/.github/actions/setup-tool/tools.txt"
   t_run "$SCRIPTS/check.sh"
@@ -254,7 +235,6 @@ test_a_tool_missing_or_without_a_row_fails() {
 }
 
 test_a_shared_file_the_template_gitignore_swallows_fails() {
-  fixture
   # a target's blanket rule in the shared .gitignore applies to files/ here
   printf '# shared:if repo=a\n*.toml\n# shared:endif\n' | t_shared .gitignore
   echo 'x = 1' | t_shared tool.toml
@@ -277,7 +257,6 @@ test_a_shared_file_the_template_gitignore_swallows_fails() {
 }
 
 test_an_npm_advisory_fails_unless_accepted() {
-  fixture
   # one accepted id and one not, the second reached through a dependency name
   # as well as its url
   cat >"$T/npm-audit.json" <<'EOF'
@@ -293,7 +272,6 @@ EOF
 }
 
 test_an_accepted_npm_advisory_alone_passes() {
-  fixture
   cat >"$T/npm-audit.json" <<'EOF'
 {"metadata":{"vulnerabilities":{"total":1}},"vulnerabilities":{
   "braces":{"via":[{"url":"https://github.com/advisories/GHSA-vfj7-8cjw-p6xm"}]}}}
@@ -304,14 +282,12 @@ EOF
 }
 
 test_an_npm_audit_that_did_not_run_fails() {
-  fixture
   t_run env FAIL=npm "$SCRIPTS/check.sh"
   t_rc 1
   t_out "npm ERR! registry unreachable" "npm audit did not run" "::error title=audit::audit failed"
 }
 
 test_an_empty_token_is_unset_for_zizmor() {
-  fixture
   # zizmor reads GH_TOKEN itself and refuses an empty one
   t_fake zizmor <<'EOF'
 #!/usr/bin/env bash
@@ -324,7 +300,6 @@ EOF
 }
 
 test_a_stale_own_file_fails() {
-  fixture
   echo 'on: pull_request' | t_shared .github/workflows/scorecard.yml
   t_run "$SCRIPTS/check.sh"
   t_rc 1
@@ -332,7 +307,6 @@ test_a_stale_own_file_fails() {
 }
 
 test_an_invalid_config_fails_and_renders_nothing() {
-  fixture
   t_target c dev missing.yml
   t_run "$SCRIPTS/check.sh"
   t_rc 2
@@ -341,7 +315,6 @@ test_an_invalid_config_fails_and_renders_nothing() {
 }
 
 test_no_templates_no_rendered_checks() {
-  fixture
   t_target a dev .github/workflows/plain.yml
   rm "$T/tree/repos/b.toml"
   "$SCRIPTS/usage.sh"

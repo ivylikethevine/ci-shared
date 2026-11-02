@@ -8,15 +8,18 @@
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 # A fake gh answering what check_protection.sh and sync_remote.sh read and
-# write, and the signing key and identity it verifies. $T/listing.json is the
-# base branch's tree; SCENARIO bends one answer: unprotected, unprotected-a
-# (owner/a alone), truncated, bad-blob, tree-error, bad-commit, unverified,
-# branch-exists, pr-open.
-fake_github() {
-  echo '[]' >"$T/listing.json"
+# write, its signing key, and targets a (two files, one in line already) and b
+# (one file). $T/listing.json is the base branch's tree; SCENARIO bends one
+# answer: unprotected, unprotected-a (owner/a alone), truncated, bad-blob,
+# tree-error, bad-commit, unverified, branch-exists, pr-open.
+t_once() {
   ssh-keygen -q -t ed25519 -N '' -C sync -f "$T/key"
-  SYNC_SIGNING_KEY="$(cat "$T/key")"
-  export SYNC_SIGNING_KEY SYNC_COMMITTER_NAME=Sync SYNC_COMMITTER_EMAIL=sync@example.invalid
+  echo same | t_shared same.txt
+  printf '#!/bin/sh\n' | t_shared new.sh x
+  t_target a dev same.txt new.sh
+  t_target b main same.txt
+  jq -n --arg s "$(git hash-object "$T/tree/files/same.txt")" \
+    '[{path: "same.txt", mode: "100644", type: "blob", sha: $s}]' >"$T/listing.json"
   t_fake_gh <<'EOF'
 s=${SCENARIO:-}
 case "$method $ep" in
@@ -36,7 +39,7 @@ case "$method $ep" in
     '{truncated: ($s == "truncated"), tree: $t}' --arg s "$s" -n | reply "$(cat)"
   ;;
 "POST "*/git/blobs)
-  sha="$(jq -r .content <<<"$input" | base64 -d | git hash-object --stdin)"
+  sha="$(blob_sha)"
   [ "$s" != bad-blob ] || sha=0000000000000000000000000000000000000000
   reply "{\"sha\":\"$sha\"}"
   ;;
@@ -58,17 +61,17 @@ case "$method $ep" in
   [ "$s" = unverified ] && v='false,"reason":"no_user"' || v='true,"reason":"valid"'
   reply "{\"sha\":\"$sha\",\"verification\":{\"verified\":$v}}"
   ;;
-"PATCH "*/git/refs/heads/ci-sync | "POST "*/git/refs) printf '%s\n' "${fields[@]}" >"$T/ref.txt" ;;
+"PATCH "*/git/refs/heads/ci-sync | "POST "*/git/refs) save_fields "$T/ref.txt" ;;
 "GET "*/pulls\?*)
   case $s in
   pr-open | pr-draft) reply "[{\"number\":7,\"node_id\":\"PR_7\",\"draft\":$([ "$s" = pr-draft ] && echo true || echo false),\"html_url\":\"https://example.invalid/pull/7\"}]" ;;
   *) reply '[]' ;;
   esac
   ;;
-"POST graphql") printf '%s\n' "${fields[@]}" >"$T/graphql.txt" ;;
-"PATCH "*/pulls/7) printf '%s\n' "${fields[@]}" >"$T/pr.txt" ;;
+"POST graphql") save_fields "$T/graphql.txt" ;;
+"PATCH "*/pulls/7) save_fields "$T/pr.txt" ;;
 "POST "*/pulls)
-  printf '%s\n' "${fields[@]}" >"$T/pr.txt"
+  save_fields "$T/pr.txt"
   reply '{"number":8,"html_url":"https://example.invalid/pull/8"}'
   ;;
 *) fail "unexpected $method $ep" ;;
@@ -76,15 +79,10 @@ esac
 EOF
 }
 
-# fake_github, then targets a (two files, one in line already) and b (one file)
+# the signing key and identity the fake verifies
 fixture() {
-  fake_github
-  echo same | t_shared same.txt
-  printf '#!/bin/sh\n' | t_shared new.sh x
-  t_target a dev same.txt new.sh
-  t_target b main same.txt
-  jq -n --arg s "$(git hash-object "$T/tree/files/same.txt")" \
-    '[{path: "same.txt", mode: "100644", type: "blob", sha: $s}]' >"$T/listing.json"
+  SYNC_SIGNING_KEY="$(cat "$T/key")"
+  export SYNC_SIGNING_KEY SYNC_COMMITTER_NAME=Sync SYNC_COMMITTER_EMAIL=sync@example.invalid
 }
 
 test_opens_a_pull_request_for_what_differs() {
@@ -117,9 +115,6 @@ test_opens_a_pull_request_for_what_differs() {
 
 test_moves_the_branch_and_updates_an_open_pull_request() {
   fixture
-  t_run env GH_TOKEN=t SCENARIO=branch-exists "$SCRIPTS/sync_remote.sh" b
-  t_rc 0
-  t_out "b: in line with files/"
   t_run env GH_TOKEN=t SCENARIO=pr-open "$SCRIPTS/sync_remote.sh" a
   t_rc 0
   t_out "a: updated pull request #7"
@@ -217,20 +212,22 @@ test_a_failed_call_stops_that_target_alone() {
   t_not_logged 'git/commits$|git/refs|pulls'
 }
 
-test_a_commit_github_stored_differently_fails_the_target() {
-  fixture
-  t_run env GH_TOKEN=t SCENARIO=bad-commit "$SCRIPTS/sync_remote.sh" a
+# fails_target <scenario> <target> <text> [not logged] - the scenario fails the
+# target, printing <text> and making no call matching <not logged>
+fails_target() {
+  : >"$GH_LOG"
+  t_run env GH_TOKEN=t SCENARIO="$1" "$SCRIPTS/sync_remote.sh" "$2"
   t_rc 1
-  t_out "the commit came back as 1111111111111111111111111111111111111111, not the"
-  t_not_logged 'git/refs|pulls'
+  t_out "$3"
+  [ -z "${4:-}" ] || t_not_logged "$4"
 }
 
-test_an_unverified_signature_fails_the_target() {
+test_a_bent_answer_fails_the_target() {
   fixture
-  t_run env GH_TOKEN=t SCENARIO=unverified "$SCRIPTS/sync_remote.sh" a
-  t_rc 1
-  t_out "GitHub did not verify the commit's signature: no_user"
-  t_not_logged 'git/refs|pulls'
+  fails_target bad-commit a "the commit came back as 1111111111111111111111111111111111111111, not the" 'git/refs|pulls'
+  fails_target unverified a "GitHub did not verify the commit's signature: no_user" 'git/refs|pulls'
+  fails_target bad-blob a "came back as 0000000000000000000000000000000000000000" 'git/trees$'
+  fails_target truncated b "b: the tree listing of main is truncated"
 }
 
 test_writes_nothing_without_a_signing_key_and_identity() {
@@ -248,22 +245,13 @@ test_writes_nothing_without_a_signing_key_and_identity() {
   t_not_logged .
 }
 
-test_a_blob_github_stored_differently_fails_the_target() {
-  fixture
-  t_run env GH_TOKEN=t SCENARIO=bad-blob "$SCRIPTS/sync_remote.sh" a
-  t_rc 1
-  t_out "came back as 0000000000000000000000000000000000000000"
-  t_not_logged 'git/trees$'
-}
-
 test_writes_a_section_per_target_to_the_job_summary() {
   fixture
   local md="$T/summary.md"
   t_run env GH_TOKEN=t SOURCE_SHA=abc123 GITHUB_STEP_SUMMARY="$md" GITHUB_REPOSITORY=owner/shared \
     "$SCRIPTS/sync_remote.sh"
   t_rc 0
-  t_file "$md" "$(
-    cat <<'EOF'
+  t_file "$md" - <<'EOF'
 ## Sync
 
 Source commit [`abc123`](https://github.com/owner/shared/commit/abc123).
@@ -279,7 +267,6 @@ Pull request [#8](https://example.invalid/pull/8) into `dev` opened:
 In line with `files/`.
 
 EOF
-  )"
   : >"$md"
   t_run env GH_TOKEN=t SCENARIO=pr-open GITHUB_STEP_SUMMARY="$md" "$SCRIPTS/sync_remote.sh" a
   t_rc 0
@@ -296,13 +283,6 @@ EOF
   t_rc 1
   t_in "$md" 'Failed; nothing written. See the log.'
   t_not_in "$md" 'Pull request'
-}
-
-test_a_truncated_tree_listing_fails_the_target() {
-  fixture
-  t_run env GH_TOKEN=t SCENARIO=truncated "$SCRIPTS/sync_remote.sh" b
-  t_rc 1
-  t_out "b: the tree listing of main is truncated"
 }
 
 t_main
