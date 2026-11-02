@@ -53,15 +53,20 @@ exec "$python" \${opts[@]+"\${opts[@]}"} "\$@"
 EOF
 chmod +x "$out/bin/python3"
 
-# One kcov run per suite, which coverage.py adds together: in one run over
-# several suites, kcov loses the lines of some scripts (rulesets.sh) that each
-# suite alone records, and its --merge drops the lines no suite hit.
-rc=0
-for suite in "$repo"/tests/*_test.sh; do
-  suite="$(basename "$suite" _test.sh)"
+# One kcov run per suite, side by side, which coverage.py adds together: in one
+# run over several suites, kcov loses the lines of some scripts (rulesets.sh) that
+# each suite alone records, and its --merge drops the lines no suite hit.
+# shellcheck source=./parallel.sh
+source "$repo/tests/parallel.sh"
+run_one() {
   PATH="$out/bin:$PATH" kcov --include-path="$repo/scripts" \
-    --bash-parse-files-in-dir="$repo/scripts" "$out/kcov/$suite" "$repo/tests/run.sh" "$suite" || rc=1
-done
+    --bash-parse-files-in-dir="$repo/scripts" "$out/kcov/$1" "$repo/tests/run.sh" "$1"
+}
+suites=()
+for suite in "$repo"/tests/*_test.sh; do suites+=("$(basename "$suite" _test.sh)"); done
+run_parallel "${suites[@]}"
+rc=0
+[ "$FAILED" = 0 ] || rc=1
 echo "reports: $out/kcov/<suite>/index.html"
 "$python" -I "$repo/tests/coverage.py" "$out"/kcov/*/run.sh/cobertura.xml "$repo"/scripts/*.sh || rc=1
 "$python" -m coverage combine --rcfile="$repo/pyproject.toml" --quiet "$out/python"

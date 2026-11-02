@@ -3,22 +3,14 @@ repository = "ivylikethevine/instadroid"
 # the branch sync pull requests go to: main or dev
 sync_branch = "main"
 
-# repos/_base.toml's paths, less any `skip` names
-base = true
+# those groups' paths, less any `skip` names
+base = ["_base", "_images"]
 
 # paths from files/ beyond those, each at the path it has in this repository
 files = [
-  ".github/actions/advisory-note/action.yml",
-  ".github/actions/fetch-latest-artifact/action.yml",
-  ".github/actions/mark-tree/action.yml",
-  ".github/allowed_signers",
-  ".github/scripts/find_tree_run.sh",
-  ".github/scripts/scan_pinned_images.sh",
   ".github/scripts/trivy_scan.sh",
   ".github/workflows/advisories.yml",
-  ".github/workflows/image-scan.yml",
   ".github/workflows/pages.yml",
-  "_config.yml",
 ]
 
 # the values every template takes
@@ -56,5 +48,4 @@ required_status_checks = [
 # Scorecard is left out: its pull_request run grades the checkout locally, and
 # the score the badge shows comes from the runs on main
 code_scanning_tools = ["CodeQL", "Trivy"]
-code_quality = false
 code_coverage = { minimum_coverage = 90, max_coverage_drop = 2 }

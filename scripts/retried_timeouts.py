@@ -26,27 +26,20 @@ import argparse
 import json
 import os
 import re
-import subprocess
 import sys
-import time
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
-from typing import Final, TextIO, TypeAlias, TypedDict, TypeVar, cast
+from typing import Final, TextIO, TypedDict, cast
 
-Json: TypeAlias = "str | int | float | bool | None | list[Json] | dict[str, Json]"
-T = TypeVar("T")
+from gh_api import GhError, Json, gh, pages
 
 HERE: Final[str] = os.environ.get("CI_SHARED_DIR") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PER_PAGE: Final[int] = 100
 # the runs endpoint returns at most this many runs for one filtered search
 SEARCH_LIMIT: Final[int] = 1000
 TIMEOUT: Final[re.Pattern[str]] = re.compile(
     r"The job\b.*exceeded the maximum execution time|The action .* has timed out after"
 )
 TIME_FORMAT: Final[str] = "%Y-%m-%dT%H:%M:%SZ"
-# seconds before each new try of a call GitHub answered with a 5xx
-RETRY_DELAYS: Final[tuple[int, ...]] = (1, 3)
-SERVER_ERROR: Final[re.Pattern[str]] = re.compile(r"HTTP 5\d\d")
 
 
 class Repo(TypedDict):
@@ -109,39 +102,6 @@ class Entry(TypedDict):
     failed_minutes: float
     delay_minutes: float
     url: str
-
-
-class GhError(Exception):
-    pass
-
-
-def gh(endpoint: str) -> Json:
-    delay: int
-    for delay in RETRY_DELAYS:
-        done: subprocess.CompletedProcess[str] = subprocess.run(
-            ["gh", "api", endpoint], capture_output=True, text=True, check=False
-        )
-        if done.returncode == 0 or not SERVER_ERROR.search(done.stderr):
-            break
-        time.sleep(delay)
-    else:
-        done = subprocess.run(["gh", "api", endpoint], capture_output=True, text=True, check=False)
-    if done.returncode != 0:
-        raise GhError(f"{endpoint}: {done.stderr.strip()}")
-    return cast(Json, json.loads(done.stdout))
-
-
-def pages(path: str, _: type[T], key: str = "", query: str = "") -> list[T]:
-    """Every item of a listing, from `key` of each page or the page itself."""
-    items: list[T] = []
-    page: int = 1
-    while True:
-        body: Json = gh(f"{path}?{query}per_page={PER_PAGE}&page={page}")
-        batch: list[T] = cast("dict[str, list[T]]", body)[key] if key else cast("list[T]", body)
-        items += batch
-        if len(batch) < PER_PAGE:
-            return items
-        page += 1
 
 
 def stamp(when: datetime) -> str:

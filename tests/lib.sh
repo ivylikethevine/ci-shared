@@ -20,9 +20,13 @@ _T_PATH="$PATH"
 # t_setup - a fresh $T; the environment the scripts read reset to it
 t_setup() {
   T="$(mktemp -d "${TMPDIR:-/tmp}/ci-shared-test.XXXXXX")"
-  mkdir -p "$T/bin" "$T/tree/repos" "$T/tree/files" "$T/tree/rulesets"
-  # the shared rulesets, not this repository's own values (t_self)
-  cp "$REPO_DIR"/rulesets/*.json "$T/tree/rulesets/"
+  if [ -n "${_T_TEMPLATE:-}" ]; then
+    cp -a "$_T_TEMPLATE/." "$T/"
+  else
+    mkdir -p "$T/bin" "$T/tree/repos" "$T/tree/files" "$T/tree/rulesets"
+    # the shared rulesets, not this repository's own values (t_self)
+    cp "$REPO_DIR"/rulesets/*.json "$T/tree/rulesets/"
+  fi
   export T PATH="$T/bin:$_T_PATH" CI_SHARED_DIR="$T/tree" GH_LOG="$T/gh.log"
   # every SYNC_ and GITHUB_ variable too: a token of the machine's, or the
   # real job summary of a suite run in Actions, stays out of the fixtures
@@ -93,9 +97,12 @@ t_eq() {
   [ "$1" = "$2" ] || t_fail "$3: got '$1', wanted '$2'"
 }
 
-# t_file <path> <want> - the file holds exactly <want> and a newline
+# t_file <path> <want> - the file holds exactly <want> and a newline; a <want>
+# of `-` is read from stdin
 t_file() {
-  [ "$(cat "$1")" = "$2" ] || t_fail "$1 holds '$(cat "$1")', wanted '$2'"
+  local want=$2
+  [ "$want" != - ] || want="$(cat)"
+  [ "$(cat "$1")" = "$want" ] || t_fail "$1 holds '$(cat "$1")', wanted '$want'"
 }
 
 # t_match <file> <regex...> - the file has a line matching each extended
@@ -125,9 +132,10 @@ t_fake() {
 
 # t_fake_gh - writes a fake `gh api` whose answers stdin's bash decides. The
 # prologue parses the call into $method, $ep, $fields (-f/-F values), $input
-# (an --input - body), $jqf (--jq) and $include (--include: 1 or 0), logs
-# "METHOD endpoint" to $GH_LOG and "token endpoint" to $T/tokens.log; the body
-# answers with `reply <json>` (filtered through --jq, as gh does) or `fail`.
+# (an --input - body) and $jqf (--jq), logs "METHOD endpoint" to $GH_LOG and
+# "token endpoint" to $T/tokens.log; the body answers with `reply <json>`
+# (filtered through --jq, as gh does) or `fail`, and may use `save_fields <file>`,
+# `blob_sha` (of a posted blob) and `first_call <name>` (true once per test).
 t_fake_gh() {
   {
     cat <<'EOF'
@@ -135,14 +143,13 @@ t_fake_gh() {
 set -u
 [ "$1" = api ] || exit 2
 shift
-method="" ep="" jqf="" input="" include=0 fields=()
+method="" ep="" jqf="" input="" fields=()
 while [ $# -gt 0 ]; do
   case $1 in
   -X) method=$2 && shift 2 ;;
   --jq) jqf=$2 && shift 2 ;;
   --input) input="$(cat)" && shift 2 ;;
   -f | -F) fields+=("$2") && shift 2 ;;
-  -i | --include) include=1 && shift ;;
   *) ep=$1 && shift ;;
   esac
 done
@@ -158,6 +165,15 @@ reply() {
 fail() {
   echo "gh: ${1:-HTTP 500}" >&2
   exit 1
+}
+save_fields() {
+  printf '%s\n' "${fields[@]}" >"$1"
+}
+blob_sha() {
+  jq -r .content <<<"$input" | base64 -d | git hash-object --stdin
+}
+first_call() {
+  [ ! -e "$T/$1" ] && : >"$T/$1"
 }
 EOF
     cat
@@ -220,11 +236,31 @@ t_checkout() {
   t_git "$dir" commit -q --allow-empty -m fixture
 }
 
+# t_own_sources - stubs in tree/files/ for what scripts/own_files.sh copies
+t_own_sources() {
+  local f
+  for f in codeql link-check rerun-timeouts scorecard tool-versions; do
+    echo 'on: push' | t_shared ".github/workflows/$f.yml"
+  done
+  echo 'version: 2' | t_shared .github/dependabot.yml
+  echo 'local/' | t_shared .gitignore
+  echo 'version = 1' | t_shared REUSE.toml
+}
+
 # t_main - runs every test_* function this suite defines, or those T_ONLY (an
-# extended regex) matches
+# extended regex) matches. A suite's `t_once` builds a fixture once, in a $T each
+# test starts as a copy of, so it holds no path into $T and exports nothing.
 t_main() {
   local fn rc pass=0 failed=0 suite
   suite="$(basename "$0" .sh)"
+  if declare -F t_once >/dev/null; then
+    _T_TEMPLATE="$(
+      set -e
+      t_setup
+      t_once >&2
+      printf '%s' "$T"
+    )"
+  fi
   for fn in $(declare -F | awk -v only="${T_ONLY:-.}" '$3 ~ /^test_/ && $3 ~ only { print $3 }'); do
     # outside any `if`, and set -e again inside: a subshell inherits the +e
     set +e
@@ -243,6 +279,7 @@ t_main() {
       echo "$suite: $fn failed"
     fi
   done
+  T="${_T_TEMPLATE:-}" t_cleanup
   echo "$suite: $pass passed, $failed failed"
   exit "$failed"
 }

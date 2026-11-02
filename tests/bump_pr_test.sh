@@ -10,8 +10,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 # A checkout at $T/tree with one committed file, and the patch changing it. BRANCH
 # set means the branch exists, PR its open pull request, UNVERIFIED a commit GitHub
 # did not verify, BAD_BLOB a blob stored with other bytes.
-fixture() {
-  export GITHUB_REPOSITORY=owner/repo
+t_once() {
   t_git "$T/tree" init -q
   printf 'one\n' >"$T/tree/pins.txt"
   mkdir -p "$T/tree/s"
@@ -28,8 +27,7 @@ fixture() {
 case "$method $ep" in
 "POST repos/owner/repo/git/blobs")
   [ -z "${BAD_BLOB:-}" ] || { reply '{"sha": "wrong"}'; exit 0; }
-  sha="$(jq -r .content <<<"$input" | base64 -d | git hash-object --stdin)"
-  reply "{\"sha\": \"$sha\"}"
+  reply "{\"sha\": \"$(blob_sha)\"}"
   ;;
 "POST repos/owner/repo/git/trees")
   echo "$input" >"$T/tree.json"
@@ -47,19 +45,22 @@ case "$method $ep" in
   [ -n "${BRANCH:-}" ] || fail "HTTP 404"
   reply '{"object": {"sha": "old"}}'
   ;;
-"PATCH repos/owner/repo/git/refs/heads/tool-bumps") printf '%s\n' "${fields[@]}" >"$T/ref.log" ;;
-"POST repos/owner/repo/git/refs") printf '%s\n' "${fields[@]}" >"$T/ref.log" ;;
+"PATCH repos/owner/repo/git/refs/heads/tool-bumps" | "POST repos/owner/repo/git/refs") save_fields "$T/ref.log" ;;
 "GET repos/owner/repo/pulls?head=owner:tool-bumps&base=main&state=open")
   if [ -n "${PR:-}" ]; then reply "[{\"number\": $PR}]"; else reply '[]'; fi
   ;;
-"PATCH repos/owner/repo/pulls/"*) printf '%s\n' "${fields[@]}" >"$T/pr.log" ;;
+"PATCH repos/owner/repo/pulls/"*) save_fields "$T/pr.log" ;;
 "POST repos/owner/repo/pulls")
-  printf '%s\n' "${fields[@]}" >"$T/pr.log"
+  save_fields "$T/pr.log"
   reply '{"number": 7}'
   ;;
 *) fail "HTTP 404 $method $ep" ;;
 esac
 EOF
+}
+
+fixture() {
+  export GITHUB_REPOSITORY=owner/repo
 }
 
 test_a_first_run_makes_the_branch_and_opens_a_draft() {

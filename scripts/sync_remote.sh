@@ -42,6 +42,7 @@ case "${1:-}" in
 --drift) dry=1 drift=1 && shift ;;
 esac
 repos="$(ci_repos "$@")"
+rows="$(ci_rows "$@")"
 source_sha="${SOURCE_SHA:-$(git -C "$CI_SHARED_DIR" rev-parse HEAD 2>/dev/null || echo unknown)}"
 source_ref="\`$source_sha\`"
 # a link where the workflow runs, a bare sha in a local run
@@ -79,7 +80,7 @@ fi
 # open_pr <slug> <base> - prints "number node_id draft url" of the open sync
 # pull request into base, if any
 open_pr() {
-  ci_open_sync_pr "$1" "$2" '"\(.number) \(.node_id) \(.draft) \(.html_url)"'
+  ci_open_pr "$1" "$CI_SYNC_BRANCH" "$2" '"\(.number) \(.node_id) \(.draft) \(.html_url)"'
 }
 
 # create_commit <slug> <tree> <parent> <message> - creates the commit, signed
@@ -103,10 +104,7 @@ create_commit() {
     echo "the commit came back as ${got%% *}, not the $want that was signed" >&2
     return 1
   fi
-  if [ "$(cut -d' ' -f2 <<<"$got")" != true ]; then
-    echo "GitHub did not verify the commit's signature: ${got##* }" >&2
-    return 1
-  fi
+  ci_check_verified "$got" || return 1
   printf '%s\n' "$want"
 }
 
@@ -139,7 +137,7 @@ sync_repo() {
     files="$files- \`$path\`"$'\n'
     entries="$entries$path"$'\t'"$mode"$'\t'"${want%% *}"$'\n'
     [ "$dry" = 1 ] || ci_upload_blob "$slug" "$rendered"
-  done < <(ci_targets "$name")
+  done < <(ci_targets "$name" "$rows")
 
   if [ -z "$files" ]; then
     echo "$name: in line with files/"
@@ -165,10 +163,7 @@ sync_repo() {
   fi
 
   local new_tree commit number node draft url verb body
-  # one `path<TAB>mode<TAB>sha` line per entry
-  new_tree="$(printf '%s' "$entries" | jq -Rn --arg b "$tree" \
-    '{base_tree: $b, tree: [inputs | split("\t") | {path: .[0], mode: .[1], type: "blob", sha: .[2]}]}' |
-    gh api "repos/$slug/git/trees" --input - --jq .sha)"
+  new_tree="$(ci_create_tree "$slug" "$tree" "$entries")"
   commit="$(create_commit "$slug" "$new_tree" "$head" "$TITLE"$'\n\n'"Source: $source_sha")"
   # an open pull request marked ready goes back to draft before the branch
   # moves, so the push starts no CI until it is marked ready again
@@ -179,11 +174,7 @@ sync_repo() {
     [ "$draft" = true ] || gh api graphql -f id="$node" \
       -f query='mutation($id: ID!) { convertPullRequestToDraft(input: {pullRequestId: $id}) { clientMutationId } }' >/dev/null
   fi
-  if gh api "repos/$slug/git/ref/heads/$CI_SYNC_BRANCH" >/dev/null 2>&1; then
-    gh api -X PATCH "repos/$slug/git/refs/heads/$CI_SYNC_BRANCH" -f sha="$commit" -F force=true >/dev/null
-  else
-    gh api "repos/$slug/git/refs" -f ref="refs/heads/$CI_SYNC_BRANCH" -f sha="$commit" >/dev/null
-  fi
+  ci_move_branch "$slug" "$CI_SYNC_BRANCH" "$commit"
 
   body="Brings the shared CI files in line with source commit \`$source_sha\`. Change the source copy, not this branch: the next sync overwrites it."$'\n\n'"$files"
   if [ -n "$pr" ]; then

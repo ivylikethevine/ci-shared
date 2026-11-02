@@ -16,8 +16,7 @@ test_writes_the_table_and_check_agrees() {
   fixture
   t_run "$SCRIPTS/usage.sh"
   t_rc 0
-  t_file "$T/tree/USAGE.md" "$(
-    cat <<'EOF'
+  t_file "$T/tree/USAGE.md" - <<'EOF'
 # Usage
 
 Which repositories receive each shared file, written by
@@ -29,7 +28,6 @@ Which repositories receive each shared file, written by
 | `.github/a-much-longer-shared-path.yml` | x     |   | 1     |
 | **Files per repository**                | 2     | 1 | 2     |
 EOF
-  )"
   t_run "$SCRIPTS/usage.sh" --check
   t_rc 0
 }

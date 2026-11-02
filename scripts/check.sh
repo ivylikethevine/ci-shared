@@ -1,19 +1,8 @@
 #!/usr/bin/env bash
 # Runs the checks this repository ships over the repository itself, files/
-# included, with the shared configs: that every tools.txt tool checks.yml
-# installs is its pinned version here, shellcheck and shfmt (.shellcheckrc,
-# .editorconfig), constricter over the Python (pyproject.toml), actionlint, lint_workflows.sh, zizmor (.github/zizmor.yml),
-# prettier and markdownlint (.prettierrc.yaml, .markdownlint.yaml), lychee
-# offline over the tracked Markdown (lychee.toml), typos,
-# gitleaks over the history, reuse lint (REUSE.toml, LICENSES/), pip-audit over
-# requirements-dev.txt and npm audit over .github/package-lock.json (less the advisories
-# files/.github/osv-scanner.toml accepts), then each template as every target
-# receives it:
-# actionlint and lint_workflows.sh for a workflow, markdownlint for Markdown,
-# prettier for what it has a parser for, and no `__key__` left that a target
-# sets. USAGE.md and the copies scripts/own_files.sh writes must be
-# current, and no shared file be ignored by files/.gitignore. CI's checks
-# workflow runs the same script.
+# included, with the shared configs, then each template as every target receives
+# it: the `run` lines below are the list. CI's checks workflow runs the same
+# script.
 #
 #   scripts/check.sh
 #
@@ -120,8 +109,9 @@ run reuse reuse --no-multiprocessing lint
 
 # The locks, as advisories.yml reads them: npm audit exits non-zero on a
 # finding and on a failure alike, and its JSON carries a count only when the
-# audit ran. An advisory is its GHSA id, the last segment of the url npm
-# reports it under.
+# audit ran.
+# shellcheck source=../files/.github/scripts/lib.sh
+source "$CI_SCRIPTS_DIR/../files/.github/scripts/lib.sh"
 # shellcheck disable=SC2329 # run calls it by name
 audit() {
   local ok=0 report open
@@ -133,8 +123,8 @@ audit() {
     echo "npm audit did not run"
     ok=1
   else
-    open="$(jq -r '[.vulnerabilities[]?.via[] | objects | .url | sub(".*/"; "")] | unique[]' "$report" |
-      grep -vxFf <(sed -n 's/^id = "\(GHSA[-0-9a-z]*\)"$/\1/p' files/.github/osv-scanner.toml) || true)"
+    open="$(_ci_npm_audit_reported "$report" |
+      grep -vxFf <(_ci_npm_audit_accepted files/.github/osv-scanner.toml) || true)"
     [ -z "$open" ] || {
       echo "npm audit reports advisories files/.github/osv-scanner.toml does not accept:"
       echo "$open"
@@ -152,18 +142,18 @@ run own-files "$CI_SCRIPTS_DIR/own_files.sh" --check
 run config ci_load
 rows="$(ci_rows)"
 
-# Every target has a mint step in sync.yml and a TOKEN_<NAME> line taking its
-# token: one missing otherwise only shows when a run skips the target.
+# Every target has a mint step in sync.yml: one missing otherwise only shows
+# when a run skips the target.
 # shellcheck disable=SC2329 # run calls it by name
 mint() {
-  local ok=0 name secret
-  while read -r name secret; do
-    if ! grep -qE "^ +repositories: $name\$" .github/workflows/sync.yml ||
-      ! grep -qF "${secret#SYNC_}: \${{ steps.app-$name.outputs.token }}" .github/workflows/sync.yml; then
-      echo "$name has no mint step or ${secret#SYNC_} line in .github/workflows/sync.yml"
+  local ok=0 name
+  while read -r name; do
+    if ! grep -qE "^ +- id: app-$name\$" .github/workflows/sync.yml ||
+      ! grep -qE "^ +TARGET: $name\$" .github/workflows/sync.yml; then
+      echo "$name has no mint step in .github/workflows/sync.yml"
       ok=1
     fi
-  done < <(ci_configs | jq -r '.[] | "\(.name) \(.token_secret)"')
+  done < <(ci_configs | jq -r '.[].name')
   return "$ok"
 }
 run mint mint
@@ -197,7 +187,12 @@ while read -r name path vars; do
   .github/workflows/*) workflows_rendered+=("$rendered/$name/$path") ;;
   *.md) md_rendered+=("$rendered/$name/$path") ;;
   esac
-  for kv in $vars; do keys[$path]="${keys[$path]:-} ${kv%%=*}"; done
+  for kv in $vars; do
+    case " ${keys[$path]:-} " in
+    *" ${kv%%=*} "*) ;;
+    *) keys[$path]="${keys[$path]:-} ${kv%%=*}" ;;
+    esac
+  done
 done <<<"$rows"
 
 # A `__key__` still in a rendering, for a key any target gives that path: a

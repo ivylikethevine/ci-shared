@@ -13,7 +13,7 @@ blob() {
 # receive a template with their own values, which d holds unrendered for it
 # (no values), so d's copy matches b's blob but not files/; lychee.toml is b's
 # alone
-fixture() {
+t_once() {
   echo shared | t_shared .editorconfig
   printf 'v: __v__\n' | t_shared .github/t.yml
   for n in a b c d; do t_target "$n" dev; done
@@ -35,7 +35,6 @@ EOF
 }
 
 test_groups_copies_and_marks_files_matches() {
-  fixture
   t_run "$SCRIPTS/census.sh"
   t_rc 0
   # awk prints a path's groups in no set order
@@ -53,7 +52,6 @@ EOF
 }
 
 test_drift_keeps_paths_with_several_copies() {
-  fixture
   t_checkout e ".editorconfig=shared" "lychee.toml=x"
   t_target e dev
   t_git "$T/b" rm -q .editorconfig
@@ -68,7 +66,6 @@ test_drift_keeps_paths_with_several_copies() {
 
 # a path outside the CI pattern counts once files/ holds it
 test_counts_every_shared_path() {
-  fixture
   echo site | t_shared _config.yml
   echo zed | t_shared .zed/settings.json
   t_checkout e "_config.yml=site" ".zed/settings.json=zed" "Makefile=x"
@@ -84,7 +81,6 @@ test_counts_every_shared_path() {
 # c and d hold .editorconfig and d .github/t.yml without listing them; a lists
 # nothing and holds none
 test_gaps_lists_unlisted_copies_and_missing_files() {
-  fixture
   t_run "$SCRIPTS/census.sh" --gaps "$T"
   t_rc 0
   t_eq "$(cat "$T/out")" ".editorconfig

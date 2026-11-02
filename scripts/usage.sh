@@ -13,15 +13,14 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 ci_load
 
 out="$CI_SHARED_DIR/USAGE.md"
-rows="$(ci_rows)"
 
 render() {
-  local names=() lists=() slug i
-  # each target's paths once, as a newline-wrapped list the cells search
-  while read -r slug _; do
-    names+=("${slug#*/}")
-    lists+=($'\n'"$(awk -v n="${slug#*/}" '$1 == n { print $2 }' <<<"$rows")"$'\n')
-  done < <(ci_repos)
+  local names=() lists=() name files i
+  # each target's paths once, as a space-wrapped list the cells search
+  while IFS=$'\t' read -r name files; do
+    names+=("$name")
+    lists+=(" $files ")
+  done < <(ci_configs | jq -r '.[] | "\(.name)\t\(.files | join(" "))"')
 
   printf '# Usage\n\n'
   printf 'Which repositories receive each shared file, written by\n'
@@ -33,7 +32,7 @@ render() {
     count=0
     for i in "${!names[@]}"; do
       case "${lists[$i]}" in
-      *$'\n'"$path"$'\n'*)
+      *" $path "*)
         row="$row"$'\t'x
         count=$((count + 1))
         ;;
@@ -75,26 +74,14 @@ render() {
 # template, one bullet per row that sets any beyond the implicit `repo` and
 # its `values`.
 render_values() {
-  local name path vars last="" lines=""
-  local -A values=()
-  while IFS=$'\x1f' read -r name vars; do
-    values[$name]=$vars
-  done < <(ci_configs | jq -r "$CI_JQ_PAIRS"'.[] | select(.values != {}) | [.name, (.values | pairs)] | join("\u001f")')
-  while read -r name path vars; do
-    if [ "$name" != "$last" ] && [ -n "${values[$name]:-}" ]; then
-      lines="$lines- every template in $name: \`${values[$name]//%20/ }\`"$'\n'
-    fi
-    last=$name
-    vars="${vars#"repo=$name"}"
-    vars="${vars# }"
-    vars="${vars#"${values[$name]:-}"}"
-    vars="${vars# }"
-    [ -n "$vars" ] || continue
-    lines="$lines- \`$path\` in $name: \`${vars//%20/ }\`"$'\n'
-  done <<<"$rows"
-  [ -n "$lines" ] || return 0
-  printf '\n## Template values\n\n'
-  printf '%s' "$lines"
+  # shellcheck disable=SC2016 # jq's $vars, not the shell's
+  ci_configs | jq -r '
+    def pairs: [to_entries[] | "\(.key)=\(.value)"] | join(" ");
+    def code: "\u0060\(.)\u0060";
+    .[] | .name as $n | .templates as $t
+    | (select(.values != {} and .files != []) | "- every template in \($n): \(.values | pairs | code)"),
+      (.files[] as $f | $t[$f] // empty | select(. != {}) | "- \($f | code) in \($n): \(pairs | code)")' |
+    awk 'NR == 1 { printf "\n## Template values\n\n" } { print }'
 }
 
 usage() {

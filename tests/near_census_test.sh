@@ -27,15 +27,14 @@ fixture() {
 }
 
 census() {
-  t_run "$REPO_DIR/scripts/near_census.py" "$@"
+  t_run "$SCRIPTS/near_census.py" "$@"
 }
 
 test_scores_each_copy_against_the_largest_group() {
   fixture
   census
   t_rc 0
-  t_file "$T/out" "$(
-    cat <<'EOF'
+  t_file "$T/out" - <<'EOF'
 bin.dat
   5d98346  say-hi  [reference, 1 lines]
   b3edade  sharerr-rs  [binary]
@@ -46,7 +45,6 @@ name.txt
   52340e8  say-hi  [reference, 1 lines]
   44f8593  sharerr-rs  [1 lines differ of 1, ratio 0.00]
 EOF
-  )"
 }
 
 test_normalize_all_min_and_named_repos() {
@@ -54,8 +52,7 @@ test_normalize_all_min_and_named_repos() {
   census --normalize --all --min 2 "$T" sharerr-rs say-hi nogit
   t_rc 0
   # names folded, name.txt is one group; bin.dat, not text, is compared as it is
-  t_file "$T/out" "$(
-    cat <<'EOF'
+  t_file "$T/out" - <<'EOF'
 bin.dat
   da33e41  say-hi  [reference, 1 lines]
   1b6dae7  sharerr-rs  [binary]
@@ -67,7 +64,6 @@ name.txt
 same.txt (files/)
   2c985b1  say-hi sharerr-rs  [reference, 1 lines]
 EOF
-  )"
   census --min 3
   t_rc 0
   t_file "$T/out" "$(printf 'diff.txt\n  de98044  say-hi zzz  [reference, 3 lines]\n  7be73ce  sharerr-rs  [1 lines differ of 3, ratio 0.67]')"
@@ -80,14 +76,12 @@ test_normalize_folds_every_target_and_short_form() {
   t_checkout zzz a.txt="hello zzz" b.txt="hello ZZZ"
   census --normalize
   t_rc 0
-  t_file "$T/out" "$(
-    cat <<'EOF'
+  t_file "$T/out" - <<'EOF'
 a.txt
   ed533ff  say-hi zzz  [reference, 1 lines]
 b.txt
   ed533ff  say-hi zzz  [reference, 1 lines]
 EOF
-  )"
 }
 
 t_main

@@ -3,20 +3,8 @@ repository = "ivylikethevine/say-hi"
 # the branch sync pull requests go to: main or dev
 sync_branch = "main"
 
-# repos/_base.toml's paths, less any `skip` names
-base = true
-
-# paths from files/ beyond those, each at the path it has in this repository
-files = [
-  ".github/actions/advisory-note/action.yml",
-  ".github/actions/fetch-latest-artifact/action.yml",
-  ".github/actions/mark-tree/action.yml",
-  ".github/allowed_signers",
-  ".github/scripts/find_tree_run.sh",
-  ".github/scripts/scan_pinned_images.sh",
-  ".github/workflows/image-scan.yml",
-  "_config.yml",
-]
+# those groups' paths, less any `skip` names
+base = ["_base", "_images"]
 
 # the values a template takes, by path
 [templates.".gitignore"]

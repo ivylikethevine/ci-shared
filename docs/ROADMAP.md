@@ -19,8 +19,8 @@ Ranked by value for size; the numbers are the items below. S, M and L are sizes.
 4. 5.3's rescan of the lowered limits, from 2026-11-08 (S).
 5. 5.4's check, which needs a real pull request (S).
 6. 3.4, say-hi's and instadroid's release workflows (M).
-7. The batch when it is started, say-hi first: 1.4 (S), 1.3 (S), 1.2 (M, one
-   session per repository).
+7. The batch when it is started, say-hi first: 1.4 (S), 1.5 (M), 1.3 (S), 1.2 (M,
+   one session per repository).
 
 Waiting on upstream: 1.1, 2.1's runner label, 3.6, 5.1, 5.2. Not worth doing as
 things stand: 3.5.
@@ -74,6 +74,17 @@ so the inputs, their refusal logic in `install.sh` and the cases pinning them go
 together; `setup-tool` then reads the row's pin and sha256 alone. About 20 lines,
 and say-hi's `tests/packaging/packaging_ci_workflows_test.sh` loses its override
 cases in the same pass.
+
+### 1.5 Remove `setup-tool` for `setup-tools` (_batch_, after 1.4)
+
+Once 1.4 lands, `setup-tool` is `setup-tools` with one name: `resolve.sh` and
+`install-missing.sh` already loop over `install.sh`. Deleting it removes a 59-line
+action, `install.sh`'s `image=` output and a `repos/_base.toml` row. The action
+cannot leave `files/` first: 22 caller sites in the targets move to `tools: <name>`
+in the same batch (say-hi 3, sharerr-rs 11, instadroid 4, python-constricter 4,
+counted 2026-11-01, rendered shared workflows included), and `image-scan.yml`'s
+sparse list gains `setup-tools/`. Each tool downloads once more, since the cache key
+changes.
 
 ## 2. Platform changes with a date
 
@@ -143,8 +154,12 @@ knows 26.04. What changed under them, from GitHub's image comparison
   weekly run, the last under the PATs, naming drift and rulesets. The
   2026-11-02 run is the first under the App, and closes it if every check
   passes.
-- **Still by hand per target:** a mint step and a `TOKEN_<NAME>` line in
-  `sync.yml`, which `scripts/check.sh` now fails without.
+- **Still by hand per target:** a mint step in `sync.yml`, which
+  `scripts/check.sh` fails without.
+- **Verify:** the mint steps now share one `with:` through a YAML anchor, reading
+  `repositories` from each step's `env.TARGET`. Nothing here has run that form on
+  GitHub: run `sync.yml` by dispatch with `dry-run` before relying on it, and check
+  that all five tokens mint.
 
 ### 3.2 Bumps as a pull request, not a hand edit
 
@@ -280,8 +295,9 @@ and a template would be mostly per-repository blocks.
   job stayed `in_progress` after its post steps ended, so the run never
   completed and took `gh run cancel` before `gh run rerun --failed`. A retry
   of the download step there would ride it out.
-- **Measured, 2026-10-24 to 10-31:** `scratch/ci_census.py regions` over
-  sharerr-rs, instadroid, homebrew-tap and saffron. Of the 10 jobs that hit a
+- **Measured, 2026-10-24 to 10-31,** with a one-off script over the runner region
+  in each job's log, across sharerr-rs, instadroid, homebrew-tap and saffron. Of
+  the 10 jobs that hit a
   limit, the 9 whose logs remain all ran `block` on westus2; a sample of 400
   passing jobs held no `block` job on westus2, 20 `audit` jobs on westus2, and 77
   `block` jobs elsewhere. In one stuck job's post step, the runner's own
@@ -352,8 +368,8 @@ and a template would be mostly per-repository blocks.
 
 ### 5.4 Sync pull requests still run sharerr-rs's `CodeQL (rust)`
 
-- **What:** 135 of its 682 runner minutes in the week measured
-  (`scratch/ci_census.py`), and 34% of its minutes were `ci-sync`'s. Its other Rust
+- **What:** 135 of its 682 runner minutes in the week measured, and 34% of its
+  minutes were `ci-sync`'s. Its other Rust
   jobs and both Docker builds now skip a pull request that touches only shared
   CI files. This one is the shared `codeql.yml`, whose header says a skipped
   category leaves code scanning waiting on a result, and code scanning is in
