@@ -11,15 +11,18 @@ _batch_ are shared CI items: they go to every repository as one hand-run batch
 
 Ranked by value for size; the numbers are the items below. S, M and L are sizes.
 
-1. 3.1, the 2026-11-09 weekly run, which closes #4 if the rulesets now match
-   (S).
-2. 5.3's rescan of the lowered limits, from 2026-11-08 (S).
-3. 5.1's first refusal and 5.3's first automatic rerun on `main`, each on the
+1. 3.1, `repos/`' ruleset fix on `main` before the 2026-11-09 weekly run, which
+   closes #4 if the rulesets then match (S).
+2. 1.3 and 1.4, run `scripts/check.sh`, then commit and merge each repository's
+   part; the sync PRs carry the `files/` half (S).
+3. 5.3's rescan of the lowered limits, from 2026-11-08 (S).
+4. 5.1's first refusal and 5.3's first automatic rerun on `main`, each on the
    next run that shows it (S).
-4. 5.4's check, which needs a real pull request (S).
-5. 3.4, say-hi's and instadroid's merges and first tags under the setting (S).
-6. The batch when it is started, say-hi first: 1.4 (S), 1.5 (M), 1.3 (S), 1.2 (M,
-   one session per repository).
+5. 5.4's check, which needs a real pull request (S).
+6. 3.4, say-hi's and instadroid's merges to `main` and first tags under the
+   setting (S).
+7. The rest of the batch, say-hi first: 1.5 (M, once 1.4's sync has merged in
+   every target), 1.2 (M, one session per repository).
 
 Waiting on upstream: 1.1, 2.1's runner label, 3.6, 5.1, 5.2. Not worth doing as
 things stand: 3.5.
@@ -56,23 +59,31 @@ things stand: 3.5.
   session per repository; update each disabled-rules row that says only audit
   is supported.
 
-### 1.3 The targets' own action SHAs (_batch_)
+### 1.3 The targets' own action SHAs (_batch_, done in the trees 2026-11-06)
 
+- **Done, not committed:** every target's own workflows and actions, the files
+  the sync does not deliver, are on `files/`' pins or the ones their
+  `tool-versions` issues offered: harden-runner v2.22.3 everywhere, this
+  repository and `files/` included; docker/login-action v4.7.0, codeql
+  upload-sarif v4.39.1, setup-python v7.1.0, rust-cache v2.9.3, setup-uv
+  v10.3.2, cibuildwheel v4.3.4 and openbsd-vm v1.4.9 where used.
+  `scripts/stale_pins.sh` lists none behind; `scripts/bump_pins.sh` makes the
+  next round's edits. actionlint and each `lint_workflows.sh` pass;
+  `scripts/check.sh` has not run over it.
 - **Override:** markdownlint 0.42.0, which markdownlint-cli2 0.24.0 pulls in, pins
   `re2js` 2.8.6 under GHSA-gg6h-894w-4m9c, fixed in 2.8.7. `overrides` holds
   `re2js` at 2.9.0, the newest past the cooldown; drop it once markdownlint's
   own pin passes the advisory.
-- **Left:** the targets' own workflows keep the old action SHAs until each moves
-  them, as its own `tool-versions` issue will say. In the batch, say-hi goes
-  first.
+- **Left in the issues, not action SHAs:** say-hi's bashcov 4.0.1 and its
+  `bash:3.2` digest.
 
-### 1.4 Drop `setup-tool`'s `version` and `sha256` inputs (_batch_)
+### 1.4 Drop `setup-tool`'s `version` and `sha256` inputs (_batch_, done in the trees 2026-11-06)
 
-No target's workflow passes them, and the drift check reads `tools.txt` directly,
-so the inputs, their refusal logic in `install.sh` and the cases pinning them go
-together; `setup-tool` then reads the row's pin and sha256 alone. About 20 lines,
-and say-hi's `tests/packaging/packaging_ci_workflows_test.sh` loses its override
-cases in the same pass.
+Done, not committed: the inputs, their environment variables and the refusal in
+`install.sh` are gone from `files/`, which now reads the row's pin and sha256
+alone, and say-hi's `tests/packaging/packaging_ci_workflows_test.sh` has lost
+its two override cases. That test passes against either `install.sh`, so it
+can land before the sync PR. `scripts/check.sh` has not run over it.
 
 ### 1.5 Remove `setup-tool` for `setup-tools` (_batch_, after 1.4)
 
@@ -81,7 +92,7 @@ Once 1.4 lands, `setup-tool` is `setup-tools` with one name: `resolve.sh` and
 action, `install.sh`'s `image=` output and a `repos/_base.toml` row. The action
 cannot leave `files/` first: 22 caller sites in the targets move to `tools: <name>`
 in the same batch (say-hi 3, sharerr-rs 11, instadroid 4, python-constricter 4,
-counted 2026-11-01, rendered shared workflows included), and `image-scan.yml`'s
+counted 2026-11-01 before 1.4, rendered shared workflows included), and `image-scan.yml`'s
 sparse list gains `setup-tools/`. Each tool downloads once more, since the cache key
 changes.
 
@@ -193,7 +204,7 @@ knows 26.04. What changed under them, from GitHub's image comparison
   when its token has Administration read, which the sync App lacks (granting it
   also needs `permission-administration: read` on `sync.yml`'s mint steps), so the
   weekly run names them as hidden.
-- **say-hi, in its tree (2026-11-05), not merged:** `publish` creates a
+- **say-hi, on `dev` (`7e6daa3a`, 2026-11-05), not on `main`:** `publish` creates a
   draft, attaches every asset and the package repository, then publishes with
   `gh release edit --draft=false`, in a step that runs whether the package
   repository attached or not. A new `demo` job renders the packages tape at the
@@ -202,7 +213,7 @@ knows 26.04. What changed under them, from GitHub's image comparison
   `releases/tags/<tag>` answers 404 for a draft. Left: merge it, turn the
   setting on, set `immutable_releases = true` in `repos/say-hi.toml`, and read
   the next tag's run (a prerelease tag is the cheapest proof).
-- **instadroid, in its tree (2026-11-05), not merged:** `publish.yml`'s
+- **instadroid, on `dev` (`e3d7e8c`, 2026-11-05), not on `main`:** `publish.yml`'s
   `release` job creates a draft, uploads the deploy bundle, then publishes; a
   re-run against a published release edits only its notes. Left: as for say-hi,
   merge it, turn the setting on, set `immutable_releases = true` in
@@ -312,7 +323,8 @@ and a template would be mostly per-repository blocks.
   GitHub on the DNS-observation part.
   [step-security/harden-runner#705](https://github.com/step-security/harden-runner/issues/705)
   covers the earlier port conflict on `127.0.0.1:53`, fixed. harden-runner
-  v2.22.2 changes DNS tracing for the Enterprise tier only.
+  v2.22.2 changes DNS tracing for the Enterprise tier only; v2.22.3, pinned
+  everywhere since 2026-11-06, has not been read for this.
 - **Until then:** jobs with no write token run `audit` (`release-note.yml`,
   `pages.yml`'s build). Jobs that keep `block` start with a `dns-experiment` step
   that refuses the runner when `egress-dns-resolver.service` is active, before the
