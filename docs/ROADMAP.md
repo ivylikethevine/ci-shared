@@ -11,16 +11,18 @@ _batch_ are shared CI items: they go to every repository as one hand-run batch
 
 Ranked by value for size; the numbers are the items below. S, M and L are sizes.
 
-1. 3.2's first run that finds a bump, the weekly one from 2026-11-02 at 07:53
-   UTC (S).
-2. 3.1, read the first weekly run under the App, 2026-11-02 at 14:41 UTC (S).
-3. 5.1's first refusal and 5.3's first automatic rerun on `main`, each on the
+1. 3.1, `repos/`' ruleset fix on `main` before the 2026-11-09 weekly run, which
+   closes #4 if the rulesets then match (S).
+2. 1.3 and 1.4, run `scripts/check.sh`, then commit and merge each repository's
+   part; the sync PRs carry the `files/` half (S).
+3. 5.3's rescan of the lowered limits, from 2026-11-08 (S).
+4. 5.1's first refusal and 5.3's first automatic rerun on `main`, each on the
    next run that shows it (S).
-4. 5.3's rescan of the lowered limits, from 2026-11-08 (S).
 5. 5.4's check, which needs a real pull request (S).
-6. 3.4, say-hi's and instadroid's release workflows (M).
-7. The batch when it is started, say-hi first: 1.4 (S), 1.5 (M), 1.3 (S), 1.2 (M,
-   one session per repository).
+6. 3.4, say-hi's and instadroid's merges to `main` and first tags under the
+   setting (S).
+7. The rest of the batch, say-hi first: 1.5 (M, once 1.4's sync has merged in
+   every target), 1.2 (M, one session per repository).
 
 Waiting on upstream: 1.1, 2.1's runner label, 3.6, 5.1, 5.2. Not worth doing as
 things stand: 3.5.
@@ -57,23 +59,31 @@ things stand: 3.5.
   session per repository; update each disabled-rules row that says only audit
   is supported.
 
-### 1.3 The targets' own action SHAs (_batch_)
+### 1.3 The targets' own action SHAs (_batch_, done in the trees 2026-11-06)
 
+- **Done, not committed:** every target's own workflows and actions, the files
+  the sync does not deliver, are on `files/`' pins or the ones their
+  `tool-versions` issues offered: harden-runner v2.22.3 everywhere, this
+  repository and `files/` included; docker/login-action v4.7.0, codeql
+  upload-sarif v4.39.1, setup-python v7.1.0, rust-cache v2.9.3, setup-uv
+  v10.3.2, cibuildwheel v4.3.4 and openbsd-vm v1.4.9 where used.
+  `scripts/stale_pins.sh` lists none behind; `scripts/bump_pins.sh` makes the
+  next round's edits. actionlint and each `lint_workflows.sh` pass;
+  `scripts/check.sh` has not run over it.
 - **Override:** markdownlint 0.42.0, which markdownlint-cli2 0.24.0 pulls in, pins
   `re2js` 2.8.6 under GHSA-gg6h-894w-4m9c, fixed in 2.8.7. `overrides` holds
   `re2js` at 2.9.0, the newest past the cooldown; drop it once markdownlint's
   own pin passes the advisory.
-- **Left:** the targets' own workflows keep the old action SHAs until each moves
-  them, as its own `tool-versions` issue will say. In the batch, say-hi goes
-  first.
+- **Left in the issues, not action SHAs:** say-hi's bashcov 4.0.1 and its
+  `bash:3.2` digest.
 
-### 1.4 Drop `setup-tool`'s `version` and `sha256` inputs (_batch_)
+### 1.4 Drop `setup-tool`'s `version` and `sha256` inputs (_batch_, done in the trees 2026-11-06)
 
-No target's workflow passes them, and the drift check reads `tools.txt` directly,
-so the inputs, their refusal logic in `install.sh` and the cases pinning them go
-together; `setup-tool` then reads the row's pin and sha256 alone. About 20 lines,
-and say-hi's `tests/packaging/packaging_ci_workflows_test.sh` loses its override
-cases in the same pass.
+Done, not committed: the inputs, their environment variables and the refusal in
+`install.sh` are gone from `files/`, which now reads the row's pin and sha256
+alone, and say-hi's `tests/packaging/packaging_ci_workflows_test.sh` has lost
+its two override cases. That test passes against either `install.sh`, so it
+can land before the sync PR. `scripts/check.sh` has not run over it.
 
 ### 1.5 Remove `setup-tool` for `setup-tools` (_batch_, after 1.4)
 
@@ -82,7 +92,7 @@ Once 1.4 lands, `setup-tool` is `setup-tools` with one name: `resolve.sh` and
 action, `install.sh`'s `image=` output and a `repos/_base.toml` row. The action
 cannot leave `files/` first: 22 caller sites in the targets move to `tools: <name>`
 in the same batch (say-hi 3, sharerr-rs 11, instadroid 4, python-constricter 4,
-counted 2026-11-01, rendered shared workflows included), and `image-scan.yml`'s
+counted 2026-11-01 before 1.4, rendered shared workflows included), and `image-scan.yml`'s
 sparse list gains `setup-tools/`. Each tool downloads once more, since the cache key
 changes.
 
@@ -150,20 +160,23 @@ knows 26.04. What changed under them, from GitHub's image comparison
   The five `SYNC_TOKEN_<NAME>` secrets are deleted and their PATs revoked. The
   first commit written with an App token, homebrew-tap's `db047dd` (pull request
   82), shows as verified.
-- **Left:** the `sync-health` issue (#4) is still open from the 2026-10-26
-  weekly run, the last under the PATs, naming drift and rulesets. The
-  2026-11-02 run is the first under the App, and closes it if every check
-  passes.
+- **Anchored mint steps:** the mint steps share one `with:` through a YAML anchor,
+  reading `repositories` from each step's `env.TARGET`. That form minted all five
+  tokens on 2026-11-02, in the push run (41534178362), which opened the sync pull
+  requests, and in the weekly run, whose health issue has no `tokens` line.
+- **Left:** the `sync-health` issue (#4) is still open. The 2026-11-02 weekly
+  run, the first under the App (41540975712), failed only the rulesets diff:
+  three live `main` rulesets had dropped entries `repos/` still held. Trivy
+  fails on pull requests to main, so it is out of instadroid's and sharerr-rs's
+  `code_scanning_tools`; say-hi's checks were restructured, so its two `e2e`
+  contexts are out of its required checks. Once that is on `main`, the
+  2026-11-09 weekly run closes #4 if every check passes.
 - **Still by hand per target:** a mint step in `sync.yml`, which
   `scripts/check.sh` fails without.
-- **Verify:** the mint steps now share one `with:` through a YAML anchor, reading
-  `repositories` from each step's `env.TARGET`. Nothing here has run that form on
-  GitHub: run `sync.yml` by dispatch with `dry-run` before relying on it, and check
-  that all five tokens mint.
 
-### 3.2 Bumps as a pull request, not a hand edit
+### 3.2 Bumps as a pull request, not a hand edit (live)
 
-- **Done in the tree:** `.github/workflows/bump-tools.yml`, weekly after the
+- **Live:** `.github/workflows/bump-tools.yml`, weekly after the
   version check. `check_tool_versions.sh` stays read-only and lists what is behind
   in `CI_FIX_LIST`; `scripts/apply_bumps.sh` edits it, in this repository alone
   since the sync owns the targets' copies and only this repository's manifest
@@ -172,16 +185,10 @@ knows 26.04. What changed under them, from GitHub's image comparison
   `scripts/bump_pr.sh` writes one draft pull request on `tool-bumps`, in a job of
   its own holding the App's token; a commit naming no author is signed by GitHub
   for the App, so it needs no SSH key and keeps file modes.
-- **Run:** the scripts on a copy of the tree with no cooldown moved
-  `step-security/harden-runner`, python-constricter and reuse and recompiled the
-  dev lock. Not run on GitHub: nothing here has minted the token or written a
-  commit.
-- **Left:** the App is on this repository. The first dispatch (run 41261382260,
-  2026-10-31) passed with nothing to bump, so its pull request job was skipped and
-  neither point below has been tested. On the first run that finds a bump, check
-  that the commit shows as verified, and that block lets the
-  artifact upload through with `results-receiver` alone allowed, as the targets'
-  jobs do.
+- **Runs:** the weekly run of 2026-11-02 (41491501365) found a bump and opened
+  pull request 31 (python-constricter 0.4.2 to 0.4.3). Its commit `445647e` shows
+  as verified, and the pull request job, under `block`, downloaded the artifact
+  with `results-receiver` alone allowed.
 - **Not taken:** pinact (v5.0.0), whose `pinact run --check` would add that each
   SHA is reachable from the tag its comment names, which rule 5 does not; and
   self-hosted Renovate (44.3.1 or later for CVE-2026-88884), a second bot and a
@@ -197,15 +204,23 @@ knows 26.04. What changed under them, from GitHub's image comparison
   when its token has Administration read, which the sync App lacks (granting it
   also needs `permission-administration: read` on `sync.yml`'s mint steps), so the
   weekly run names them as hidden.
-- **Left:** say-hi and instadroid cannot take it yet: each publishes its
-  release before attaching assets (say-hi's `_ci_upload_assets` and package
-  repository after `gh release create`; instadroid's
-  `gh release upload --clobber`), which a locked release refuses. Each needs
-  its release created with `--draft`, its assets attached, then
-  `gh release edit --draft=false`, in its own workflow, before its
-  `immutable_releases` turns on. say-hi's `demos.yml` also attaches `demo.gif` to
-  the published release, in a later workflow, so that upload moves before the
-  publish too or the GIF goes elsewhere.
+- **say-hi, on `dev` (`7e6daa3a0f0da589e24933b78e2c4a641df9dc33`, 2026-11-05),
+  not on `main`:** `publish` creates a draft, attaches every asset and the
+  package repository, then publishes with
+  `gh release edit --draft=false`, in a step that runs whether the package
+  repository attached or not. A new `demo` job renders the packages tape at the
+  tag, so `demo.gif` goes on with the rest; `demos.yml`'s `attach` job is gone.
+  `gh_asset.sh` reads the release id off the release list, since
+  `releases/tags/<tag>` answers 404 for a draft. Left: merge it, turn the
+  setting on, set `immutable_releases = true` in `repos/say-hi.toml`, and read
+  the next tag's run (a prerelease tag is the cheapest proof).
+- **instadroid, on `dev` (`e3d7e8c`, 2026-11-05), not on `main`:** `publish.yml`'s
+  `release` job creates a draft, uploads the deploy bundle, then publishes; a
+  re-run against a published release edits only its notes. Left: as for say-hi,
+  merge it, turn the setting on, set `immutable_releases = true` in
+  `repos/instadroid.toml`, and read the next tag's run.
+- **No releases:** homebrew-tap and ci-shared publish none, so the setting has
+  nothing to lock there.
 
 ### 3.5 A shared push ruleset
 
@@ -305,11 +320,12 @@ and a template would be mostly per-repository blocks.
   its last step.
 - **Upstream:**
   [actions/runner-images#14925](https://github.com/actions/runner-images/issues/14925)
-  is open, last updated 2026-10-19, with no answer from GitHub on the
-  DNS-observation part.
+  is open, last updated 2026-10-19 (checked 2026-11-05), with no answer from
+  GitHub on the DNS-observation part.
   [step-security/harden-runner#705](https://github.com/step-security/harden-runner/issues/705)
   covers the earlier port conflict on `127.0.0.1:53`, fixed. harden-runner
-  v2.22.2 changes DNS tracing for the Enterprise tier only.
+  v2.22.2 changes DNS tracing for the Enterprise tier only; v2.22.3, pinned
+  everywhere since 2026-11-06, has not been read for this.
 - **Until then:** jobs with no write token run `audit` (`release-note.yml`,
   `pages.yml`'s build). Jobs that keep `block` start with a `dns-experiment` step
   that refuses the runner when `egress-dns-resolver.service` is active, before the
@@ -374,6 +390,8 @@ and a template would be mostly per-repository blocks.
   CI files. This one is the shared `codeql.yml`, whose header says a skipped
   category leaves code scanning waiting on a result, and code scanning is in
   that repository's ruleset.
+- **Still runs:** 7m40s on sync pull request 153 (2026-11-02), where every other
+  Rust and Docker job skipped.
 - **Verify first:** whether a skipped `CodeQL (rust)` holds a sync pull request's
   merge. Needs a real pull request; nothing local shows it.
 

@@ -56,6 +56,8 @@ them, or make the repository a target.
 | `scripts/own_files.sh`        | writes this repository's own copies of the shared files it uses                                                                       |
 | `scripts/apply_bumps.sh`      | edits the pins the version check reports behind, sha256s and locks included                                                           |
 | `scripts/bump_pr.sh`          | opens or updates the pull request holding those edits                                                                                 |
+| `scripts/stale_pins.sh`       | lists the `uses:` pins in the targets' own workflows that differ from `files/`'s                                                      |
+| `scripts/bump_pins.sh`        | moves a target's own `uses:` pins to `files/`'s, or to pins given                                                                     |
 | `docs/SECURITY.md`            | what is in scope here and how to report a vulnerability privately                                                                     |
 | `rulesets/`                   | the rulesets every target shares, in GitHub's import format                                                                           |
 | `rulesets/self.toml`          | this repository's own values in the shared `main` ruleset                                                                             |
