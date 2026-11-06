@@ -129,6 +129,31 @@ ci_targets() {
   awk -v n="$1" '$1 == n { sub(/^[^ ]+ /, ""); print }' <<<"$2"
 }
 
+# ci_action_pins - prints "<action> <action>@<sha> # <version>" for each action
+# files/ pins, one line per action, sorted. An action files/ pins two ways is
+# left out and named on stderr: neither pin is the one to move to.
+ci_action_pins() {
+  { grep -rhoE 'uses: [A-Za-z0-9._/-]+@[0-9a-f]{40} # [^ ]+' "$CI_SHARED_DIR/files" || true; } |
+    sed 's/^uses: //' | LC_ALL=C sort -u |
+    awk '{ split($1, a, "@"); n[a[1]]++; pin[a[1]] = $0 }
+      END { for (k in n) if (n[k] == 1) print k, pin[k]; else print "files/ pins " k " " n[k] " ways; left out" > "/dev/stderr" }' |
+    LC_ALL=C sort
+}
+
+# ci_own_pinned <name> <rows> <dir> - prints each file under <dir>/.github,
+# relative to <dir>, that pins an action by SHA and that target <name> does not
+# receive (ci_rows' <rows>): the pins the sync never moves
+ci_own_pinned() {
+  local received f
+  received="$(ci_targets "$1" "$2" | cut -d' ' -f1)"
+  [ -d "$3/.github" ] || return 0
+  { grep -rlE 'uses: [A-Za-z0-9._/-]+@[0-9a-f]{40}' "$3/.github" || true; } | LC_ALL=C sort |
+    while IFS= read -r f; do
+      f="${f#"$3"/}"
+      grep -qxF "$f" <<<"$received" || echo "$f"
+    done
+}
+
 # the branch the sync pull requests come from on every target
 # shellcheck disable=SC2034 # the scripts read it
 CI_SYNC_BRANCH=ci-sync

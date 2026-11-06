@@ -17,8 +17,7 @@ Ranked by value for size; the numbers are the items below. S, M and L are sizes.
 3. 5.1's first refusal and 5.3's first automatic rerun on `main`, each on the
    next run that shows it (S).
 4. 5.4's check, which needs a real pull request (S).
-5. 3.4, say-hi's merge and first tag under the setting (S), then instadroid's
-   release workflow (M).
+5. 3.4, say-hi's and instadroid's merges and first tags under the setting (S).
 6. The batch when it is started, say-hi first: 1.4 (S), 1.5 (M), 1.3 (S), 1.2 (M,
    one session per repository).
 
@@ -203,10 +202,13 @@ knows 26.04. What changed under them, from GitHub's image comparison
   `releases/tags/<tag>` answers 404 for a draft. Left: merge it, turn the
   setting on, set `immutable_releases = true` in `repos/say-hi.toml`, and read
   the next tag's run (a prerelease tag is the cheapest proof).
-- **Left for instadroid:** it attaches with `gh release upload --clobber` after
-  publishing, which a locked release refuses: create the release with
-  `--draft`, attach, then `gh release edit --draft=false`, before its
-  `immutable_releases` turns on.
+- **instadroid, in its tree (2026-11-05), not merged:** `publish.yml`'s
+  `release` job creates a draft, uploads the deploy bundle, then publishes; a
+  re-run against a published release edits only its notes. Left: as for say-hi,
+  merge it, turn the setting on, set `immutable_releases = true` in
+  `repos/instadroid.toml`, and read the next tag's run.
+- **No releases:** homebrew-tap and ci-shared publish none, so the setting has
+  nothing to lock there.
 
 ### 3.5 A shared push ruleset
 
