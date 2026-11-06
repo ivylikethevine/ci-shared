@@ -204,8 +204,9 @@ knows 26.04. What changed under them, from GitHub's image comparison
   when its token has Administration read, which the sync App lacks (granting it
   also needs `permission-administration: read` on `sync.yml`'s mint steps), so the
   weekly run names them as hidden.
-- **say-hi, on `dev` (`7e6daa3a`, 2026-11-05), not on `main`:** `publish` creates a
-  draft, attaches every asset and the package repository, then publishes with
+- **say-hi, on `dev` (`7e6daa3a0f0da589e24933b78e2c4a641df9dc33`, 2026-11-05),
+  not on `main`:** `publish` creates a draft, attaches every asset and the
+  package repository, then publishes with
   `gh release edit --draft=false`, in a step that runs whether the package
   repository attached or not. A new `demo` job renders the packages tape at the
   tag, so `demo.gif` goes on with the rest; `demos.yml`'s `attach` job is gone.
