@@ -94,7 +94,7 @@ things stand: 3.4.
   same round: `install.sh` reads the row's pin and sha256 alone.
 - **Override:** markdownlint 0.42.0, which markdownlint-cli2 0.24.0 pulls in, pins
   `re2js` 2.8.6 under GHSA-gg6h-894w-4m9c, fixed in 2.8.7. `overrides` holds
-  `re2js` at 2.9.0, the newest past the cooldown; drop it once markdownlint's
+  `re2js` at 2.9.1, the newest past the cooldown; drop it once markdownlint's
   own pin passes the advisory.
 - **Left in the issues, not action SHAs:** say-hi's bashcov 4.0.1 and its
   `bash:3.2` digest.
