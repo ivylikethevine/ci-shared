@@ -10,7 +10,8 @@
 # `npm ci --prefix .github` once. A
 # missing tool fails its check rather than skipping it. Exits with the number
 # of checks that failed.
-set -uo pipefail
+# +e: every check runs, even under an errexit an exported SHELLOPTS hands in
+set +e -uo pipefail
 
 # shellcheck source=./lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"

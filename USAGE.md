@@ -14,7 +14,6 @@ Which repositories receive each shared file, written by
 | `.github/actions/apt/lib.sh`                       | x            | x          | x                  | x      | x          | 5     |
 | `.github/actions/fetch-latest-artifact/action.yml` |              | x          |                    | x      | x          | 3     |
 | `.github/actions/mark-tree/action.yml`             |              | x          |                    | x      | x          | 3     |
-| `.github/actions/setup-tool/action.yml`            | x            | x          | x                  | x      | x          | 5     |
 | `.github/actions/setup-tool/install.sh`            | x            | x          | x                  | x      | x          | 5     |
 | `.github/actions/setup-tool/lib.sh`                | x            | x          | x                  | x      | x          | 5     |
 | `.github/actions/setup-tool/tools.txt`             | x            | x          | x                  | x      | x          | 5     |
@@ -62,7 +61,7 @@ Which repositories receive each shared file, written by
 | `docs/CODE_OF_CONDUCT.md`                          | x            | x          | x                  | x      | x          | 5     |
 | `lychee.toml`                                      |              | x          | x                  | x      | x          | 4     |
 | `scratch/README.md`                                |              | x          |                    | x      | x          | 3     |
-| **Files per repository**                           | 26           | 57         | 45                 | 54     | 57         | 57    |
+| **Files per repository**                           | 25           | 56         | 44                 | 53     | 56         | 56    |
 
 ## Template values
 

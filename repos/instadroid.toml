@@ -2,6 +2,9 @@
 repository = "ivylikethevine/instadroid"
 # the branch sync pull requests go to: main or dev
 sync_branch = "main"
+# GitHub's immutable releases (Settings → General → Releases), compared by
+# scripts/rulesets.sh diff where the token can read it
+immutable_releases = true
 
 # those groups' paths, less any `skip` names
 base = ["_base", "_images"]
