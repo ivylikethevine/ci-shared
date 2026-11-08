@@ -11,8 +11,10 @@ CI_IMAGE_GLOBS=''
 # of _config.yml; this row checks the template. advisories.yml's
 # `python-version` is moved by hand: PyPI has no feed for CPython itself.
 #   just-the-docs  the Pages theme, files/_config.yml's `remote_theme:`
+#   bashcov        a rubygem, checks.yml's coverage job's `BASHCOV_VERSION`
 # shellcheck disable=SC2034 # read by check_tool_versions.sh
-CI_WORKFLOW_ROSTER='just-the-docs|files/_config.yml|remote_theme: just-the-docs/just-the-docs@v\([0-9][0-9.]*\)|github:just-the-docs/just-the-docs|'
+CI_WORKFLOW_ROSTER='just-the-docs|files/_config.yml|remote_theme: just-the-docs/just-the-docs@v\([0-9][0-9.]*\)|github:just-the-docs/just-the-docs|
+bashcov|.github/workflows/checks.yml|BASHCOV_VERSION: "\([0-9][0-9.]*\)"|github:infertux/bashcov|'
 
 # The Markdown tools' npm manifest, the shared copy every target receives, and
 # the Python dev tools' pip-compile inputs.

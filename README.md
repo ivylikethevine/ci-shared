@@ -29,9 +29,8 @@ does not preserve on every platform.
 `advisory-note`, `fetch-latest-artifact`, `mark-tree` and
 `upsert-tracking-issue` need nothing else: each uses `github.token`, and the
 ones that read `.github/scripts/lib.sh` find it beside the action in the
-downloaded repository. `setup-tool` and `setup-tools` read `tools.txt`
-beside the action, in `files/` the unrendered template with every target's
-rows; a caller with a roster of its own sets `CI_TOOLS_TXT` on the step to it.
+downloaded repository. `setup-tools` reads `setup-tool/tools.txt` beside it,
+in `files/` the unrendered template with every target's rows; a caller with a roster of its own sets `CI_TOOLS_TXT` on the step to it.
 The scripts under
 `.github/scripts/` and `actions/apt/lib.sh` cannot be called this way; copy
 them, or make the repository a target.
@@ -186,14 +185,13 @@ run from a temporary directory and not kept.
   that pull request's body and fails the run.
 - `tests/run.sh [SUITE...]` runs the suites (`T_ONLY=<regex>` picks tests
   within one); each builds its own fixture tree and points the scripts at it
-  through `CI_SHARED_DIR`. `tests/coverage.sh` runs them under kcov and
+  through `CI_SHARED_DIR`. `tests/coverage.sh` runs them under bashcov and
   coverage.py and fails unless every statement of `scripts/*.sh` ran and every
   line and branch of the Python did;
-  `checks.yml`'s coverage job runs it. It needs upstream kcov 43 or later
-  (`tools.txt`'s row; Ubuntu's `43+dfsg-2` records no hit on a multi-line
-  array assignment), the `shfmt` and `yq` pins and the virtual environment
-  above; `tests/coverage.py` explains how
-  kcov's line counts are mapped to statements.
+  `checks.yml`'s coverage job runs it. It needs bashcov (`checks.yml`'s
+  `BASHCOV_VERSION`, and ruby), the `shfmt` and `yq` pins and the virtual
+  environment above; `tests/coverage.py` explains how bashcov's line counts
+  are mapped to statements.
 
 ## The sync App
 

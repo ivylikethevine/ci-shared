@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
-"""Statement coverage of shell scripts from kcov runs, judged per statement.
+"""Statement coverage of shell scripts from bashcov runs, judged per statement.
 
-    python3 -I tests/coverage.py <kcov cobertura.xml>... <script.sh>...
+    python3 -I tests/coverage.py <.resultset.json>... <script.sh>...
 
-Each report's hits are added together, a line counted in any of them counted.
+Each resultset's hits are added together, every run in it, a line counted in
+any of them counted; a script's hits are those filed under its own path.
 
-kcov's lines are bash's $LINENO, which misplaces three kinds of statement:
-a command spanning several lines is recorded on its last line alone (so an
+bashcov's lines are bash's $LINENO, which misplaces three kinds of statement:
+a command spanning several lines is recorded on one line alone (so an
 embedded awk or jq program, or a `\\` continuation, reads as code never run);
 a command inside a `$( )` or `<( )` can be recorded on the enclosing loop's
-last line; and kcov's parser skips some statements (`x=()`) altogether.
+last line; and bashcov's lexer leaves some statements uncounted.
 
 So this reads each script's statements from shfmt's syntax tree
 (`shfmt --to-json`) and judges every simple statement:
 
-- run when kcov hit any line it spans;
+- run when bashcov hit any line it spans;
 - inside a substitution, otherwise: as the statement holding that
   substitution (for a loop or `if`, its first line);
-- with no line kcov counts, otherwise: as the next statement in its block;
-- not run when kcov counts its lines and hit none.
+- with no line bashcov counts, otherwise: as the next statement in its block;
+- not run when bashcov counts its lines and hit none.
 
 The second rule credits a branch inside a substitution whenever the
 substitution ran, so keep conditionals out of them.
@@ -31,8 +32,7 @@ import functools
 import json
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
-from io import BufferedReader
+from io import BufferedReader, TextIOWrapper
 from pathlib import Path
 from typing import TypeAlias
 
@@ -42,20 +42,31 @@ SUBSTS: set[str] = {"CmdSubst", "ProcSubst"}
 # what json reads from shfmt's syntax tree
 Json: TypeAlias = "str | int | float | bool | None | list[Json] | dict[str, Json]"
 Hits: TypeAlias = dict[int, int]
+# a SimpleCov resultset: {run: {"coverage": {path: {"lines": [hits or null]}}}}
+FileLines: TypeAlias = dict[str, list[int | None]]
+Run: TypeAlias = dict[str, dict[str, FileLines]]
+Resultset: TypeAlias = dict[str, Run]
 
 
-def kcov_lines(reports: list[str]) -> dict[str, Hits]:
-    """{script basename: {line: hits}} from kcov's reports, summed."""
+def bashcov_lines(resultsets: list[str]) -> dict[str, Hits]:
+    """{script's resolved path: {line: hits}} from bashcov's resultsets, summed."""
     lines: dict[str, Hits] = {}
-    report: str
-    c: ET.Element[str]
-    x: ET.Element[str]
-    for report in reports:
-        for c in ET.parse(report).getroot().iter("class"):
-            seen: Hits = lines.setdefault(Path(c.get("filename", "")).name, {})
-            for x in c.iter("line"):
-                n: int = int(x.get("number", 0))
-                seen[n] = seen.get(n, 0) + int(x.get("hits", 0))
+    resultset: str
+    f: TextIOWrapper
+    run: Run
+    path: str
+    data: FileLines
+    n: int
+    c: int | None
+    for resultset in resultsets:
+        with open(resultset, encoding="utf-8") as f:
+            runs: Resultset = json.load(f)
+        for run in runs.values():
+            for path, data in run["coverage"].items():
+                seen: Hits = lines.setdefault(str(Path(path).resolve()), {})
+                for n, c in enumerate(data["lines"], 1):
+                    if c is not None:
+                        seen[n] = seen.get(n, 0) + c
     return lines
 
 
@@ -133,11 +144,11 @@ def judge(stmts: list[Stmt], seen: Hits) -> None:
 
 
 def main() -> int:
-    reports: list[str] = [a for a in sys.argv[1:] if a.endswith(".xml")]
+    reports: list[str] = [a for a in sys.argv[1:] if a.endswith(".json")]
     scripts: list[str] = sys.argv[1 + len(reports) :]
     if not reports or not scripts:
         sys.exit(__doc__)
-    hits: dict[str, Hits] = kcov_lines(reports)
+    hits: dict[str, Hits] = bashcov_lines(reports)
     ok: bool = True
     stmts: list[Stmt]
     leaves: list[Stmt]
@@ -145,7 +156,7 @@ def main() -> int:
     script: str
     for script in scripts:
         stmts = statements(script)
-        judge(stmts, hits.get(Path(script).name, {}))
+        judge(stmts, hits.get(str(Path(script).resolve()), {}))
         leaves = [s for s in stmts if s.leaf]
         run: int = sum(1 for s in leaves if s.ran)
         print(f"{script}: {run}/{len(leaves)} statements ({100 * run / max(len(leaves), 1):.1f}%)")
@@ -153,7 +164,7 @@ def main() -> int:
             if s.ran is False:
                 print(f"  {script}:{s.first}: not run")
             elif s.ran is None:
-                print(f"  {script}:{s.first}: not seen by kcov")
+                print(f"  {script}:{s.first}: not seen by bashcov")
         ok = ok and run == len(leaves)
     return 0 if ok else 1
 

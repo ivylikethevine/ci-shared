@@ -11,21 +11,21 @@ _batch_ are shared CI items: they go to every repository as one hand-run batch
 
 Ranked by value for size; the numbers are the items below. S, M and L are sizes.
 
-1. 3.1, `repos/`' ruleset fix on `main` before the 2026-11-09 weekly run, which
-   closes #4 if the rulesets then match (S).
-2. 1.3 and 1.4, run `scripts/check.sh`, then commit and merge each repository's
-   part; the sync PRs carry the `files/` half (S).
-3. 5.3's rescan of the lowered limits, from 2026-11-08 (S).
-4. 5.1's first refusal and 5.3's first automatic rerun on `main`, each on the
-   next run that shows it (S).
-5. 5.4's check, which needs a real pull request (S).
-6. 3.4, say-hi's and instadroid's merges to `main` and first tags under the
-   setting (S).
-7. The rest of the batch, say-hi first: 1.5 (M, once 1.4's sync has merged in
-   every target), 1.2 (M, one session per repository).
+1. 1.3, commit and merge each repository's part; the sync PRs carry the
+   `files/` half, and the stale `setup-tool/action.yml` in each target goes
+   after them (S).
+2. 5.3's rescan of the lowered limits, due since 2026-11-08 (S).
+3. 3.1, the 2026-11-09 weekly run, which closes #4 if every check passes (S).
+4. 3.3, read say-hi's and instadroid's next tag run (S).
+5. 5.1, a `block` job that passes on a westus2 runner in the experiment under
+   v2.22.3, or v2.22.4 from 2026-11-13, then the `dns-experiment` step's
+   removal (S).
+6. 5.3's first automatic rerun on `main`, on the next run that shows it (S).
+7. 5.4's check, which needs a real pull request (S).
+8. 1.2, the rest of the batch, say-hi first (M, one session per repository).
 
-Waiting on upstream: 1.1, 2.1's runner label, 3.6, 5.1, 5.2. Not worth doing as
-things stand: 3.5.
+Waiting on upstream: 1.1, 2.1's runner label, 3.5, 5.2. Not worth doing as
+things stand: 3.4.
 
 ## 1. Fixes in this repository
 
@@ -39,7 +39,7 @@ things stand: 3.5.
   [rhysd/actionlint#711](https://github.com/rhysd/actionlint/issues/711) and pull
   request 732 are open, but its last release is 2026-03-30 and its last commit
   2026-04-19, so a fix may not come. jactionlint accepts it but is not taken for
-  now (3.6). Not evaluated: the fork `kjanat/actionlint`, which says it is a
+  now (3.5). Not evaluated: the fork `kjanat/actionlint`, which says it is a
   drop-in CLI with `$/` and `ubuntu-26.04`, and a `paths` ignore in
   `.github/actionlint.yaml` for the two `$/` messages, as #711 suggests.
 - **How, once actionlint accepts it:** rewrite the shared workflows and each
@@ -59,42 +59,45 @@ things stand: 3.5.
   session per repository; update each disabled-rules row that says only audit
   is supported.
 
-### 1.3 The targets' own action SHAs (_batch_, done in the trees 2026-11-06)
+### 1.3 Remove `setup-tool` for `setup-tools` (_batch_, done in the trees 2026-11-08)
 
-- **Done, not committed:** every target's own workflows and actions, the files
+- **Done, not committed:** `setup-tool/action.yml` is gone from `files/` and
+  `repos/_base.toml`; `install.sh`, `lib.sh` and `tools.txt` stay in
+  `setup-tool/` as `setup-tools`' backend, and `install.sh` no longer writes
+  `image=` (`resolve.sh` reads `$ImageOS` itself). The shared callers
+  (`advisories.yml`, `image-scan.yml`, `link-check.yml`) call `setup-tools`,
+  and `image-scan.yml`'s and sharerr-rs `docker.yml`'s sparse lists hold both
+  directories. Every target's own caller moved: sharerr-rs `ci.yml` (5, its
+  terraform path filter gains `setup-tools/`), `docker.yml` and `coverage.yml`,
+  instadroid `publish.yml`, python-constricter `ci.yml` and `security.yml` (3),
+  say-hi `usage.yml`, whose `freeze` the release suite's row check now reads.
+  say-hi's `test_setup_tool_resolve_names_the_pin` ignores an `image=` line, so
+  it passes against either `install.sh` and can land before the sync PR.
+  `scripts/check.sh`'s own checks and `tests/run.sh` pass; its tool checks
+  (constricter, reuse, pip-audit, gitleaks' version, zizmor online) could not
+  run in the session.
+- **Left:** the sync writes files and never deletes one, so each target's
+  `setup-tool/action.yml` stays until it is removed there, after that target's
+  sync PR has merged; until then nothing calls it. Each tool downloads once
+  more, since the cache key changes.
+
+### 1.4 The targets' own action SHAs (_batch_, done 2026-11-06)
+
+- **Done, merged in every repository:** every target's own workflows and actions, the files
   the sync does not deliver, are on `files/`' pins or the ones their
   `tool-versions` issues offered: harden-runner v2.22.3 everywhere, this
   repository and `files/` included; docker/login-action v4.7.0, codeql
   upload-sarif v4.39.1, setup-python v7.1.0, rust-cache v2.9.3, setup-uv
   v10.3.2, cibuildwheel v4.3.4 and openbsd-vm v1.4.9 where used.
   `scripts/stale_pins.sh` lists none behind; `scripts/bump_pins.sh` makes the
-  next round's edits. actionlint and each `lint_workflows.sh` pass;
-  `scripts/check.sh` has not run over it.
+  next round's edits. `setup-tool`'s `version` and `sha256` inputs went in the
+  same round: `install.sh` reads the row's pin and sha256 alone.
 - **Override:** markdownlint 0.42.0, which markdownlint-cli2 0.24.0 pulls in, pins
   `re2js` 2.8.6 under GHSA-gg6h-894w-4m9c, fixed in 2.8.7. `overrides` holds
   `re2js` at 2.9.0, the newest past the cooldown; drop it once markdownlint's
   own pin passes the advisory.
 - **Left in the issues, not action SHAs:** say-hi's bashcov 4.0.1 and its
   `bash:3.2` digest.
-
-### 1.4 Drop `setup-tool`'s `version` and `sha256` inputs (_batch_, done in the trees 2026-11-06)
-
-Done, not committed: the inputs, their environment variables and the refusal in
-`install.sh` are gone from `files/`, which now reads the row's pin and sha256
-alone, and say-hi's `tests/packaging/packaging_ci_workflows_test.sh` has lost
-its two override cases. That test passes against either `install.sh`, so it
-can land before the sync PR. `scripts/check.sh` has not run over it.
-
-### 1.5 Remove `setup-tool` for `setup-tools` (_batch_, after 1.4)
-
-Once 1.4 lands, `setup-tool` is `setup-tools` with one name: `resolve.sh` and
-`install-missing.sh` already loop over `install.sh`. Deleting it removes a 59-line
-action, `install.sh`'s `image=` output and a `repos/_base.toml` row. The action
-cannot leave `files/` first: 22 caller sites in the targets move to `tools: <name>`
-in the same batch (say-hi 3, sharerr-rs 11, instadroid 4, python-constricter 4,
-counted 2026-11-01 before 1.4, rendered shared workflows included), and `image-scan.yml`'s
-sparse list gains `setup-tools/`. Each tool downloads once more, since the cache key
-changes.
 
 ## 2. Platform changes with a date
 
@@ -120,13 +123,10 @@ knows 26.04. What changed under them, from GitHub's image comparison
   `main` CI (run 41258224153, 2026-10-31) and `image-scan.yml` under docker 29 in
   sharerr-rs (run 41302164981, 2026-11-01). say-hi's live `main` ruleset requires
   its renamed suite jobs.
-- **Kept for it:** `setup-tool`'s cache keys carry the image name (`ImageOS`), so a
-  kcov built on 24.04 is not restored on 26.04; `apt/lib.sh` drops vendor
-  `*.sources` files as well as `*.list`; `checks.yml` takes a `runner` input on
-  dispatch.
-- **kcov:** 26.04 packages kcov `43+dfsg-2`, which records no hit on a
-  multi-line array assignment; this repository's coverage job and say-hi's
-  build upstream kcov 43 from `tools.txt`'s `cmake` row instead.
+- **Kept for it:** `setup-tools`' cache key carries the image name (`ImageOS`), so a
+  tool built from source on 24.04 (mandoc) is not restored on 26.04; `apt/lib.sh`
+  drops vendor `*.sources` files as well as `*.list`; `checks.yml` takes a
+  `runner` input on dispatch.
 - **Left:** drop the label from `.github/actionlint.yaml` once an actionlint
   release knows 26.04.
 
@@ -169,8 +169,8 @@ knows 26.04. What changed under them, from GitHub's image comparison
   three live `main` rulesets had dropped entries `repos/` still held. Trivy
   fails on pull requests to main, so it is out of instadroid's and sharerr-rs's
   `code_scanning_tools`; say-hi's checks were restructured, so its two `e2e`
-  contexts are out of its required checks. Once that is on `main`, the
-  2026-11-09 weekly run closes #4 if every check passes.
+  contexts are out of its required checks. That has been on `main` since #33;
+  the 2026-11-09 weekly run closes #4 if every check passes.
 - **Still by hand per target:** a mint step in `sync.yml`, which
   `scripts/check.sh` fails without.
 
@@ -194,35 +194,35 @@ knows 26.04. What changed under them, from GitHub's image comparison
   self-hosted Renovate (44.3.1 or later for CVE-2026-88884), a second bot and a
   config dialect for a roster the check already parses.
 
-### 3.4 Immutable releases on the other releasing targets
+### 3.3 Immutable releases on every releasing target
 
 - **What:** once on, a published release's tag and assets are locked and the
   release carries a Sigstore attestation, beside `protect-stable` and
   `.github/allowed_signers`. On in sharerr-rs and python-constricter since
-  2026-10-31, as is the SHA-pinning requirement in every repository, both set by
-  hand with the README's `gh api` calls. `scripts/rulesets.sh diff` compares them
+  2026-10-31 and in say-hi and instadroid since 2026-11-08, as is the
+  SHA-pinning requirement in every repository, both set by hand with the
+  README's `gh api` calls; `immutable_releases = true` is in all four
+  `repos/*.toml` (say-hi's and instadroid's not committed).
+  `scripts/rulesets.sh diff` compares them
   when its token has Administration read, which the sync App lacks (granting it
   also needs `permission-administration: read` on `sync.yml`'s mint steps), so the
   weekly run names them as hidden.
-- **say-hi, on `dev` (`7e6daa3a0f0da589e24933b78e2c4a641df9dc33`, 2026-11-05),
-  not on `main`:** `publish` creates a draft, attaches every asset and the
+- **say-hi, on `main` (`7e6daa3a0f0da589e24933b78e2c4a641df9dc33`):** `publish` creates a draft, attaches every asset and the
   package repository, then publishes with
   `gh release edit --draft=false`, in a step that runs whether the package
   repository attached or not. A new `demo` job renders the packages tape at the
   tag, so `demo.gif` goes on with the rest; `demos.yml`'s `attach` job is gone.
   `gh_asset.sh` reads the release id off the release list, since
-  `releases/tags/<tag>` answers 404 for a draft. Left: merge it, turn the
-  setting on, set `immutable_releases = true` in `repos/say-hi.toml`, and read
-  the next tag's run (a prerelease tag is the cheapest proof).
-- **instadroid, on `dev` (`e3d7e8c`, 2026-11-05), not on `main`:** `publish.yml`'s
+  `releases/tags/<tag>` answers 404 for a draft.
+- **instadroid, on `main` (#117):** `publish.yml`'s
   `release` job creates a draft, uploads the deploy bundle, then publishes; a
-  re-run against a published release edits only its notes. Left: as for say-hi,
-  merge it, turn the setting on, set `immutable_releases = true` in
-  `repos/instadroid.toml`, and read the next tag's run.
+  re-run against a published release edits only its notes.
+- **Left for both:** read each one's next tag run, the first to publish
+  under the setting (a prerelease tag is the cheapest proof).
 - **No releases:** homebrew-tap and ci-shared publish none, so the setting has
   nothing to lock there.
 
-### 3.5 A shared push ruleset
+### 3.4 A shared push ruleset
 
 Rulesets of type `push` apply to every branch and can refuse paths
 (`*.key`, `*.pem`, `.env`, `secrets/`) and files over a size. One
@@ -231,7 +231,7 @@ Rulesets of type `push` apply to every branch and can refuse paths
 maintainer whose `gitleaks` check runs on every push; worth it only if a
 target gains contributors.
 
-### 3.6 jactionlint in place of actionlint (_batch_, decided against for now)
+### 3.5 jactionlint in place of actionlint (_batch_, decided against for now)
 
 - **What:** [jdx/jactionlint](https://github.com/jdx/jactionlint), an
   MIT-licensed fork of actionlint that accepts `uses: $/...`, which would
@@ -318,14 +318,17 @@ and a template would be mostly per-repository blocks.
   `block` jobs elsewhere. In one stuck job's post step, the runner's own
   connection (`Runner.Worker`) is dropped too, which is why a job stays open after
   its last step.
-- **Upstream:**
+- **Upstream:** harden-runner v2.22.3 (2026-10-27), pinned everywhere since
+  2026-11-06, fixes "unexpected blocking of allowed connections caused by
+  GitHub's DNS resolver and outbound proxy experiment on GitHub-hosted Linux
+  runners". v2.22.4 (2026-11-06, inside the cooldown) enables that workaround by
+  default when its feature flags cannot be fetched, which suggests v2.22.3 gates
+  it on a flag fetched at start; it clears the cooldown on 2026-11-13.
   [actions/runner-images#14925](https://github.com/actions/runner-images/issues/14925)
-  is open, last updated 2026-10-19 (checked 2026-11-05), with no answer from
-  GitHub on the DNS-observation part.
+  was closed as completed on 2026-11-06, with no comment from GitHub on the
+  DNS-observation part.
   [step-security/harden-runner#705](https://github.com/step-security/harden-runner/issues/705)
-  covers the earlier port conflict on `127.0.0.1:53`, fixed. harden-runner
-  v2.22.2 changes DNS tracing for the Enterprise tier only; v2.22.3, pinned
-  everywhere since 2026-11-06, has not been read for this.
+  covers the earlier port conflict on `127.0.0.1:53`, fixed. Checked 2026-11-07.
 - **Until then:** jobs with no write token run `audit` (`release-note.yml`,
   `pages.yml`'s build). Jobs that keep `block` start with a `dns-experiment` step
   that refuses the runner when `egress-dns-resolver.service` is active, before the
@@ -337,8 +340,13 @@ and a template would be mostly per-repository blocks.
   GitHub (skips `known-vulnerable-actions` on that run).
 - **Recognize it:** `Region: westus2` in the job's set-up log, and in
   harden-runner's post step every `endpoint called` line has an empty
-  `domain:`, with `ip address dropped` for an allowlisted host's IP. Close
-  this once #14925 reports a fix and a westus2 run passes.
+  `domain:`, with `ip address dropped` for an allowlisted host's IP.
+- **Close it:** the `dns-experiment` step refuses an experiment runner before
+  harden-runner engages, so no run can show v2.22.3's fix while it is there.
+  Drop it from one `block` job and read that job's runs until one lands on
+  westus2 with `egress-dns-resolver.service` active; once one passes, drop the
+  step everywhere and move `release-note.yml` and `pages.yml`'s build back to
+  `block`, or take v2.22.4 on 2026-11-13 and do the same.
 
 ### 5.2 shfmt and `brew style` disagree on homebrew-tap's shell layout
 
@@ -421,15 +429,15 @@ Evaluated, not decided: nothing here is on the order of work until it is taken u
 ### 7.1 `mise.toml` in place of `tools.txt` (_batch_, L)
 
 - **What:** make `mise.toml` and `mise.lock` the one list of pinned CI tools, in
-  place of `.github/actions/setup-tool/tools.txt` and the `setup-tool` and
-  `setup-tools` actions. say-hi's `mise.toml` copies `tools.txt` today, with a
+  place of `.github/actions/setup-tool/tools.txt`, its installer, and the
+  `setup-tools` action. say-hi's `mise.toml` copies `tools.txt` today, with a
   drift check to hold the two together; a single list removes the copy.
 - **What mise covers (2026.10.19):** `mise.lock` records versions, checksums and
   download URLs per platform, and `--locked` stops an install calling the GitHub
   or aqua registry APIs for a URL. `mise lock --bump --dry-run --json` lists
   updates without writing, and `minimum_release_age` is the cooldown.
-- **What blocks a full swap:** `kcov`, `mandoc` and `checkbashisms` are not in
-  mise's registry, and `kcov` and `mandoc` build from source. Each takes apt, at
+- **What blocks a full swap:** `mandoc` and `checkbashisms` are not in
+  mise's registry, and `mandoc` builds from source. Each takes apt, at
   a floating version, or a small kept installer; apt unless the exact version
   matters.
 - **Verify first:** `cargo-mutants` and `cargo-semver-checks` are not in the
@@ -439,7 +447,7 @@ Evaluated, not decided: nothing here is on the order of work until it is taken u
 - **Cost:** every job that needs a tool installs mise, through one more pinned
   action or a download, and each harden-runner allow list gains mise's hosts.
   `check_tool_versions.sh`, `scripts/apply_bumps.sh` and say-hi's `tools_test.sh`
-  and `drift_test.sh` are rewritten. Every target using `setup-tool` needs a
+  and `drift_test.sh` are rewritten. Every target using `setup-tools` needs a
   `mise.toml`.
 - **How, if taken up:** try say-hi's
   `quick lint` job first, the cheapest way to measure what mise adds to a job's

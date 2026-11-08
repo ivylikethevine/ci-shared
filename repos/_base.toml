@@ -7,7 +7,6 @@ files = [
   ".github/ISSUE_TEMPLATE/config.yml",
   ".github/actionlint.yaml",
   ".github/actions/apt/lib.sh",
-  ".github/actions/setup-tool/action.yml",
   ".github/actions/setup-tool/install.sh",
   ".github/actions/setup-tool/lib.sh",
   ".github/actions/setup-tool/tools.txt",
