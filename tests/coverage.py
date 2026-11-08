@@ -43,7 +43,9 @@ SUBSTS: set[str] = {"CmdSubst", "ProcSubst"}
 Json: TypeAlias = "str | int | float | bool | None | list[Json] | dict[str, Json]"
 Hits: TypeAlias = dict[int, int]
 # a SimpleCov resultset: {run: {"coverage": {path: {"lines": [hits or null]}}}}
-Resultset: TypeAlias = dict[str, dict[str, dict[str, dict[str, list[int | None]]]]]
+FileLines: TypeAlias = dict[str, list[int | None]]
+Run: TypeAlias = dict[str, dict[str, FileLines]]
+Resultset: TypeAlias = dict[str, Run]
 
 
 def bashcov_lines(resultsets: list[str]) -> dict[str, Hits]:
@@ -51,9 +53,9 @@ def bashcov_lines(resultsets: list[str]) -> dict[str, Hits]:
     lines: dict[str, Hits] = {}
     resultset: str
     f: TextIOWrapper
-    run: dict[str, dict[str, dict[str, list[int | None]]]]
+    run: Run
     path: str
-    data: dict[str, list[int | None]]
+    data: FileLines
     n: int
     c: int | None
     for resultset in resultsets:
