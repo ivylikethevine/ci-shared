@@ -4,6 +4,20 @@ What changed in this repository and the files it ships, newest first. A
 [roadmap](ROADMAP.md) item moves here when it is done, with what it left in
 force; nothing checks this file.
 
+## 2026-11-09
+
+### `sync-health` issue closed
+
+- The weekly run of 2026-11-09 (42721602217) passed every check, which closed
+  #4, the `sync-health` issue left open when the sync App went live on
+  2026-10-28. The first weekly run under the App (41540975712, 2026-11-02) had
+  failed only the rulesets diff: three live `main` rulesets had dropped entries
+  `repos/` still held, corrected in #33 (Trivy out of instadroid's and
+  sharerr-rs's `code_scanning_tools`, say-hi's two `e2e` contexts out of its
+  required checks).
+- Still by hand per target: a mint step in `sync.yml`, which
+  `scripts/check.sh` fails without.
+
 ## 2026-11-08
 
 ### Immutable releases on every releasing target

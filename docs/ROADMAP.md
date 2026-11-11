@@ -15,17 +15,19 @@ one step of an item. S, M and L are sizes.
 
 - Item 1, delete the stale `setup-tool/action.yml` in each of the five targets,
   now that their sync PRs have merged (S).
-- Item 7, the 2026-11-09 weekly run, which closes #4 if every check passes (S).
-- 11a, a `block` job that passes on a westus2 runner in the experiment under
-  v2.22.3, or v2.22.4 from 2026-11-13; then 11b, the `dns-experiment` step's
+- 10a, a `block` job that passes on a westus2 runner in the experiment under
+  v2.22.3, or v2.22.4 from 2026-11-13; then 10b, the `dns-experiment` step's
   removal (S).
-- 10b, the first automatic rerun on `main`, on the next run that shows it (S).
-- Item 12's check, which needs a real pull request (S).
-- Item 2, the rest of the batch, say-hi first (M, one session per repository).
-- Item 3, the two workaround workflows, after 11b (S).
+- Item 11's check, which needs a real pull request (S).
+- Item 2, the first CI run of each converted job, then its two release-path
+  jobs (S).
+- Item 3, the two workaround workflows, after 10b (S).
+- 9b, the first automatic rerun on `main`, on the next run that shows it (S);
+  it lapses once item 3 removes the workflow that reruns.
 
-Waiting on upstream: items 4, 5, 6 (its runner label), 8 and 13. Not worth
-doing as things stand: item 9.
+Waiting on upstream: items 4 and 6 (an actionlint release), 5 (a
+markdownlint-cli2 release), 7 (jactionlint's release history) and 12 (shfmt's
+`ignore` on a single file). Not worth doing as things stand: item 8.
 
 ## Fixes in this repository
 
@@ -39,7 +41,7 @@ doing as things stand: item 9.
   targets; `install.sh`, `lib.sh` and `tools.txt` beside it stay, as
   `setup-tools`' backend.
 
-### 2. harden-runner `block` on macOS and Windows jobs (_batch_)
+### 2. harden-runner `block` on macOS and Windows jobs (_batch_, S)
 
 - **What:** harden-runner v2.20.0 supports `egress-policy: block` on GitHub's
   macOS and Windows runners in the free tier, so those jobs can move from
@@ -50,13 +52,38 @@ doing as things stand: item 9.
   for `allowed-endpoints`. The jobs live in the targets' own workflows, one
   session per repository; update each disabled-rules row that says only audit
   is supported.
+- **say-hi:** `test-macos`, `windows-client.yml`'s x64 legs and
+  `windows-e2e.yml`'s two jobs are on `block`, unproven until their first CI
+  run: nothing local runs a hosted macOS or Windows agent. `release.yml`'s
+  `brew` stays `audit`: it runs only on a tag push, so its first `block` run
+  would be a release, with `tap` waiting on it.
+- **homebrew-tap:** the macOS leg of `ci.yml`'s `test` is on `block` through a
+  `runner.os` expression, from 13 audited runs that agree on seven hosts, and
+  equally unproven; its Linux leg stays `audit`.
+- **python-constricter:** `ci.yml`'s `test` and `compiled` run `block` on every
+  leg, unproven likewise: their macOS legs reached nothing the Linux lists
+  lacked, and the Windows legs add two certificate-revocation hosts.
+- **Left:** the two jobs whose first `block` run would be a release, say-hi's
+  `brew` (a tag push only) and python-constricter's `build.yml` `compiled` (a
+  tag, or a dispatch by hand). Each stays `audit` on macOS and Windows until a
+  `block` run outside a release shows its list: a `build.yml` dispatch on a
+  branch is that run, and `brew` has none. sharerr-rs and instadroid have no
+  macOS or Windows job.
+- **For the next target:** the baseline held endpoint data for 3 of `ci.yml`'s
+  last 10 passing runs, so a host only a cold cache fetches is in none of them;
+  read the action's source for it (setup-wsl downloads its distribution from
+  `releases.ubuntu.com`). The Windows agent names a WSL distribution's apt
+  mirrors on 443 where apt's stock sources are http, so list both ports.
+  harden-runner's README still says Windows and macOS are audit only, against
+  v2.20.0's release note and the action's source, which hands `block` and the
+  list to both agents.
 
 ### 3. Drop `rerun-timeouts.yml` and `cancel-closed-pr.yml` (_batch_, S)
 
 - **What:** two shared workflows that work around runner behaviour rather than
   fix anything in a target. `rerun-timeouts.yml` retries a run whose job hit a
   time limit, where the rule in every target is to fix a slow job in code; it
-  also reruns the `dns-experiment` refusal, so it goes once item 11 closes and that
+  also reruns the `dns-experiment` refusal, so it goes once item 10 closes and that
   step is gone. `cancel-closed-pr.yml` cancels a merged or closed PR's in-flight
   runs, which a `concurrency:` block cannot (a merge pushes nothing to the PR's
   ref); the question is whether the runner minutes it saves are worth a
@@ -68,8 +95,8 @@ doing as things stand: item 9.
   USAGE.md. The sync never deletes a file (item 1), so each target deletes its two
   copies by hand in the batch, and say-hi's CONTRIBUTING.md drops its
   `cancel-closed-pr.yml` line.
-- **Verified:** 10a's rescan found no job the lowered limits killed while
-  doing its work; every retried job but one was item 11's stuck kind, and that
+- **Verified:** 9a's rescan found no job the lowered limits killed while
+  doing its work; every retried job but one was item 10's stuck kind, and that
   one was a hung Docker Hub pull.
 
 ### 4. The `$/` rewrite and zizmor `self-repository` (_batch_)
@@ -81,8 +108,8 @@ doing as things stand: item 9.
   rejects `$/` ("ref is missing"). Every repository's lint gate runs actionlint.
   [rhysd/actionlint#711](https://github.com/rhysd/actionlint/issues/711) and pull
   request 732 are open, but its last release is 2026-03-30 and its last commit
-  2026-04-19, so a fix may not come. jactionlint accepts it but is not taken for
-  now (item 8). Not evaluated: the fork `kjanat/actionlint`, which says it is a
+  2026-04-19 (checked 2026-11-10), so a fix may not come. jactionlint accepts it but is not taken for
+  now (item 7). Not evaluated: the fork `kjanat/actionlint`, which says it is a
   drop-in CLI with `$/` and `ubuntu-26.04`, and a `paths` ignore in
   `.github/actionlint.yaml` for the two `$/` messages, as #711 suggests.
 - **How, once actionlint accepts it:** rewrite the shared workflows and each
@@ -95,7 +122,10 @@ doing as things stand: item 9.
 - **What:** markdownlint 0.42.0, which markdownlint-cli2 0.24.0 pulls in, pins
   `re2js` 2.8.6 under GHSA-gg6h-894w-4m9c, fixed in 2.8.7. `overrides` in
   `files/.github/package.json` holds `re2js` at 2.9.1, the newest past the cooldown.
-- **How:** drop the override once markdownlint's own pin passes the advisory.
+  markdownlint 0.42.1 (2026-11-07) pins 2.9.1 itself, but markdownlint-cli2
+  0.24.0, still the newest, pins markdownlint 0.42.0. Checked 2026-11-10.
+- **How:** drop the override once a markdownlint-cli2 release takes markdownlint
+  0.42.1 or later and clears the cooldown.
 
 ## Platform changes with a date
 
@@ -104,9 +134,8 @@ doing as things stand: item 9.
 Every shared workflow job, and this repository's own, now names
 `ubuntu-26.04` rather than `ubuntu-latest`, so the next image change is a
 commit and not the label moving under a run. `.github/actionlint.yaml`, shared
-with every target, tells actionlint 1.7.12 the label; drop it once a release
-knows 26.04. What changed under them, from GitHub's image comparison
-(`actions/runner-images#14226`):
+with every target, tells actionlint 1.7.12 the label. What changed under them,
+from GitHub's image comparison (`actions/runner-images#14226`):
 
 | Tool           | 24.04    | 26.04                                                           |
 | -------------- | -------- | --------------------------------------------------------------- |
@@ -130,27 +159,13 @@ knows 26.04. What changed under them, from GitHub's image comparison
 
 ## Integrations and replacements
 
-### 7. Close the `sync-health` issue (S)
-
-- **What:** the sync App has been live since 2026-10-28
-  ([CHANGELOG](CHANGELOG.md)), but the `sync-health` issue (#4) is still open.
-  The 2026-11-02 weekly run, the first under the App (41540975712), failed only
-  the rulesets diff: three live `main` rulesets had dropped entries `repos/`
-  still held. Trivy fails on pull requests to main, so it is out of instadroid's
-  and sharerr-rs's `code_scanning_tools`; say-hi's checks were restructured, so
-  its two `e2e` contexts are out of its required checks. That has been on `main`
-  since #33.
-- **How:** read the 2026-11-09 weekly run; it closes #4 if every check passes.
-- **Still by hand per target:** a mint step in `sync.yml`, which
-  `scripts/check.sh` fails without.
-
-### 8. jactionlint in place of actionlint (_batch_, decided against for now)
+### 7. jactionlint in place of actionlint (_batch_, decided against for now)
 
 - **What:** [jdx/jactionlint](https://github.com/jdx/jactionlint), an
   MIT-licensed fork of actionlint that accepts `uses: $/...`, which would
   unblock item 4. Not taken: the first release was 2026-10-05, it reached v2.3.0
-  within three weeks with a major bump four days in (v2.4.0 on 2026-10-29), and
-  it has one maintainer. Revisit once it has a settled release history, or drop
+  within three weeks with a major bump four days in, has shipped a minor a week
+  since (v2.5.0 on 2026-11-05), and has one maintainer. Revisit once it has a settled release history, or drop
   it if actionlint accepts `$/` first.
 - **Tried (v2.3.0, on a copy of the tree with every local `uses:` rewritten
   to `$/`):** `--profile=correctness` is clean where actionlint 1.7.12 fails
@@ -179,7 +194,7 @@ knows 26.04. What changed under them, from GitHub's image comparison
 - **Not evaluated:** it claims a rule for every zizmor 1.30.1 audit (zizmor is
   pinned at 1.31.1 since), which could later replace zizmor as well.
 
-### 9. A shared push ruleset
+### 8. A shared push ruleset
 
 Rulesets of type `push` apply to every branch and can refuse paths
 (`*.key`, `*.pem`, `.env`, `secrets/`) and files over a size. One
@@ -210,42 +225,43 @@ and a template would be mostly per-repository blocks.
 
 ## Known issues
 
-### 10. Jobs that time out without doing the work
+### 9. Jobs that time out without doing the work
 
 - **What:** `scripts/retried_timeouts.py` found 105 jobs since 2026-08-01 that
   hit a time limit and passed within two retries, nearly all from 2026-10-21 on
   `ubuntu-26.04`. Its outcome column shows most never ran to their limit: 58
   ended their `Complete job` step yet stayed open, 40 recorded no finished step.
   A larger limit does not help them, nor a smaller one: `rerun-timeouts.yml`'s
-  5-minute job stayed open 10. Item 11 is the cause wherever a log remains, by its
-  measurement above.
+  5-minute job stayed open 10. Item 10 is the cause wherever a log remains, by its
+  measurement below.
 - **Done:** `rerun-timeouts.yml` reruns a run's failed jobs when one hit a time
-  limit, at most twice, under `block` since it holds a write token; item 11 can
+  limit, at most twice, under `block` since it holds a write token; item 10 can
   fail it, which leaves that run for a rerun by hand. Limits were lowered from
   `scripts/job_durations.py`'s 20 newest passing runs: 5 minutes under a 1-minute
   longest run, else 1.5 times the longest rounded up to 5 with a floor of 10, and
   15 to 20 for jobs that compile or build an image, whose cold runs the sample may
   miss. Release and publish jobs and jobs seen under 5 times keep theirs.
 - **Not done:** reporting the jobs that finished yet stayed open to GitHub. A move
-  back to `ubuntu-24.04` no longer tests anything: item 11's measurement separates
+  back to `ubuntu-24.04` no longer tests anything: item 10's measurement separates
   `block` from `audit` on the one image.
-- **10a, rescan (done 2026-11-09):** `scripts/retried_timeouts.py --since
-2026-11-01` added 34 rows (139 in the log). 33 are item 11's kind: no step
-  finished, or every step finished within a minute and the job stayed open to
-  its limit; the 7 since 2026-11-03 are all of that kind, on `ubuntu-26.04`.
-  The one job the limit itself killed is say-hi's `pinned images (trivy,
-advisory)` of 2026-11-02 (run 41542551840, job 125610073245, `us-east-1`,
-  `block`, nothing dropped): trivy downloaded its database in 4 seconds, then
+- **9a, rescan (done 2026-11-09):** `scripts/retried_timeouts.py` with
+  `--since 2026-11-01` added 34 rows (139 in the log). 33 are item 10's kind: no
+  step finished, or every step finished within a minute and the job stayed open
+  to its limit; the 7 since 2026-11-03 are all of that kind, on `ubuntu-26.04`.
+  The one job the limit itself killed is say-hi's
+  `pinned images (trivy, advisory)` of 2026-11-02 (run 41542551840, job
+  125610073245, `us-east-1`, `block`, nothing dropped): trivy downloaded its database in 4 seconds, then
   called `index.docker.io` until 23:12 with no output, and the 10-minute limit
   cancelled it; its usual run is under a minute, and attempt 2 passed. A hung
   pull, not a slow job, so the limits stand. If it recurs, `scan_pinned_images.sh`
   could pass trivy a `--timeout` under the job's limit so the report names the
   image.
-- **10b, verify the rerun:** after the first automatic rerun of a `CI` run on
+- **9b, verify the rerun:** after the first automatic rerun of a `CI` run on
   `main`, that the workflows chained off `CI` fired from attempt 2, since a rerun
-  started by `GITHUB_TOKEN` may not emit `workflow_run`.
+  started by `GITHUB_TOKEN` may not emit `workflow_run`. It lapses if item 3
+  removes `rerun-timeouts.yml` first.
 
-### 11. harden-runner `block` drops allowlisted hosts on some westus2 runners
+### 10. harden-runner `block` drops allowlisted hosts on some westus2 runners
 
 - **What:** GitHub runs an experiment on some westus2 hosted runners that adds
   its own DNS resolver (`egress-dns-resolver.service`, on `127.0.0.100:53`).
@@ -269,10 +285,9 @@ advisory)` of 2026-11-02 (run 41542551840, job 125610073245, `us-east-1`,
   of the download step there would ride it out.
 - **Measured, 2026-10-24 to 10-31,** with a one-off script over the runner region
   in each job's log, across sharerr-rs, instadroid, homebrew-tap and saffron. Of
-  the 10 jobs that hit a
-  limit, the 9 whose logs remain all ran `block` on westus2; a sample of 400
-  passing jobs held no `block` job on westus2, 20 `audit` jobs on westus2, and 77
-  `block` jobs elsewhere. In one stuck job's post step, the runner's own
+  the 10 jobs that hit a limit, the 9 whose logs remain all ran `block` on
+  westus2; a sample of 400 passing jobs held no `block` job on westus2, 20
+  `audit` jobs on westus2, and 77 `block` jobs elsewhere. In one stuck job's post step, the runner's own
   connection (`Runner.Worker`) is dropped too, which is why a job stays open after
   its last step.
 - **Upstream:** harden-runner v2.22.3 (2026-10-27), pinned everywhere since
@@ -285,9 +300,11 @@ advisory)` of 2026-11-02 (run 41542551840, job 125610073245, `us-east-1`,
   was closed as completed on 2026-11-06, with no comment from GitHub on the
   DNS-observation part.
   [step-security/harden-runner#705](https://github.com/step-security/harden-runner/issues/705)
-  covers the earlier port conflict on `127.0.0.1:53`, fixed. Checked 2026-11-07.
+  covers the earlier port conflict on `127.0.0.1:53`, fixed. Checked 2026-11-07;
+  v2.22.4 was still the newest release on 2026-11-10.
 - **Until then:** jobs with no write token run `audit` (`release-note.yml`,
-  `pages.yml`'s build). Jobs that keep `block` start with a `dns-experiment` step
+  `pages.yml`'s build, and here `checks.yml`'s two jobs and `bump-tools.yml`'s
+  read-only one). Jobs that keep `block` start with a `dns-experiment` step
   that refuses the runner when `egress-dns-resolver.service` is active, before the
   agent engages, so they fail in seconds; `rerun-timeouts.yml` reruns that failure.
   `scorecard.yml` has no such step, since its publish check restricts the job's
@@ -298,28 +315,28 @@ advisory)` of 2026-11-02 (run 41542551840, job 125610073245, `us-east-1`,
 - **Recognize it:** `Region: westus2` in the job's set-up log, and in
   harden-runner's post step every `endpoint called` line has an empty
   `domain:`, with `ip address dropped` for an allowlisted host's IP.
-- **11a, prove the fix:** the `dns-experiment` step refuses an experiment runner
+- **10a, prove the fix:** the `dns-experiment` step refuses an experiment runner
   before harden-runner engages, so no run can show v2.22.3's fix while it is
   there. Drop it from one `block` job and read that job's runs until one lands
   on westus2 with `egress-dns-resolver.service` active and passes, or take
   v2.22.4 on 2026-11-13 and do the same.
-- **11b, remove the workaround:** once one passes, drop the step everywhere and
-  move `release-note.yml` and `pages.yml`'s build back to `block`.
+- **10b, remove the workaround:** once one passes, drop the step everywhere,
+  with its exemption in `lint_workflows.sh` rule 6, and move the `audit` jobs
+  named above back to `block`.
 
-### 12. Sync pull requests still run sharerr-rs's `CodeQL (rust)`
+### 11. Sync pull requests still run sharerr-rs's `CodeQL (rust)` (S)
 
 - **What:** 135 of its 682 runner minutes in the week measured, and 34% of its
-  minutes were `ci-sync`'s. Its other Rust
-  jobs and both Docker builds now skip a pull request that touches only shared
-  CI files. This one is the shared `codeql.yml`, whose header says a skipped
-  category leaves code scanning waiting on a result, and code scanning is in
-  that repository's ruleset.
+  minutes were `ci-sync`'s. Its other Rust jobs and both Docker builds now skip
+  a pull request that touches only shared CI files. This one is the shared
+  `codeql.yml`, whose header says a skipped category leaves code scanning
+  waiting on a result, and code scanning is in that repository's ruleset.
 - **Still runs:** 7m40s on sync pull request 153 (2026-11-02), where every other
   Rust and Docker job skipped.
 - **Verify first:** whether a skipped `CodeQL (rust)` holds a sync pull request's
   merge. Needs a real pull request; nothing local shows it.
 
-### 13. shfmt and `brew style` disagree on homebrew-tap's shell layout
+### 12. shfmt and `brew style` disagree on homebrew-tap's shell layout
 
 - **What:** homebrew-tap's `brew style` runs Homebrew's shfmt wrapper over
   every `*.sh` in the tap, which wants `then` and `do` on their own line and
@@ -340,7 +357,7 @@ advisory)` of 2026-11-02 (run 41542551840, job 125610073245, `us-east-1`,
 
 Evaluated, not decided: nothing here is on the order of work until it is taken up.
 
-### 14. `mise.toml` in place of `tools.txt` (_batch_, L)
+### 13. `mise.toml` in place of `tools.txt` (_batch_, L)
 
 - **What:** make `mise.toml` and `mise.lock` the one list of pinned CI tools, in
   place of `.github/actions/setup-tool/tools.txt`, its installer, and the
@@ -363,6 +380,6 @@ Evaluated, not decided: nothing here is on the order of work until it is taken u
   `check_tool_versions.sh`, `scripts/apply_bumps.sh` and say-hi's `tools_test.sh`
   and `drift_test.sh` are rewritten. Every target using `setup-tools` needs a
   `mise.toml`.
-- **How, if taken up:** try say-hi's
-  `quick lint` job first, the cheapest way to measure what mise adds to a job's
-  time and find the hosts it needs, then move every target as one batch.
+- **How, if taken up:** try say-hi's `quick lint` job first, the cheapest way to
+  measure what mise adds to a job's time and find the hosts it needs, then move
+  every target as one batch.
