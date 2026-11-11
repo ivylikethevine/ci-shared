@@ -5,49 +5,43 @@ the whole tree, a run of its own checks and drift report, a census of the
 checkouts beside it, and the upstream state of each tool and GitHub feature in
 play. Each item says what, why, how, and what to verify first. Items marked
 _batch_ are shared CI items: they go to every repository as one hand-run batch
-([README](../README.md), "Checking this repository"), never to one alone.
+([README](../README.md), "Checking this repository"), never to one alone. A
+finished item moves to [CHANGELOG.md](CHANGELOG.md).
 
 ## Order of work
 
-Ranked by value for size; the numbers are the items below. S, M and L are sizes.
+Ranked by value for size. Items are numbered through the file; a letter marks
+one step of an item. S, M and L are sizes.
 
-1. 1.3, commit and merge each repository's part; the sync PRs carry the
-   `files/` half, and the stale `setup-tool/action.yml` in each target goes
-   after them (S).
-2. 5.3's rescan of the lowered limits, due since 2026-11-08 (S).
-3. 3.1, the 2026-11-09 weekly run, which closes #4 if every check passes (S).
-4. 3.3, read say-hi's and instadroid's next tag run (S).
-5. 5.1, a `block` job that passes on a westus2 runner in the experiment under
-   v2.22.3, or v2.22.4 from 2026-11-13, then the `dns-experiment` step's
-   removal (S).
-6. 5.3's first automatic rerun on `main`, on the next run that shows it (S).
-7. 5.4's check, which needs a real pull request (S).
-8. 1.2, the rest of the batch, say-hi first (M, one session per repository).
+- Item 1, delete the stale `setup-tool/action.yml` in each of the five targets,
+  now that their sync PRs have merged (S).
+- 10a, a `block` job that passes on a westus2 runner in the experiment under
+  v2.22.3, or v2.22.4 from 2026-11-13; then 10b, the `dns-experiment` step's
+  removal (S).
+- Item 11's check, which needs a real pull request (S).
+- Item 2, the first CI run of each converted job, then its two release-path
+  jobs (S).
+- Item 3, the two workaround workflows, after 10b (S).
+- 9b, the first automatic rerun on `main`, on the next run that shows it (S);
+  it lapses once item 3 removes the workflow that reruns.
 
-Waiting on upstream: 1.1, 2.1's runner label, 3.5, 5.2. Not worth doing as
-things stand: 3.4.
+Waiting on upstream: items 4 and 6 (an actionlint release), 5 (a
+markdownlint-cli2 release), 7 (jactionlint's release history) and 12 (shfmt's
+`ignore` on a single file). Not worth doing as things stand: item 8.
 
-## 1. Fixes in this repository
+## Fixes in this repository
 
-### 1.1 The `$/` rewrite and zizmor `self-repository` (_batch_)
+### 1. Delete the stale `setup-tool/action.yml` in every target (_batch_, S)
 
-- **What:** Scorecard v5.6.0, which `ossf/scorecard-action` v2.5.0 ships,
-  reads `uses: $/...` as a local action, so the rewrite of every
-  `uses: ./.github/...` to `$/.github/...` and `self-repository` back on in
-  `.github/zizmor.yml` could follow. Blocked: actionlint 1.7.12, the newest,
-  rejects `$/` ("ref is missing"). Every repository's lint gate runs actionlint.
-  [rhysd/actionlint#711](https://github.com/rhysd/actionlint/issues/711) and pull
-  request 732 are open, but its last release is 2026-03-30 and its last commit
-  2026-04-19, so a fix may not come. jactionlint accepts it but is not taken for
-  now (3.5). Not evaluated: the fork `kjanat/actionlint`, which says it is a
-  drop-in CLI with `$/` and `ubuntu-26.04`, and a `paths` ignore in
-  `.github/actionlint.yaml` for the two `$/` messages, as #711 suggests.
-- **How, once actionlint accepts it:** rewrite the shared workflows and each
-  target's own, extend `lint_workflows.sh` rule 7 to `$/` (it checks the
-  sparse-checkout list for `./` refs only), re-enable the rule, and update
-  each target's disabled-rules note.
+- **What:** `setup-tools` replaced `setup-tool` everywhere on 2026-11-08
+  ([CHANGELOG](CHANGELOG.md)), but the sync writes files and never deletes one,
+  so the old `action.yml` is still in every target, homebrew-tap included.
+  Nothing calls it.
+- **How:** delete `.github/actions/setup-tool/action.yml` in each of the five
+  targets; `install.sh`, `lib.sh` and `tools.txt` beside it stay, as
+  `setup-tools`' backend.
 
-### 1.2 harden-runner `block` on macOS and Windows jobs (_batch_)
+### 2. harden-runner `block` on macOS and Windows jobs (_batch_, S)
 
 - **What:** harden-runner v2.20.0 supports `egress-policy: block` on GitHub's
   macOS and Windows runners in the free tier, so those jobs can move from
@@ -58,57 +52,90 @@ things stand: 3.4.
   for `allowed-endpoints`. The jobs live in the targets' own workflows, one
   session per repository; update each disabled-rules row that says only audit
   is supported.
+- **say-hi:** `test-macos`, `windows-client.yml`'s x64 legs and
+  `windows-e2e.yml`'s two jobs are on `block`, unproven until their first CI
+  run: nothing local runs a hosted macOS or Windows agent. `release.yml`'s
+  `brew` stays `audit`: it runs only on a tag push, so its first `block` run
+  would be a release, with `tap` waiting on it.
+- **homebrew-tap:** the macOS leg of `ci.yml`'s `test` is on `block` through a
+  `runner.os` expression, from 13 audited runs that agree on seven hosts, and
+  equally unproven; its Linux leg stays `audit`.
+- **python-constricter:** `ci.yml`'s `test` and `compiled` run `block` on every
+  leg, unproven likewise: their macOS legs reached nothing the Linux lists
+  lacked, and the Windows legs add two certificate-revocation hosts.
+- **Left:** the two jobs whose first `block` run would be a release, say-hi's
+  `brew` (a tag push only) and python-constricter's `build.yml` `compiled` (a
+  tag, or a dispatch by hand). Each stays `audit` on macOS and Windows until a
+  `block` run outside a release shows its list: a `build.yml` dispatch on a
+  branch is that run, and `brew` has none. sharerr-rs and instadroid have no
+  macOS or Windows job.
+- **For the next target:** the baseline held endpoint data for 3 of `ci.yml`'s
+  last 10 passing runs, so a host only a cold cache fetches is in none of them;
+  read the action's source for it (setup-wsl downloads its distribution from
+  `releases.ubuntu.com`). The Windows agent names a WSL distribution's apt
+  mirrors on 443 where apt's stock sources are http, so list both ports.
+  harden-runner's README still says Windows and macOS are audit only, against
+  v2.20.0's release note and the action's source, which hands `block` and the
+  list to both agents.
 
-### 1.3 Remove `setup-tool` for `setup-tools` (_batch_, done in the trees 2026-11-08)
+### 3. Drop `rerun-timeouts.yml` and `cancel-closed-pr.yml` (_batch_, S)
 
-- **Done, not committed:** `setup-tool/action.yml` is gone from `files/` and
-  `repos/_base.toml`; `install.sh`, `lib.sh` and `tools.txt` stay in
-  `setup-tool/` as `setup-tools`' backend, and `install.sh` no longer writes
-  `image=` (`resolve.sh` reads `$ImageOS` itself). The shared callers
-  (`advisories.yml`, `image-scan.yml`, `link-check.yml`) call `setup-tools`,
-  and `image-scan.yml`'s and sharerr-rs `docker.yml`'s sparse lists hold both
-  directories. Every target's own caller moved: sharerr-rs `ci.yml` (5, its
-  terraform path filter gains `setup-tools/`), `docker.yml` and `coverage.yml`,
-  instadroid `publish.yml`, python-constricter `ci.yml` and `security.yml` (3),
-  say-hi `usage.yml`, whose `freeze` the release suite's row check now reads.
-  say-hi's `test_setup_tool_resolve_names_the_pin` ignores an `image=` line, so
-  it passes against either `install.sh` and can land before the sync PR.
-  `scripts/check.sh`'s own checks and `tests/run.sh` pass; its tool checks
-  (constricter, reuse, pip-audit, gitleaks' version, zizmor online) could not
-  run in the session.
-- **Left:** the sync writes files and never deletes one, so each target's
-  `setup-tool/action.yml` stays until it is removed there, after that target's
-  sync PR has merged; until then nothing calls it. Each tool downloads once
-  more, since the cache key changes.
+- **What:** two shared workflows that work around runner behaviour rather than
+  fix anything in a target. `rerun-timeouts.yml` retries a run whose job hit a
+  time limit, where the rule in every target is to fix a slow job in code; it
+  also reruns the `dns-experiment` refusal, so it goes once item 10 closes and that
+  step is gone. `cancel-closed-pr.yml` cancels a merged or closed PR's in-flight
+  runs, which a `concurrency:` block cannot (a merge pushes nothing to the PR's
+  ref); the question is whether the runner minutes it saves are worth a
+  workflow with `actions: write` in every target.
+- **How:** remove both from `files/` and `repos/_base.toml`, each target's
+  `[templates."rerun-timeouts.yml"]` table, `scripts/own_files.sh`'s row and
+  this repository's own `rerun-timeouts.yml`; update `tests/lib.sh`,
+  `tests/own_files_test.sh`, `tests/check_test.sh`, README's workflow list and
+  USAGE.md. The sync never deletes a file (item 1), so each target deletes its two
+  copies by hand in the batch, and say-hi's CONTRIBUTING.md drops its
+  `cancel-closed-pr.yml` line.
+- **Verified:** 9a's rescan found no job the lowered limits killed while
+  doing its work; every retried job but one was item 10's stuck kind, and that
+  one was a hung Docker Hub pull.
 
-### 1.4 The targets' own action SHAs (_batch_, done 2026-11-06)
+### 4. The `$/` rewrite and zizmor `self-repository` (_batch_)
 
-- **Done, merged in every repository:** every target's own workflows and actions, the files
-  the sync does not deliver, are on `files/`' pins or the ones their
-  `tool-versions` issues offered: harden-runner v2.22.3 everywhere, this
-  repository and `files/` included; docker/login-action v4.7.0, codeql
-  upload-sarif v4.39.1, setup-python v7.1.0, rust-cache v2.9.3, setup-uv
-  v10.3.2, cibuildwheel v4.3.4 and openbsd-vm v1.4.9 where used.
-  `scripts/stale_pins.sh` lists none behind; `scripts/bump_pins.sh` makes the
-  next round's edits. `setup-tool`'s `version` and `sha256` inputs went in the
-  same round: `install.sh` reads the row's pin and sha256 alone.
-- **Override:** markdownlint 0.42.0, which markdownlint-cli2 0.24.0 pulls in, pins
-  `re2js` 2.8.6 under GHSA-gg6h-894w-4m9c, fixed in 2.8.7. `overrides` holds
-  `re2js` at 2.9.1, the newest past the cooldown; drop it once markdownlint's
-  own pin passes the advisory.
-- **Left in the issues, not action SHAs:** say-hi's bashcov 4.0.1 and its
-  `bash:3.2` digest.
+- **What:** Scorecard v5.6.0, which `ossf/scorecard-action` v2.5.0 ships,
+  reads `uses: $/...` as a local action, so the rewrite of every
+  `uses: ./.github/...` to `$/.github/...` and `self-repository` back on in
+  `.github/zizmor.yml` could follow. Blocked: actionlint 1.7.12, the newest,
+  rejects `$/` ("ref is missing"). Every repository's lint gate runs actionlint.
+  [rhysd/actionlint#711](https://github.com/rhysd/actionlint/issues/711) and pull
+  request 732 are open, but its last release is 2026-03-30 and its last commit
+  2026-04-19 (checked 2026-11-10), so a fix may not come. jactionlint accepts it but is not taken for
+  now (item 7). Not evaluated: the fork `kjanat/actionlint`, which says it is a
+  drop-in CLI with `$/` and `ubuntu-26.04`, and a `paths` ignore in
+  `.github/actionlint.yaml` for the two `$/` messages, as #711 suggests.
+- **How, once actionlint accepts it:** rewrite the shared workflows and each
+  target's own, extend `lint_workflows.sh` rule 7 to `$/` (it checks the
+  sparse-checkout list for `./` refs only), re-enable the rule, and update
+  each target's disabled-rules note.
 
-## 2. Platform changes with a date
+### 5. Drop the `re2js` override (S)
 
-### 2.1 `ubuntu-latest` becomes Ubuntu 26.04 between 2026-10-19 and 2026-11-19
+- **What:** markdownlint 0.42.0, which markdownlint-cli2 0.24.0 pulls in, pins
+  `re2js` 2.8.6 under GHSA-gg6h-894w-4m9c, fixed in 2.8.7. `overrides` in
+  `files/.github/package.json` holds `re2js` at 2.9.1, the newest past the cooldown.
+  markdownlint 0.42.1 (2026-11-07) pins 2.9.1 itself, but markdownlint-cli2
+  0.24.0, still the newest, pins markdownlint 0.42.0. Checked 2026-11-10.
+- **How:** drop the override once a markdownlint-cli2 release takes markdownlint
+  0.42.1 or later and clears the cooldown.
+
+## Platform changes with a date
+
+### 6. `ubuntu-latest` becomes Ubuntu 26.04 between 2026-10-19 and 2026-11-19
 
 Every shared workflow job, and this repository's own, now names
 `ubuntu-26.04` rather than `ubuntu-latest`, so the next image change is a
 commit and not the label moving under a run. `.github/actionlint.yaml`, shared
-with every target, tells actionlint 1.7.12 the label; drop it once a release
-knows 26.04. What changed under them, from GitHub's image comparison
-(`actions/runner-images#14226`):
+with every target, tells actionlint 1.7.12 the label. What changed under them,
+from GitHub's image comparison (`actions/runner-images#14226`):
 
 | Tool           | 24.04    | 26.04                                                           |
 | -------------- | -------- | --------------------------------------------------------------- |
@@ -130,114 +157,15 @@ knows 26.04. What changed under them, from GitHub's image comparison
 - **Left:** drop the label from `.github/actionlint.yaml` once an actionlint
   release knows 26.04.
 
-### 2.2 Dependabot's default cooldown
+## Integrations and replacements
 
-- **What:** since 2026-07-14 Dependabot waits three days by default; the
-  shared `dependabot.yml` sets seven explicitly on every entry, which wins.
-  Nothing to change; `COOLDOWN_DAYS` in `check_tool_versions.sh` defaults to the
-  same seven.
-
-## 3. Integrations and replacements
-
-### 3.1 One GitHub App in place of five fine-grained tokens (live)
-
-- **Done in the tree:** `sync.yml` mints one token per target through
-  `actions/create-github-app-token` v3.3.0, `repositories` scoping each to its
-  target, and a `tokens` step exports them as the `SYNC_TOKEN_<NAME>` the
-  scripts already read, so the scripts and their suites keep their contract.
-  `check_tokens.sh` and its suite are gone; the health issue's `tokens` line
-  now means the App minted no token for a target. The README's "The sync App"
-  section has the permissions and credentials.
-- **Keeps:** the SSH signing key and `create_commit`'s verification (the
-  signature is checked against the committer email's registered key, not the
-  token), `check_protection.sh` (the App is the actor whose bypass is read;
-  not a bypass actor, so `never`), the `sync` environment.
-- **Live since 2026-10-28:** the App is created and installed, its credentials
-  set, and the change merged to `main`. Dry runs 40751549579 (homebrew-tap)
-  and 40751746191 (every target) minted all five tokens, and
-  `check_protection.sh` passed every target's `main` and `dev` with the App's
-  token. Every target was in line with `files/`, so no commit was written.
-  The five `SYNC_TOKEN_<NAME>` secrets are deleted and their PATs revoked. The
-  first commit written with an App token, homebrew-tap's `db047dd` (pull request
-  82), shows as verified.
-- **Anchored mint steps:** the mint steps share one `with:` through a YAML anchor,
-  reading `repositories` from each step's `env.TARGET`. That form minted all five
-  tokens on 2026-11-02, in the push run (41534178362), which opened the sync pull
-  requests, and in the weekly run, whose health issue has no `tokens` line.
-- **Left:** the `sync-health` issue (#4) is still open. The 2026-11-02 weekly
-  run, the first under the App (41540975712), failed only the rulesets diff:
-  three live `main` rulesets had dropped entries `repos/` still held. Trivy
-  fails on pull requests to main, so it is out of instadroid's and sharerr-rs's
-  `code_scanning_tools`; say-hi's checks were restructured, so its two `e2e`
-  contexts are out of its required checks. That has been on `main` since #33;
-  the 2026-11-09 weekly run closes #4 if every check passes.
-- **Still by hand per target:** a mint step in `sync.yml`, which
-  `scripts/check.sh` fails without.
-
-### 3.2 Bumps as a pull request, not a hand edit (live)
-
-- **Live:** `.github/workflows/bump-tools.yml`, weekly after the
-  version check. `check_tool_versions.sh` stays read-only and lists what is behind
-  in `CI_FIX_LIST`; `scripts/apply_bumps.sh` edits it, in this repository alone
-  since the sync owns the targets' copies and only this repository's manifest
-  kinds are handled: `tools.txt` rows with each asset's sha256, every `uses:`, the
-  inline pin, the npm manifest and lock, and the `.in` files and their locks.
-  `scripts/bump_pr.sh` writes one draft pull request on `tool-bumps`, in a job of
-  its own holding the App's token; a commit naming no author is signed by GitHub
-  for the App, so it needs no SSH key and keeps file modes.
-- **Runs:** the weekly run of 2026-11-02 (41491501365) found a bump and opened
-  pull request 31 (python-constricter 0.4.2 to 0.4.3). Its commit `445647e` shows
-  as verified, and the pull request job, under `block`, downloaded the artifact
-  with `results-receiver` alone allowed.
-- **Not taken:** pinact (v5.0.0), whose `pinact run --check` would add that each
-  SHA is reachable from the tag its comment names, which rule 5 does not; and
-  self-hosted Renovate (44.3.1 or later for CVE-2026-88884), a second bot and a
-  config dialect for a roster the check already parses.
-
-### 3.3 Immutable releases on every releasing target
-
-- **What:** once on, a published release's tag and assets are locked and the
-  release carries a Sigstore attestation, beside `protect-stable` and
-  `.github/allowed_signers`. On in sharerr-rs and python-constricter since
-  2026-10-31 and in say-hi and instadroid since 2026-11-08, as is the
-  SHA-pinning requirement in every repository, both set by hand with the
-  README's `gh api` calls; `immutable_releases = true` is in all four
-  `repos/*.toml` (say-hi's and instadroid's not committed).
-  `scripts/rulesets.sh diff` compares them
-  when its token has Administration read, which the sync App lacks (granting it
-  also needs `permission-administration: read` on `sync.yml`'s mint steps), so the
-  weekly run names them as hidden.
-- **say-hi, on `main` (`7e6daa3a0f0da589e24933b78e2c4a641df9dc33`):** `publish` creates a draft, attaches every asset and the
-  package repository, then publishes with
-  `gh release edit --draft=false`, in a step that runs whether the package
-  repository attached or not. A new `demo` job renders the packages tape at the
-  tag, so `demo.gif` goes on with the rest; `demos.yml`'s `attach` job is gone.
-  `gh_asset.sh` reads the release id off the release list, since
-  `releases/tags/<tag>` answers 404 for a draft.
-- **instadroid, on `main` (#117):** `publish.yml`'s
-  `release` job creates a draft, uploads the deploy bundle, then publishes; a
-  re-run against a published release edits only its notes.
-- **Left for both:** read each one's next tag run, the first to publish
-  under the setting (a prerelease tag is the cheapest proof).
-- **No releases:** homebrew-tap and ci-shared publish none, so the setting has
-  nothing to lock there.
-
-### 3.4 A shared push ruleset
-
-Rulesets of type `push` apply to every branch and can refuse paths
-(`*.key`, `*.pem`, `.env`, `secrets/`) and files over a size. One
-`rulesets/push.json` rendered and diffed like the other three would make the
-`.gitignore` secret patterns a server-side rule. Low value for one
-maintainer whose `gitleaks` check runs on every push; worth it only if a
-target gains contributors.
-
-### 3.5 jactionlint in place of actionlint (_batch_, decided against for now)
+### 7. jactionlint in place of actionlint (_batch_, decided against for now)
 
 - **What:** [jdx/jactionlint](https://github.com/jdx/jactionlint), an
   MIT-licensed fork of actionlint that accepts `uses: $/...`, which would
-  unblock 1.1. Not taken: the first release was 2026-10-05, it reached v2.3.0
-  within three weeks with a major bump four days in (v2.4.0 on 2026-10-29), and
-  it has one maintainer. Revisit once it has a settled release history, or drop
+  unblock item 4. Not taken: the first release was 2026-10-05, it reached v2.3.0
+  within three weeks with a major bump four days in, has shipped a minor a week
+  since (v2.5.0 on 2026-11-05), and has one maintainer. Revisit once it has a settled release history, or drop
   it if actionlint accepts `$/` first.
 - **Tried (v2.3.0, on a copy of the tree with every local `uses:` rewritten
   to `$/`):** `--profile=correctness` is clean where actionlint 1.7.12 fails
@@ -266,7 +194,16 @@ target gains contributors.
 - **Not evaluated:** it claims a rule for every zizmor 1.30.1 audit (zizmor is
   pinned at 1.31.1 since), which could later replace zizmor as well.
 
-## 4. More files into `files/`
+### 8. A shared push ruleset
+
+Rulesets of type `push` apply to every branch and can refuse paths
+(`*.key`, `*.pem`, `.env`, `secrets/`) and files over a size. One
+`rulesets/push.json` rendered and diffed like the other three would make the
+`.gitignore` secret patterns a server-side rule. Low value for one
+maintainer whose `gitleaks` check runs on every push; worth it only if a
+target gains contributors.
+
+## More files into `files/`
 
 From `scripts/near_census.py --normalize` over the sibling checkouts. The
 template engine's `shared:if repo=<name>` blocks already carry per-target
@@ -286,9 +223,45 @@ with a per-repository tail is a template, not a per-repository file.
 `.prettierignore`, `.typos.toml` and `.hadolint.yaml`: they share a line or two,
 and a template would be mostly per-repository blocks.
 
-## 5. Known issues
+## Known issues
 
-### 5.1 harden-runner `block` drops allowlisted hosts on some westus2 runners
+### 9. Jobs that time out without doing the work
+
+- **What:** `scripts/retried_timeouts.py` found 105 jobs since 2026-08-01 that
+  hit a time limit and passed within two retries, nearly all from 2026-10-21 on
+  `ubuntu-26.04`. Its outcome column shows most never ran to their limit: 58
+  ended their `Complete job` step yet stayed open, 40 recorded no finished step.
+  A larger limit does not help them, nor a smaller one: `rerun-timeouts.yml`'s
+  5-minute job stayed open 10. Item 10 is the cause wherever a log remains, by its
+  measurement below.
+- **Done:** `rerun-timeouts.yml` reruns a run's failed jobs when one hit a time
+  limit, at most twice, under `block` since it holds a write token; item 10 can
+  fail it, which leaves that run for a rerun by hand. Limits were lowered from
+  `scripts/job_durations.py`'s 20 newest passing runs: 5 minutes under a 1-minute
+  longest run, else 1.5 times the longest rounded up to 5 with a floor of 10, and
+  15 to 20 for jobs that compile or build an image, whose cold runs the sample may
+  miss. Release and publish jobs and jobs seen under 5 times keep theirs.
+- **Not done:** reporting the jobs that finished yet stayed open to GitHub. A move
+  back to `ubuntu-24.04` no longer tests anything: item 10's measurement separates
+  `block` from `audit` on the one image.
+- **9a, rescan (done 2026-11-09):** `scripts/retried_timeouts.py` with
+  `--since 2026-11-01` added 34 rows (139 in the log). 33 are item 10's kind: no
+  step finished, or every step finished within a minute and the job stayed open
+  to its limit; the 7 since 2026-11-03 are all of that kind, on `ubuntu-26.04`.
+  The one job the limit itself killed is say-hi's
+  `pinned images (trivy, advisory)` of 2026-11-02 (run 41542551840, job
+  125610073245, `us-east-1`, `block`, nothing dropped): trivy downloaded its database in 4 seconds, then
+  called `index.docker.io` until 23:12 with no output, and the 10-minute limit
+  cancelled it; its usual run is under a minute, and attempt 2 passed. A hung
+  pull, not a slow job, so the limits stand. If it recurs, `scan_pinned_images.sh`
+  could pass trivy a `--timeout` under the job's limit so the report names the
+  image.
+- **9b, verify the rerun:** after the first automatic rerun of a `CI` run on
+  `main`, that the workflows chained off `CI` fired from attempt 2, since a rerun
+  started by `GITHUB_TOKEN` may not emit `workflow_run`. It lapses if item 3
+  removes `rerun-timeouts.yml` first.
+
+### 10. harden-runner `block` drops allowlisted hosts on some westus2 runners
 
 - **What:** GitHub runs an experiment on some westus2 hosted runners that adds
   its own DNS resolver (`egress-dns-resolver.service`, on `127.0.0.100:53`).
@@ -312,10 +285,9 @@ and a template would be mostly per-repository blocks.
   of the download step there would ride it out.
 - **Measured, 2026-10-24 to 10-31,** with a one-off script over the runner region
   in each job's log, across sharerr-rs, instadroid, homebrew-tap and saffron. Of
-  the 10 jobs that hit a
-  limit, the 9 whose logs remain all ran `block` on westus2; a sample of 400
-  passing jobs held no `block` job on westus2, 20 `audit` jobs on westus2, and 77
-  `block` jobs elsewhere. In one stuck job's post step, the runner's own
+  the 10 jobs that hit a limit, the 9 whose logs remain all ran `block` on
+  westus2; a sample of 400 passing jobs held no `block` job on westus2, 20
+  `audit` jobs on westus2, and 77 `block` jobs elsewhere. In one stuck job's post step, the runner's own
   connection (`Runner.Worker`) is dropped too, which is why a job stays open after
   its last step.
 - **Upstream:** harden-runner v2.22.3 (2026-10-27), pinned everywhere since
@@ -328,9 +300,11 @@ and a template would be mostly per-repository blocks.
   was closed as completed on 2026-11-06, with no comment from GitHub on the
   DNS-observation part.
   [step-security/harden-runner#705](https://github.com/step-security/harden-runner/issues/705)
-  covers the earlier port conflict on `127.0.0.1:53`, fixed. Checked 2026-11-07.
+  covers the earlier port conflict on `127.0.0.1:53`, fixed. Checked 2026-11-07;
+  v2.22.4 was still the newest release on 2026-11-10.
 - **Until then:** jobs with no write token run `audit` (`release-note.yml`,
-  `pages.yml`'s build). Jobs that keep `block` start with a `dns-experiment` step
+  `pages.yml`'s build, and here `checks.yml`'s two jobs and `bump-tools.yml`'s
+  read-only one). Jobs that keep `block` start with a `dns-experiment` step
   that refuses the runner when `egress-dns-resolver.service` is active, before the
   agent engages, so they fail in seconds; `rerun-timeouts.yml` reruns that failure.
   `scorecard.yml` has no such step, since its publish check restricts the job's
@@ -341,14 +315,28 @@ and a template would be mostly per-repository blocks.
 - **Recognize it:** `Region: westus2` in the job's set-up log, and in
   harden-runner's post step every `endpoint called` line has an empty
   `domain:`, with `ip address dropped` for an allowlisted host's IP.
-- **Close it:** the `dns-experiment` step refuses an experiment runner before
-  harden-runner engages, so no run can show v2.22.3's fix while it is there.
-  Drop it from one `block` job and read that job's runs until one lands on
-  westus2 with `egress-dns-resolver.service` active; once one passes, drop the
-  step everywhere and move `release-note.yml` and `pages.yml`'s build back to
-  `block`, or take v2.22.4 on 2026-11-13 and do the same.
+- **10a, prove the fix:** the `dns-experiment` step refuses an experiment runner
+  before harden-runner engages, so no run can show v2.22.3's fix while it is
+  there. Drop it from one `block` job and read that job's runs until one lands
+  on westus2 with `egress-dns-resolver.service` active and passes, or take
+  v2.22.4 on 2026-11-13 and do the same.
+- **10b, remove the workaround:** once one passes, drop the step everywhere,
+  with its exemption in `lint_workflows.sh` rule 6, and move the `audit` jobs
+  named above back to `block`.
 
-### 5.2 shfmt and `brew style` disagree on homebrew-tap's shell layout
+### 11. Sync pull requests still run sharerr-rs's `CodeQL (rust)` (S)
+
+- **What:** 135 of its 682 runner minutes in the week measured, and 34% of its
+  minutes were `ci-sync`'s. Its other Rust jobs and both Docker builds now skip
+  a pull request that touches only shared CI files. This one is the shared
+  `codeql.yml`, whose header says a skipped category leaves code scanning
+  waiting on a result, and code scanning is in that repository's ruleset.
+- **Still runs:** 7m40s on sync pull request 153 (2026-11-02), where every other
+  Rust and Docker job skipped.
+- **Verify first:** whether a skipped `CodeQL (rust)` holds a sync pull request's
+  merge. Needs a real pull request; nothing local shows it.
+
+### 12. shfmt and `brew style` disagree on homebrew-tap's shell layout
 
 - **What:** homebrew-tap's `brew style` runs Homebrew's shfmt wrapper over
   every `*.sh` in the tap, which wants `then` and `do` on their own line and
@@ -365,68 +353,11 @@ and a template would be mostly per-repository blocks.
   save must also skip a file `shfmt -f <dir>` leaves out. Until it does,
   apply `brew style --fix`'s diff by hand and do not reformat afterwards.
 
-### 5.3 Jobs that time out without doing the work
-
-- **What:** `scripts/retried_timeouts.py` found 105 jobs since 2026-08-01 that
-  hit a time limit and passed within two retries, nearly all from 2026-10-21 on
-  `ubuntu-26.04`. Its outcome column shows most never ran to their limit: 58
-  ended their `Complete job` step yet stayed open, 40 recorded no finished step.
-  A larger limit does not help them, nor a smaller one: `rerun-timeouts.yml`'s
-  5-minute job stayed open 10. Item 5.1 is the cause wherever a log remains, by its
-  measurement above.
-- **Done:** `rerun-timeouts.yml` reruns a run's failed jobs when one hit a time
-  limit, at most twice, under `block` since it holds a write token; item 5.1 can
-  fail it, which leaves that run for a rerun by hand. Limits were lowered from
-  `scripts/job_durations.py`'s 20 newest passing runs: 5 minutes under a 1-minute
-  longest run, else 1.5 times the longest rounded up to 5 with a floor of 10, and
-  15 to 20 for jobs that compile or build an image, whose cold runs the sample may
-  miss. Release and publish jobs and jobs seen under 5 times keep theirs.
-- **Not done:** reporting the jobs that finished yet stayed open to GitHub. A move
-  back to `ubuntu-24.04` no longer tests anything: 5.1's measurement separates
-  `block` from `audit` on the one image.
-- **Verify:** after the first automatic rerun of a `CI` run on `main`, that the
-  workflows chained off `CI` fired from attempt 2, since a rerun started by
-  `GITHUB_TOKEN` may not emit `workflow_run`. From 2026-11-08, a week after the
-  limits' sync merged, rerun the scan; a job killed by a new limit shows as
-  `stopped` with active minutes near its limit.
-
-### 5.4 Sync pull requests still run sharerr-rs's `CodeQL (rust)`
-
-- **What:** 135 of its 682 runner minutes in the week measured, and 34% of its
-  minutes were `ci-sync`'s. Its other Rust
-  jobs and both Docker builds now skip a pull request that touches only shared
-  CI files. This one is the shared `codeql.yml`, whose header says a skipped
-  category leaves code scanning waiting on a result, and code scanning is in
-  that repository's ruleset.
-- **Still runs:** 7m40s on sync pull request 153 (2026-11-02), where every other
-  Rust and Docker job skipped.
-- **Verify first:** whether a skipped `CodeQL (rust)` holds a sync pull request's
-  merge. Needs a real pull request; nothing local shows it.
-
-## 6. Simplifications
-
-The review's 22 items are done. What they left in force:
-
-- A label is created only with an issue, so a color or description changed in a
-  workflow reaches GitHub only with the next new issue.
-- `fetch-latest-artifact`'s `artifact-name` is a name or a `{a,b}` list, the forms
-  every caller uses; a wildcard no longer matches. `find_tree_run.sh` keeps its run
-  lookups for the event and conclusion, which an artifact does not carry.
-- `link-check.yml` keeps `upsert-tracking-issue`'s `body-file`, since lychee's
-  report is Markdown.
-- `lint_workflows.sh` rule 7 does not judge an indented `source` in a script: it is
-  conditional, and `setup-tool`'s `install.sh` reaches its apt library only for
-  some kinds. A sparse checkout of an action or of `trivy_scan.sh` lists `lib.sh`
-  too.
-- `scratch/README.md` is shared and skipped by homebrew-tap, which has no
-  `scratch/`, and by python-constricter, since the sync would overwrite its own
-  README and the per-script list in it; drop that skip to replace them.
-
-## 7. To consider
+## To consider
 
 Evaluated, not decided: nothing here is on the order of work until it is taken up.
 
-### 7.1 `mise.toml` in place of `tools.txt` (_batch_, L)
+### 13. `mise.toml` in place of `tools.txt` (_batch_, L)
 
 - **What:** make `mise.toml` and `mise.lock` the one list of pinned CI tools, in
   place of `.github/actions/setup-tool/tools.txt`, its installer, and the
@@ -449,6 +380,6 @@ Evaluated, not decided: nothing here is on the order of work until it is taken u
   `check_tool_versions.sh`, `scripts/apply_bumps.sh` and say-hi's `tools_test.sh`
   and `drift_test.sh` are rewritten. Every target using `setup-tools` needs a
   `mise.toml`.
-- **How, if taken up:** try say-hi's
-  `quick lint` job first, the cheapest way to measure what mise adds to a job's
-  time and find the hosts it needs, then move every target as one batch.
+- **How, if taken up:** try say-hi's `quick lint` job first, the cheapest way to
+  measure what mise adds to a job's time and find the hosts it needs, then move
+  every target as one batch.
