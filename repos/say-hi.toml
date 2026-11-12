@@ -8,6 +8,11 @@ immutable_releases = true
 
 # those groups' paths, less any `skip` names
 base = ["_base", "_images"]
+# scripts/ ships to users, so say-hi's one-off scripts and their README are
+# its own, in tests/scratch/
+skip = [
+  "scripts/scratch/README.md",
+]
 
 # the values a template takes, by path
 [templates.".gitignore"]

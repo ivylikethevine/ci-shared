@@ -23,7 +23,6 @@ files = [
   ".github/scripts/lib.sh",
   ".github/scripts/lint_workflows.sh",
   ".github/scripts/release_notes.sh",
-  ".github/workflows/cancel-closed-pr.yml",
   ".github/workflows/codeql.yml",
   ".github/workflows/link-check.yml",
   ".github/workflows/release-note.yml",
@@ -45,5 +44,5 @@ files = [
   "REUSE.toml",
   "docs/CODE_OF_CONDUCT.md",
   "lychee.toml",
-  "scratch/README.md",
+  "scripts/scratch/README.md",
 ]

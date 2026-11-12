@@ -19,7 +19,7 @@ one step of an item. S, M and L are sizes.
 - Item 11's check, which needs a real pull request (S).
 - Item 2, a `build.yml` dispatch on python-constricter's branch before it
   reaches `main` (S).
-- Item 3, the two workaround workflows, after 10b (S).
+- Item 3, `rerun-timeouts.yml`, after 10b (S).
 - 9b, the first automatic rerun on `main`, on the next run that shows it (S);
   it lapses once item 3 removes the workflow that reruns.
 
@@ -73,23 +73,20 @@ markdownlint-cli2 release), 7 (jactionlint's release history) and 12 (shfmt's
   v2.20.0's release note and the action's source, which hands `block` and the
   list to both agents.
 
-### 3. Drop `rerun-timeouts.yml` and `cancel-closed-pr.yml` (_batch_, S)
+### 3. Drop `rerun-timeouts.yml` (_batch_, S)
 
-- **What:** two shared workflows that work around runner behaviour rather than
-  fix anything in a target. `rerun-timeouts.yml` retries a run whose job hit a
-  time limit, where the rule in every target is to fix a slow job in code; it
-  also reruns the `dns-experiment` refusal, so it goes once item 10 closes and that
-  step is gone. `cancel-closed-pr.yml` cancels a merged or closed PR's in-flight
-  runs, which a `concurrency:` block cannot (a merge pushes nothing to the PR's
-  ref); the question is whether the runner minutes it saves are worth a
-  workflow with `actions: write` in every target.
-- **How:** remove both from `files/` and `repos/_base.toml`, each target's
+- **What:** a shared workflow that works around runner behaviour rather than
+  fixing anything in a target: it retries a run whose job hit a time limit,
+  where the rule in every target is to fix a slow job in code. It also reruns
+  item 10's stuck jobs and the `dns-experiment` refusal, so it goes once item
+  10 closes and that step is gone. `cancel-closed-pr.yml`, its pair in this
+  item, is gone from `files/` and every target.
+- **How:** remove it from `files/` and `repos/_base.toml`, each target's
   `[templates."rerun-timeouts.yml"]` table, `scripts/own_files.sh`'s row and
-  this repository's own `rerun-timeouts.yml`; update `tests/lib.sh`,
+  this repository's own copy; update `tests/lib.sh`,
   `tests/own_files_test.sh`, `tests/check_test.sh`, README's workflow list and
-  USAGE.md. The sync never deletes a file, so each target deletes its two
-  copies by hand in the batch, and say-hi's CONTRIBUTING.md drops its
-  `cancel-closed-pr.yml` line.
+  USAGE.md. The sync never deletes a file, so each target deletes its copy by
+  hand in the batch, and say-hi's CONTRIBUTING.md drops its line.
 - **Verified:** 9a's rescan found no job the lowered limits killed while
   doing its work; every retried job but one was item 10's stuck kind, and that
   one was a hung Docker Hub pull.

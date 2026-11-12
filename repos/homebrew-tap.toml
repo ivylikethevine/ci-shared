@@ -13,7 +13,6 @@ skip = [
   ".github/package.json",
   ".github/pull_request_template.md",
   ".github/scripts/release_notes.sh",
-  ".github/workflows/cancel-closed-pr.yml",
   ".github/workflows/codeql.yml",
   ".github/workflows/link-check.yml",
   ".github/workflows/release-note.yml",
@@ -25,7 +24,7 @@ skip = [
   ".scorecard.yml",
   ".zed/settings.json",
   "lychee.toml",
-  "scratch/README.md",
+  "scripts/scratch/README.md",
 ]
 
 # the values a template takes, by path

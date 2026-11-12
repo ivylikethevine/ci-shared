@@ -159,7 +159,7 @@ One file is this repository's own:
 `.github/scripts/check_tool_versions.local.sh` points the version check at the
 Markdown tools' and Python tools' manifests and the action pins under `files/`.
 
-It runs four of the workflows it ships, as its targets do: `codeql.yml` (the
+It runs five of the workflows it ships, as its targets do: `codeql.yml` (the
 `actions` language alone), `scorecard.yml`, `link-check.yml`,
 `rerun-timeouts.yml` and `tool-versions.yml`, the last four following
 `checks.yml`, which is named `CI` for them. Its `tool-versions.yml`,
