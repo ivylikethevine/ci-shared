@@ -4,6 +4,16 @@ What changed in this repository and the files it ships, newest first. A
 [roadmap](ROADMAP.md) item moves here when it is done, with what it left in
 force; nothing checks this file.
 
+## 2026-11-10
+
+### Stale `setup-tool/action.yml` deleted in every target (_batch_)
+
+- The sync writes files and never deletes one, so the `action.yml` that
+  `setup-tools` replaced on 2026-11-08 stayed in each target until deleted by
+  hand. It is gone from `main` in all five (say-hi, sharerr-rs, instadroid,
+  python-constricter, homebrew-tap); `install.sh`, `lib.sh` and `tools.txt`
+  stay beside it as `setup-tools`' backend.
+
 ## 2026-11-09
 
 ### `sync-health` issue closed
