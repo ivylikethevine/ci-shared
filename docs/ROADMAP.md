@@ -13,15 +13,13 @@ finished item moves to [CHANGELOG.md](CHANGELOG.md).
 Ranked by value for size. Items are numbered through the file; a letter marks
 one step of an item. S, M and L are sizes.
 
-- Item 1, delete the stale `setup-tool/action.yml` in each of the five targets,
-  now that their sync PRs have merged (S).
-- 10a, a `block` job that passes on a westus2 runner in the experiment under
+- 10a, a passing `Sync` run that carries the `dns experiment` notice, under
   v2.22.3, or v2.22.4 from 2026-11-13; then 10b, the `dns-experiment` step's
   removal (S).
 - Item 11's check, which needs a real pull request (S).
-- Item 2, the first CI run of each converted job, then its two release-path
-  jobs (S).
-- Item 3, the two workaround workflows, after 10b (S).
+- Item 2, a `build.yml` dispatch on python-constricter's branch before it
+  reaches `main` (S).
+- Item 3, `rerun-timeouts.yml`, after 10b (S).
 - 9b, the first automatic rerun on `main`, on the next run that shows it (S);
   it lapses once item 3 removes the workflow that reruns.
 
@@ -30,16 +28,6 @@ markdownlint-cli2 release), 7 (jactionlint's release history) and 12 (shfmt's
 `ignore` on a single file). Not worth doing as things stand: item 8.
 
 ## Fixes in this repository
-
-### 1. Delete the stale `setup-tool/action.yml` in every target (_batch_, S)
-
-- **What:** `setup-tools` replaced `setup-tool` everywhere on 2026-11-08
-  ([CHANGELOG](CHANGELOG.md)), but the sync writes files and never deletes one,
-  so the old `action.yml` is still in every target, homebrew-tap included.
-  Nothing calls it.
-- **How:** delete `.github/actions/setup-tool/action.yml` in each of the five
-  targets; `install.sh`, `lib.sh` and `tools.txt` beside it stay, as
-  `setup-tools`' backend.
 
 ### 2. harden-runner `block` on macOS and Windows jobs (_batch_, S)
 
@@ -53,22 +41,29 @@ markdownlint-cli2 release), 7 (jactionlint's release history) and 12 (shfmt's
   session per repository; update each disabled-rules row that says only audit
   is supported.
 - **say-hi:** `test-macos`, `windows-client.yml`'s x64 legs and
-  `windows-e2e.yml`'s two jobs are on `block`, unproven until their first CI
-  run: nothing local runs a hosted macOS or Windows agent. `release.yml`'s
-  `brew` stays `audit`: it runs only on a tag push, so its first `block` run
-  would be a release, with `tap` waiting on it.
-- **homebrew-tap:** the macOS leg of `ci.yml`'s `test` is on `block` through a
-  `runner.os` expression, from 13 audited runs that agree on seven hosts, and
-  equally unproven; its Linux leg stays `audit`.
-- **python-constricter:** `ci.yml`'s `test` and `compiled` run `block` on every
-  leg, unproven likewise: their macOS legs reached nothing the Linux lists
-  lacked, and the Windows legs add two certificate-revocation hosts.
-- **Left:** the two jobs whose first `block` run would be a release, say-hi's
-  `brew` (a tag push only) and python-constricter's `build.yml` `compiled` (a
-  tag, or a dispatch by hand). Each stays `audit` on macOS and Windows until a
-  `block` run outside a release shows its list: a `build.yml` dispatch on a
-  branch is that run, and `brew` has none. sharerr-rs and instadroid have no
-  macOS or Windows job.
+  `windows-e2e.yml`'s OpenSSH job pass under `block` (pull request run
+  42959387908; the Windows jobs again on `main`, run 42961496714).
+  `windows-e2e.yml`'s WSL job is back on `audit`: under `block` the
+  distribution's connections hang even to an allowed host, so setup-wsl timed
+  out (run 42940405659). `release.yml`'s `brew` stays `audit`: it runs only on
+  a tag push, so its first `block` run would be a release, with `tap` waiting
+  on it.
+- **homebrew-tap:** the macOS leg of `ci.yml`'s `test` passes under `block` on
+  `main` (run 42941662948), through a `runner.os` expression, from 13 audited
+  runs that agree on seven hosts; its Linux leg stays `audit`.
+- **python-constricter:** `ci.yml`'s `test` and `compiled` pass under `block`
+  on every leg (pull request run 42942084798): their macOS legs reached nothing
+  the Linux lists lacked, and the Windows legs add two certificate-revocation
+  hosts. `build.yml`'s `compiled` is on `block` on every leg in its working
+  tree, unproven: `egress_baseline.sh` over `release.yml` held endpoint data
+  for 3 of the last 5 release runs, which agree on the Linux list plus
+  `release-assets.githubusercontent.com`, two NuGet hosts on Windows and three
+  certificate-revocation hosts there.
+- **Left:** a `build.yml` dispatch on python-constricter's branch, before that
+  branch reaches `main`: it publishes nothing, and a tag is otherwise the
+  list's first `block` run. say-hi's `brew` has no run outside a release and
+  its WSL job hangs under `block`, so both stay `audit`. sharerr-rs and
+  instadroid have no macOS or Windows job.
 - **For the next target:** the baseline held endpoint data for 3 of `ci.yml`'s
   last 10 passing runs, so a host only a cold cache fetches is in none of them;
   read the action's source for it (setup-wsl downloads its distribution from
@@ -78,23 +73,20 @@ markdownlint-cli2 release), 7 (jactionlint's release history) and 12 (shfmt's
   v2.20.0's release note and the action's source, which hands `block` and the
   list to both agents.
 
-### 3. Drop `rerun-timeouts.yml` and `cancel-closed-pr.yml` (_batch_, S)
+### 3. Drop `rerun-timeouts.yml` (_batch_, S)
 
-- **What:** two shared workflows that work around runner behaviour rather than
-  fix anything in a target. `rerun-timeouts.yml` retries a run whose job hit a
-  time limit, where the rule in every target is to fix a slow job in code; it
-  also reruns the `dns-experiment` refusal, so it goes once item 10 closes and that
-  step is gone. `cancel-closed-pr.yml` cancels a merged or closed PR's in-flight
-  runs, which a `concurrency:` block cannot (a merge pushes nothing to the PR's
-  ref); the question is whether the runner minutes it saves are worth a
-  workflow with `actions: write` in every target.
-- **How:** remove both from `files/` and `repos/_base.toml`, each target's
+- **What:** a shared workflow that works around runner behaviour rather than
+  fixing anything in a target: it retries a run whose job hit a time limit,
+  where the rule in every target is to fix a slow job in code. It also reruns
+  item 10's stuck jobs and the `dns-experiment` refusal, so it goes once item
+  10 closes and that step is gone. `cancel-closed-pr.yml`, its pair in this
+  item, is gone from `files/` and every target.
+- **How:** remove it from `files/` and `repos/_base.toml`, each target's
   `[templates."rerun-timeouts.yml"]` table, `scripts/own_files.sh`'s row and
-  this repository's own `rerun-timeouts.yml`; update `tests/lib.sh`,
+  this repository's own copy; update `tests/lib.sh`,
   `tests/own_files_test.sh`, `tests/check_test.sh`, README's workflow list and
-  USAGE.md. The sync never deletes a file (item 1), so each target deletes its two
-  copies by hand in the batch, and say-hi's CONTRIBUTING.md drops its
-  `cancel-closed-pr.yml` line.
+  USAGE.md. The sync never deletes a file, so each target deletes its copy by
+  hand in the batch, and say-hi's CONTRIBUTING.md drops its line.
 - **Verified:** 9a's rescan found no job the lowered limits killed while
   doing its work; every retried job but one was item 10's stuck kind, and that
   one was a hung Docker Hub pull.
@@ -307,6 +299,7 @@ and a template would be mostly per-repository blocks.
   read-only one). Jobs that keep `block` start with a `dns-experiment` step
   that refuses the runner when `egress-dns-resolver.service` is active, before the
   agent engages, so they fail in seconds; `rerun-timeouts.yml` reruns that failure.
+  `sync.yml`'s `sync` is the exception (10a).
   `scorecard.yml` has no such step, since its publish check restricts the job's
   steps, so it can still stick. Neither has been seen on a runner in the experiment:
   the first refusal, or a stuck `block` job with the step, is the check. A stopgap
@@ -317,9 +310,15 @@ and a template would be mostly per-repository blocks.
   `domain:`, with `ip address dropped` for an allowlisted host's IP.
 - **10a, prove the fix:** the `dns-experiment` step refuses an experiment runner
   before harden-runner engages, so no run can show v2.22.3's fix while it is
-  there. Drop it from one `block` job and read that job's runs until one lands
-  on westus2 with `egress-dns-resolver.service` active and passes, or take
-  v2.22.4 on 2026-11-13 and do the same.
+  there. `sync.yml`'s `sync` job, this repository's alone, now reports such a
+  runner with a `dns experiment` notice instead of refusing it, and keeps
+  `block`. A `Sync` run that carries the notice and passes is the proof; one
+  that carries it and stays open to its 10-minute limit says the fix is not on,
+  and takes a rerun by hand, since `rerun-timeouts.yml` does not watch `Sync`.
+  The job runs on a push to `main` that changes `files/`, `repos/` or
+  `rulesets/`, weekly and on dispatch, so the first such runner may be weeks
+  away; the same step in the shared `codeql.yml` would put the question to
+  every target's runs. Take v2.22.4 from 2026-11-13 either way.
 - **10b, remove the workaround:** once one passes, drop the step everywhere,
   with its exemption in `lint_workflows.sh` rule 6, and move the `audit` jobs
   named above back to `block`.

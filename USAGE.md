@@ -35,7 +35,6 @@ Which repositories receive each shared file, written by
 | `.github/scripts/scan_pinned_images.sh`            |              | x          |                    | x      | x          | 3     |
 | `.github/scripts/trivy_scan.sh`                    |              | x          |                    |        | x          | 2     |
 | `.github/workflows/advisories.yml`                 |              | x          |                    |        | x          | 2     |
-| `.github/workflows/cancel-closed-pr.yml`           |              | x          | x                  | x      | x          | 4     |
 | `.github/workflows/codeql.yml`                     |              | x          | x                  | x      | x          | 4     |
 | `.github/workflows/image-scan.yml`                 |              | x          |                    | x      | x          | 3     |
 | `.github/workflows/link-check.yml`                 |              | x          | x                  | x      | x          | 4     |
@@ -60,8 +59,8 @@ Which repositories receive each shared file, written by
 | `_config.yml`                                      |              | x          |                    | x      | x          | 3     |
 | `docs/CODE_OF_CONDUCT.md`                          | x            | x          | x                  | x      | x          | 5     |
 | `lychee.toml`                                      |              | x          | x                  | x      | x          | 4     |
-| `scratch/README.md`                                |              | x          |                    | x      | x          | 3     |
-| **Files per repository**                           | 25           | 56         | 44                 | 53     | 56         | 56    |
+| `scripts/scratch/README.md`                        |              | x          |                    |        | x          | 2     |
+| **Files per repository**                           | 25           | 55         | 43                 | 51     | 55         | 55    |
 
 ## Template values
 
