@@ -4,6 +4,42 @@ What changed in this repository and the files it ships, newest first. A
 [roadmap](ROADMAP.md) item moves here when it is done, with what it left in
 force; nothing checks this file.
 
+## 2026-11-16
+
+### harden-runner `block` on macOS and Windows jobs (_batch_)
+
+- harden-runner v2.20.0 supports `egress-policy: block` on GitHub's macOS and
+  Windows runners in the free tier. `scripts/egress_census.sh` lists the jobs
+  and `scripts/egress_baseline.sh` reads each job's endpoints from its audit
+  runs for `allowed-endpoints`.
+- **say-hi:** `test-macos`, `windows-client.yml`'s x64 legs and
+  `windows-e2e.yml`'s OpenSSH job pass under `block` (pull request run
+  42959387908; the Windows jobs again on `main`, run 42961496714).
+- **homebrew-tap:** the macOS leg of `ci.yml`'s `test` passes under `block` on
+  `main` (run 42941662948), through a `runner.os` expression; its Linux leg
+  stays `audit`.
+- **python-constricter:** `ci.yml`'s `test` and `compiled` pass under `block`
+  on every leg (pull request run 42942084798). `build.yml`'s `compiled` passed
+  on every leg of a dispatch on `dev` (run 43964697378, 21 jobs), before any
+  tag ran it. Its harden-runner logs drop only the runners' own background
+  traffic: Apple's daemons and `timed`'s NTP on macOS, and six Canonical
+  addresses (`185.125.190.105` to `.110`) as the agent starts on two Linux
+  legs. Two of its legs ran on westus2 and passed.
+- **Stay `audit`:** say-hi's `windows-e2e.yml` WSL job, whose distribution's
+  connections hang under `block` even to an allowed host, so setup-wsl timed
+  out (run 42940405659); say-hi's `release.yml` `brew`, which runs only on a
+  tag push, so its first `block` run would be a release; the weekly external
+  link check. Windows arm64 has no agent. sharerr-rs and instadroid have no
+  macOS or Windows job.
+- **For the next target:** the baseline held endpoint data for 3 of `ci.yml`'s
+  last 10 passing runs, so a host only a cold cache fetches is in none of them;
+  read the action's source for it (setup-wsl downloads its distribution from
+  `releases.ubuntu.com`). The Windows agent names a WSL distribution's apt
+  mirrors on 443 where apt's stock sources are http, so list both ports.
+  harden-runner's README still says Windows and macOS are audit only, against
+  v2.20.0's release note and the action's source, which hand `block` and the
+  list to both agents.
+
 ## 2026-11-12
 
 ### The scratch README moved to `scripts/scratch/README.md`
@@ -152,6 +188,30 @@ The review's 22 items are done. What they left in force:
   `scratch/`, and by python-constricter, since the sync would overwrite its own
   README and the per-script list in it; drop that skip to replace them.
 
+## 2026-10-30
+
+### Lower job time limits, and a rerun for jobs that hit one
+
+- `rerun-timeouts.yml` reruns a run's failed jobs when one hit a time limit, at
+  most twice, under `block` since it holds a write token; roadmap item 10 can
+  fail it, which leaves that run for a rerun by hand. It goes with roadmap
+  item 3.
+- Limits come from `scripts/job_durations.py`'s 20 newest passing runs: 5
+  minutes under a 1-minute longest run, else 1.5 times the longest rounded up
+  to 5 with a floor of 10, and 15 to 20 for jobs that compile or build an
+  image, whose cold runs the sample may miss. Release and publish jobs and jobs
+  seen under 5 times keep theirs.
+- A rescan on 2026-11-09 (`scripts/retried_timeouts.py --since 2026-11-01`)
+  added 34 rows, 139 in the log. 33 are item 10's kind: no step finished, or
+  every step finished within a minute and the job stayed open to its limit.
+  The one job a limit itself killed is say-hi's `pinned images (trivy,
+advisory)` of 2026-11-02 (run 41542551840, job 125610073245): trivy
+  downloaded its database in 4 seconds, then called `index.docker.io` with no
+  output until the 10-minute limit; its usual run is under a minute, and
+  attempt 2 passed. A hung pull, not a slow job, so the limits stand. If it
+  recurs, `scan_pinned_images.sh` could pass trivy a `--timeout` under the
+  job's limit so the report names the image.
+
 ## 2026-10-28
 
 ### One GitHub App in place of five fine-grained tokens
@@ -179,6 +239,34 @@ The review's 22 items are done. What they left in force:
   tokens on 2026-11-02, in the push run (41534178362), which opened the sync
   pull requests, and in the weekly run, whose health issue has no `tokens`
   line.
+
+## 2026-10-21
+
+### Every workflow names `ubuntu-26.04`
+
+- `ubuntu-latest` moves to Ubuntu 26.04 between 2026-10-19 and 2026-11-19.
+  Every shared workflow job, and this repository's own, names `ubuntu-26.04`
+  instead, so the next image change is a commit and not the label moving under
+  a run. `.github/actionlint.yaml` tells actionlint 1.7.12 the label until a
+  release knows it (roadmap item 6). What changed, from GitHub's image
+  comparison (`actions/runner-images#14226`):
+
+| Tool           | 24.04    | 26.04                                                           |
+| -------------- | -------- | --------------------------------------------------------------- |
+| system python3 | 3.12     | 3.14 (3.10, 3.11, 3.13 no longer cached)                        |
+| node           | 22       | 24 (22 still cached)                                            |
+| docker         | 28.0.4   | 29.4.2, compose 5.1.3                                           |
+| cmake          | 3.31.6   | latest                                                          |
+| gcc            | 12 to 14 | 13 to 15                                                        |
+| removed        |          | miniconda, julia, mercurial, pulumi, fastlane, global npm tools |
+
+- Proved since: instadroid's `main` CI (run 41258224153, 2026-10-31) and
+  `image-scan.yml` under docker 29 in sharerr-rs (run 41302164981,
+  2026-11-01). say-hi's live `main` ruleset requires its renamed suite jobs.
+- Kept for it: `setup-tools`' cache key carries the image name (`ImageOS`), so
+  a tool built from source on 24.04 (mandoc) is not restored on 26.04;
+  `apt/lib.sh` drops vendor `*.sources` files as well as `*.list`;
+  `checks.yml` takes a `runner` input on dispatch.
 
 ## 2026-10-18
 
