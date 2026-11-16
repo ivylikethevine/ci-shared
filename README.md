@@ -113,9 +113,9 @@ back into `dev` after one merges; `dev` takes signed direct pushes.
 
 ## Roadmap
 
-[docs/ROADMAP.md](docs/ROADMAP.md): fixes, dated platform changes, candidate
-integrations and replacements, files that could join `files/`, and checks this
-repository could run on itself, each with what to verify first.
+[docs/ROADMAP.md](docs/ROADMAP.md): fixes, candidate integrations and
+replacements, files that could join `files/`, and known issues, each with what
+to verify first.
 [docs/CHANGELOG.md](docs/CHANGELOG.md) holds the items that are done, newest
 first.
 
