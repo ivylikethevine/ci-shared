@@ -95,7 +95,7 @@ test_opens_a_pull_request_for_what_differs() {
     "[{\"path\":\"new.sh\",\"mode\":\"100755\",\"type\":\"blob\",\"sha\":\"$(git hash-object "$T/tree/files/new.sh")\"}]" "the new tree"
   t_eq "$(jq -r .base_tree "$T/tree.json")" tree1 "the base tree"
   t_eq "$(jq -c '[.message, .tree, .parents]' "$T/commit.json")" \
-    '["ci: sync shared CI files\n\nSource: abc123","tree2",["head1"]]' "the commit"
+    '["[CI-SYNC] Update shared files\n\nSource: abc123","tree2",["head1"]]' "the commit"
   t_eq "$(jq -c '[.author, .committer] | map([.name, .email]) | unique' "$T/commit.json")" \
     '[["Sync","sync@example.invalid"]]' "the commit's author and committer"
   # the signature covers the commit object as it is without one
@@ -110,7 +110,7 @@ test_opens_a_pull_request_for_what_differs() {
   t_logged '^POST repos/owner/a/git/refs$'
   t_file "$T/ref.txt" "$(printf 'ref=refs/heads/ci-sync\nsha=%s' "$(cat "$T/commit.sha")")"
   # shellcheck disable=SC2016 # literal text
-  t_in "$T/pr.txt" head=ci-sync base=dev draft=true '- `new.sh`'
+  t_in "$T/pr.txt" 'title=[CI-SYNC] Update shared files' head=ci-sync base=dev draft=true '- `new.sh`'
 }
 
 test_moves_the_branch_and_updates_an_open_pull_request() {

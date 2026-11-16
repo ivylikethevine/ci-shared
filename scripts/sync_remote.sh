@@ -34,7 +34,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 ci_load
 
-TITLE='ci: sync shared CI files'
+TITLE='[CI-SYNC] Update shared files'
 
 dry=0 drift=0
 case "${1:-}" in
