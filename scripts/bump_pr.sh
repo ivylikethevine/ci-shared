@@ -23,7 +23,7 @@ slug=$GITHUB_REPOSITORY
 cd "$CI_SHARED_DIR"
 
 BRANCH=tool-bumps
-TITLE='ci: bump pinned tools'
+TITLE='[CI-SYNC] Bump pinned tools'
 
 if [ ! -s "$patch" ]; then
   echo "nothing to bump"

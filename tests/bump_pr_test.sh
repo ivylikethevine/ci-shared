@@ -74,7 +74,7 @@ test_a_first_run_makes_the_branch_and_opens_a_draft() {
   t_eq "$(jq -r '.base_tree' "$T/tree.json")" "$(git -C "$T/tree" rev-parse 'HEAD^{tree}')" "the base tree"
   t_eq "$(jq -c '[.tree[] | [.path, .mode]]' "$T/tree.json")" '[["pins.txt","100644"],["s/run.sh","100755"]]' "the entries"
   t_in -x "$T/ref.log" 'ref=refs/heads/tool-bumps' 'sha=newcommit'
-  t_in -x "$T/pr.log" 'title=ci: bump pinned tools' 'head=tool-bumps' 'base=main' 'draft=true' 'body=- `tool` 1 to 2'
+  t_in -x "$T/pr.log" 'title=[CI-SYNC] Bump pinned tools' 'head=tool-bumps' 'base=main' 'draft=true' 'body=- `tool` 1 to 2'
 }
 
 test_a_later_run_moves_the_branch_and_updates_the_pull_request() {
