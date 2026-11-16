@@ -35,7 +35,7 @@ jobs:
     steps:
       # audit: no write token here, and block leaves the job open until its limit
       # on a westus2 runner (docs/ROADMAP.md, item 10)
-      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
 
@@ -80,7 +80,7 @@ jobs:
       contents: read
     steps:
       # audit, as above
-      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
 
@@ -98,7 +98,7 @@ jobs:
       # a Gemfile and lock for one gem would add nothing.
       - name: Install bashcov
         env:
-          BASHCOV_VERSION: "4.0.1"
+          BASHCOV_VERSION: "4.0.2"
         run: | # zizmor: ignore[adhoc-packages]
           set -euo pipefail
           gem install --user-install --no-document bashcov -v "$BASHCOV_VERSION"
