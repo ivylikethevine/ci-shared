@@ -6,12 +6,26 @@ sync_branch = "main"
 # scripts/rulesets.sh diff where the token can read it
 immutable_releases = true
 
+# the suites that read shared files (tools.txt, the shared scripts and
+# workflows), which scripts/canary.sh runs on main with files/ written in.
+# _HI_HOME is unset so a shell's own names no other checkout.
+canary = [
+  "env", "-u", "_HI_HOME", "tests/test_runner.sh",
+  "drift", "tools", "packaging", "packaging_ci", "packaging_ci_release",
+  "packaging_ci_workflows", "packaging_ci_scripts",
+]
+
 # those groups' paths, less any `skip` names
 base = ["_base", "_images"]
 # scripts/ ships to users, so say-hi's one-off scripts and their README are
 # its own, in tests/scratch/
 skip = [
   "scripts/scratch/README.md",
+]
+# its mise.toml takes the tools.txt pins from here, which scripts/mise_pins.sh
+# holds to tools.txt
+files = [
+  ".config/mise/conf.d/ci-tools.toml",
 ]
 
 # the values a template takes, by path

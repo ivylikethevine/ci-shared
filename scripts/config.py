@@ -10,7 +10,8 @@ optional key filled in, sorted by name. A target also receives the `files` of
 each group its `base` names (`true` is repos/_base.toml, a list names
 repos/_<group>.toml stems), less those its `skip` names, and its `files` print
 sorted with them; `values` are template values every template it receives
-takes. A repos/ file starting with _ is a group, no target. --self prints
+takes; `canary` is the command scripts/canary.sh runs in it, [] for none. A
+repos/ file starting with _ is a group, no target. --self prints
 instead the entry of
 rulesets/self.toml, this repository's own values in the shared main ruleset,
 named after its repository, or null without one; it is no target. Any problem
@@ -168,7 +169,18 @@ def base_groups(where: str, value: Toml, groups: dict[str, list[str]], errors: l
 def read(path: Path, groups: dict[str, list[str]], errors: list[str]) -> Table | None:
     opened: tuple[str, Table] | None = open_table(
         path,
-        {"repository", "sync_branch", "base", "skip", "files", "values", "templates", "rulesets", "immutable_releases"},
+        {
+            "repository",
+            "sync_branch",
+            "base",
+            "skip",
+            "files",
+            "values",
+            "templates",
+            "rulesets",
+            "immutable_releases",
+            "canary",
+        },
         errors,
     )
     if opened is None:
@@ -184,6 +196,11 @@ def read(path: Path, groups: dict[str, list[str]], errors: list[str]) -> Table |
 
     if data.get("sync_branch") not in BRANCHES:
         errors.append(f"{where}: sync_branch must be one of {', '.join(BRANCHES)}")
+
+    # scripts/canary.sh's command: no shell between, so a word is one argument
+    canary: Toml = data.setdefault("canary", [])
+    if not isinstance(canary, list) or not all(isinstance(w, str) and w for w in canary):
+        errors.append(f"{where}: canary must be a list of words, a command and its arguments")
 
     files: list[str] = path_list(where, "files", data.get("files", []), errors)
     check_shared(where, files, errors)

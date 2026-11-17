@@ -27,6 +27,8 @@ cd "$CI_SHARED_DIR"
 ci_tmpdir
 
 TOOLS=files/.github/actions/setup-tool/tools.txt
+# tools.txt's pins for mise, which scripts/mise_pins.sh holds to its rows
+MISE=files/.config/mise/conf.d/ci-tools.toml
 failed=0 pip=0
 declare -A npm=()
 
@@ -48,7 +50,9 @@ asset_sha() {
 }
 
 # bump_tool <name> <pin> <due> - its tools.txt row: the pin, and the sha256
-# column as the row spells it. An unchanged hash is the header's red flag.
+# column as the row spells it. An unchanged hash is the header's red flag. The
+# mise file's entry for the tool, keyed by its name or a backend path ending in
+# it, takes the pin too; a tool it does not list leaves it as it is.
 bump_tool() {
   local name=$1 due=$3 row url sha entry key hex new=""
   row="$(awk -F'|' -v t="$name" '$1 == t { print; exit }' "$TOOLS")"
@@ -67,7 +71,14 @@ bump_tool() {
   esac
   [ "$new" != "$sha" ] || return 1
   rewrite "$TOOLS" awk -F'|' -v OFS='|' -v t="$name" -v pin="$due" -v sha="$new" \
-    '$1 == t { $2 = pin; $8 = sha } { print }'
+    '$1 == t { $2 = pin; $8 = sha } { print }' || return 1
+  [ ! -f "$MISE" ] || rewrite "$MISE" awk -v t="$name" -v pin="$due" '
+    /^\[/ { in_tools = ($0 == "[tools]") }
+    in_tools && /^[^#[:space:]][^=]*=/ {
+      key = $0; sub(/[[:space:]]*=.*/, "", key); gsub(/"/, "", key); sub(/.*[\/:]/, "", key)
+      if (key == t) sub(/=.*/, "= \"" pin "\"")
+    }
+    { print }' || true
 }
 
 # bump_action <owner/repo> <pin> <value> - every `uses:` of the action at that

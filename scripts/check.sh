@@ -137,6 +137,7 @@ audit() {
 run audit audit
 run usage "$CI_SCRIPTS_DIR/usage.sh" --check
 run own-files "$CI_SCRIPTS_DIR/own_files.sh" --check
+run mise-pins "$CI_SCRIPTS_DIR/mise_pins.sh"
 
 # Each template rendered for every target that receives it, so a placeholder or
 # block that breaks only one repository's copy still fails here.

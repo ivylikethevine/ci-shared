@@ -1,7 +1,9 @@
 # shared:unless repo
 # The template each target's roster renders from, a target's own rows and notes
 # in `shared:if repo=<name>` blocks. Unrendered, it is ci-shared's roster: every
-# target's rows, so its drift check covers them all.
+# target's rows, so its drift check covers them all. A row the shared mise
+# file (.config/mise/conf.d/ci-tools.toml) lists moves there in the same
+# change; scripts/mise_pins.sh fails one that does not.
 # shared:endif
 # The pinned CI tools, one row per tool - installed by ./install.sh (through
 # ./action.yml or ../setup-tools) and drift-checked by
