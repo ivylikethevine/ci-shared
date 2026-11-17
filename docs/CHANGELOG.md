@@ -6,6 +6,24 @@ force; nothing checks this file.
 
 ## 2026-11-16
 
+### A target's tests run against `files/` before a sync
+
+- **Why:** say-hi's sync pull request 285 failed its coverage sweep: its
+  `drift` suite holds its `mise.toml` to the synced `tools.txt`, and the tool
+  bump moved `tools.txt` alone. A target's own file cannot change in the sync
+  pull request, so it took a commit by hand on `ci-sync`.
+- **The pins:** `files/.config/mise/conf.d/ci-tools.toml`, which only say-hi
+  receives, holds the `tools.txt` pins as mise reads them, beside say-hi's
+  `mise.toml` (mise 2026.11.8 reads a checkout's `.config/mise/conf.d/`, and
+  trusting the checkout covers it). `scripts/mise_pins.sh`, in `check.sh`,
+  fails a pin that parts from `tools.txt`; `scripts/apply_bumps.sh` moves both.
+- **The canary:** `repos/<name>.toml`'s `canary` names the target's suites that
+  read shared files; `scripts/canary.sh` runs them on a clone of its sync
+  branch with `files/` written in, in `checks.yml`'s canary job. say-hi's are
+  `drift`, `tools` and the five `packaging` suites, 6 seconds on a dev machine. On say-hi's
+  `main` before 285 merged it failed `drift` on the four pins, as the sync pull
+  request had.
+
 ### harden-runner `block` on macOS and Windows jobs (_batch_)
 
 - harden-runner v2.20.0 supports `egress-policy: block` on GitHub's macOS and

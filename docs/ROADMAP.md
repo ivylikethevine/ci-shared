@@ -299,8 +299,9 @@ Evaluated, not decided: nothing here is on the order of work until it is taken u
 
 - **What:** make `mise.toml` and `mise.lock` the one list of pinned CI tools, in
   place of `.github/actions/setup-tool/tools.txt`, its installer, and the
-  `setup-tools` action. say-hi's `mise.toml` copies `tools.txt` today, with a
-  drift check to hold the two together; a single list removes the copy.
+  `setup-tools` action. say-hi's mise pins are a second copy of `tools.txt`
+  today, the shared `.config/mise/conf.d/ci-tools.toml`, held to it by
+  `scripts/mise_pins.sh`; a single list removes the copy.
 - **What mise covers (2026.10.19):** `mise.lock` records versions, checksums and
   download URLs per platform, and `--locked` stops an install calling the GitHub
   or aqua registry APIs for a URL. `mise lock --bump --dry-run --json` lists

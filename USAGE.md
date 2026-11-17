@@ -5,6 +5,7 @@ Which repositories receive each shared file, written by
 
 | File                                               | homebrew-tap | instadroid | python-constricter | say-hi | sharerr-rs | Repos |
 | -------------------------------------------------- | ------------ | ---------- | ------------------ | ------ | ---------- | ----- |
+| `.config/mise/conf.d/ci-tools.toml`                |              |            |                    | x      |            | 1     |
 | `.editorconfig`                                    | x            | x          | x                  | x      | x          | 5     |
 | `.gitattributes`                                   |              | x          | x                  | x      | x          | 4     |
 | `.github/CODEOWNERS`                               | x            | x          | x                  | x      | x          | 5     |
@@ -60,7 +61,7 @@ Which repositories receive each shared file, written by
 | `docs/CODE_OF_CONDUCT.md`                          | x            | x          | x                  | x      | x          | 5     |
 | `lychee.toml`                                      |              | x          | x                  | x      | x          | 4     |
 | `scripts/scratch/README.md`                        |              | x          |                    |        | x          | 2     |
-| **Files per repository**                           | 25           | 55         | 43                 | 51     | 55         | 55    |
+| **Files per repository**                           | 25           | 55         | 43                 | 52     | 55         | 56    |
 
 ## Template values
 

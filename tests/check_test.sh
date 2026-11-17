@@ -309,8 +309,9 @@ test_a_stale_own_file_fails() {
 test_an_invalid_config_fails_and_renders_nothing() {
   t_target c dev missing.yml
   t_run "$SCRIPTS/check.sh"
-  t_rc 2
-  t_out "::error title=usage::usage failed" "::error title=config::config failed" "ci_load has not run"
+  t_rc 3
+  t_out "::error title=usage::usage failed" "::error title=mise-pins::mise-pins failed" \
+    "::error title=config::config failed" "ci_load has not run"
   t_no_out "rendered"
 }
 

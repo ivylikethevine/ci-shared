@@ -48,6 +48,8 @@ them, or make the repository a target.
 | `scripts/usage.sh`            | writes `USAGE.md`; `--check` fails when it is stale                                                                                   |
 | `scripts/census.sh`           | groups the CI and tooling files local checkouts share by content, to find drift                                                       |
 | `scripts/sync_local.sh`       | copies `files/` into the checkouts beside this one                                                                                    |
+| `scripts/canary.sh`           | runs each target's `canary` command on a clone of its sync branch with `files/` written in                                            |
+| `scripts/mise_pins.sh`        | fails when the shared mise file parts from `tools.txt` for a target receiving both                                                    |
 | `scripts/sync_remote.sh`      | opens or updates a pull request per target through the GitHub API                                                                     |
 | `scripts/check_protection.sh` | fails unless each target's `main` and `dev` are protected from its token                                                              |
 | `scripts/rulesets.sh`         | renders `rulesets/` for a target, or diffs it against the live rulesets                                                               |
@@ -79,7 +81,8 @@ here.
    it) or to the `files` list of each `repos/<name>.toml` that should, and run
    `scripts/usage.sh`. After a change to a file this repository keeps its own
    copy of (`OWN` in `scripts/own_files.sh`), run `scripts/own_files.sh`.
-2. Run `scripts/check.sh`.
+2. Run `scripts/check.sh`, and `scripts/canary.sh` when a target's tests read
+   the file.
 3. `scripts/sync_local.sh --check` lists the checkouts that differ. The
    checkouts themselves are left alone: the sync pull requests of step 4 carry
    the change.
@@ -178,6 +181,18 @@ run from a temporary directory and not kept.
   `tools.txt` pins on `PATH`, `npm ci --prefix .github` once, and
   `requirements-dev.txt` in a virtual environment whose `bin/` is on `PATH`:
   `python3 -m venv local/venv && local/venv/bin/pip install --require-hashes --no-deps -r requirements-dev.txt`.
+- `scripts/canary.sh` runs the tests of each target that reads shared files
+  against this tree's `files/`: a `repos/<name>.toml` with
+  `canary = ["<command>", "<argument>", ...]` is cloned at its sync branch
+  from GitHub, `files/` is written in as `scripts/sync_local.sh` writes it, and
+  the command runs from the clone's root. `checks.yml`'s canary job runs it on
+  every push and pull request, so a change that breaks a target's test fails
+  here before it reaches that target's sync pull request. A target's own file
+  that copies a value from a shared one cannot change in the same sync pull
+  request, so such a value belongs in a shared file instead, as say-hi's mise
+  pins are in `.config/mise/conf.d/ci-tools.toml`, which
+  `scripts/mise_pins.sh` holds to `tools.txt` and `scripts/apply_bumps.sh`
+  bumps with it.
 - `.github/scripts/check_tool_versions.sh` reports every pin behind the newest
   release past the cooldown; `tool-versions.yml` runs it weekly and keeps a
   `tool-versions` issue open while one is behind. `bump-tools.yml` follows it

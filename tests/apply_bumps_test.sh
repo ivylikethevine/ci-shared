@@ -62,6 +62,36 @@ test_a_tool_takes_its_pin_and_each_hash() {
     "keep|1.0|raw|u|v|c||$(printf '4%.0s' {1..64})"
 }
 
+test_a_tool_moves_in_the_mise_file_too() {
+  fixture
+  printf '# one = "1.0"\n[tools]\none = "1.0"\n"aqua:o/many" = "1.0"\nkeep = "1.0"\n[settings]\none = "1.0"\n' |
+    t_shared .config/mise/conf.d/ci-tools.toml
+  # the fixes name no `keep`, and a key outside [tools] is no entry
+  printf 'tool|one|1.0|1.1||\ntool|many|1.0|2.0||\n' >"$T/fixes"
+  t_run "$SCRIPTS/apply_bumps.sh" "$T/fixes"
+  t_rc 0
+  t_file "$T/tree/files/.config/mise/conf.d/ci-tools.toml" - <<'EOF'
+# one = "1.0"
+[tools]
+one = "1.1"
+"aqua:o/many" = "2.0"
+keep = "1.0"
+[settings]
+one = "1.0"
+EOF
+}
+
+test_a_tool_the_mise_file_does_not_list_moves_alone() {
+  fixture
+  printf '[tools]\nother = "1.0"\n' | t_shared .config/mise/conf.d/ci-tools.toml
+  printf 'tool|one|1.0|1.1||\n' >"$T/fixes"
+  t_run "$SCRIPTS/apply_bumps.sh" "$T/fixes"
+  t_rc 0
+  t_in "$T/tree/files/.github/actions/setup-tool/tools.txt" 'one|1.1|'
+  t_file "$T/tree/files/.config/mise/conf.d/ci-tools.toml" '[tools]
+other = "1.0"'
+}
+
 test_a_tool_that_cannot_be_hashed_stays_and_the_rest_land() {
   fixture
   printf 'tool|one|1.0|1.1||\ntool|many|1.0|2.0||\ntool|nosuch|1.0|2.0||\nodd|x|1|2||\n' >"$T/fixes"
