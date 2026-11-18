@@ -20,3 +20,8 @@ show_missing = true
 skip_covered = true
 # a script is run, never imported, so its guard never takes the other branch
 partial_also = ['if __name__ == "__main__":']
+
+[tool.typos.default]
+# a base64 key a gitleaks allow list pins (files/.gitleaks.toml), whose mixed
+# case the tokenizer splits into words
+extend-ignore-re = ["[A-Za-z0-9+/\\\\]{40,}={0,2}"]

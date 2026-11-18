@@ -244,6 +244,7 @@ t_own_sources() {
   done
   echo 'version: 2' | t_shared .github/dependabot.yml
   echo 'local/' | t_shared .gitignore
+  echo '[extend]' | t_shared .gitleaks.toml
   echo 'version = 1' | t_shared REUSE.toml
 }
 

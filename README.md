@@ -67,7 +67,10 @@ them, or make the repository a target.
 | `pyproject.toml`              | those tools' settings                                                                                                                 |
 | `.github/workflows/`          | `sync.yml`, `checks.yml`, `bump-tools.yml` and copies of four shared ones                                                             |
 
-A file belongs here once two targets hold it byte-identical. Per-repository
+A file belongs here once two targets hold it byte-identical, or when it is a
+kind of file any repository may carry, such as a common config or an agent rule
+under `.claude/rules/`, with nothing in it that could only ever apply to one
+repository; such a file may start with a single target. Per-repository
 files stay in their repository: `check_tool_versions.local.sh`, the
 bug-report and feature-request forms, and every workflow that differs. `setup-tool/tools.txt` and
 `dependabot.yml` are the exceptions: a target's own rows and entries live here
@@ -166,7 +169,8 @@ It runs five of the workflows it ships, as its targets do: `codeql.yml` (the
 `actions` language alone), `scorecard.yml`, `link-check.yml`,
 `rerun-timeouts.yml` and `tool-versions.yml`, the last four following
 `checks.yml`, which is named `CI` for them. Its `tool-versions.yml`,
-`dependabot.yml` and `.gitignore` are the templates rendered for `repo=ci-shared`. A workflow or a `.gitignore` cannot be
+`dependabot.yml`, `.gitignore`, `.gitleaks.toml` and `REUSE.toml` are the
+templates rendered for `repo=ci-shared`. A workflow or a `.gitignore` cannot be
 a symlink, and a template's markers must not reach a copy, so
 `scripts/own_files.sh` writes each as a copy, the other workflows rendered with
 no values, and `scripts/check.sh` fails when one is stale.

@@ -6,6 +6,7 @@ sync_branch = "main"
 # repos/_base.toml's paths, less any `skip` names
 base = true
 skip = [
+  ".claude/rules/release-is-the-tag.md",
   ".gitattributes",
   ".github/ISSUE_TEMPLATE/config.yml",
   ".github/osv-scanner.toml",
@@ -18,6 +19,7 @@ skip = [
   ".github/workflows/release-note.yml",
   ".github/workflows/rerun-timeouts.yml",
   ".github/workflows/scorecard.yml",
+  ".gitleaks.toml",
   ".markdownlint.yaml",
   ".moxide.toml",
   ".prettierrc.yaml",

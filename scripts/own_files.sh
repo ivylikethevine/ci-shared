@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Writes this repository's own copies of the shared files it uses as a target
 # would: the workflows it runs, rendered with no values, as for a repository no
-# target names, and tool-versions.yml, dependabot.yml and .gitignore, rendered
-# for `repo=ci-shared`. They are copies, not symlinks into files/ like the lint
+# target names, and tool-versions.yml, dependabot.yml, .gitignore, .gitleaks.toml
+# and REUSE.toml, rendered for `repo=ci-shared`. They are copies, not symlinks into files/ like the lint
 # configs and actions: a template's markers must not reach them, Actions does
 # not run a symlinked workflow, and git does not follow a symlinked .gitignore.
 #
@@ -23,6 +23,7 @@ OWN=(
   ".github/workflows/tool-versions.yml repo=ci-shared"
   ".github/dependabot.yml repo=ci-shared"
   ".gitignore repo=ci-shared"
+  ".gitleaks.toml repo=ci-shared"
   "REUSE.toml repo=ci-shared"
 )
 
