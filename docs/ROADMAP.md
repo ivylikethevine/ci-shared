@@ -8,29 +8,48 @@ _batch_ are shared CI items: they go to every repository as one hand-run batch
 ([README](../README.md), "Checking this repository"), never to one alone. A
 finished item moves to [CHANGELOG.md](CHANGELOG.md).
 
+## Where it stands
+
+As of 2026-11-17, branch `dev`.
+
+- harden-runner v2.22.4 is on `main` here and in all five targets, with the
+  `dns experiment` notice in `sync.yml` and the shared `codeql.yml` (read from
+  each checkout's `origin/main` as of its last fetch). 10a now needs only a
+  passing run that carries the notice.
+- Item 5 waits on markdownlint-cli2 0.24.1's cooldown, which ends 2026-11-19.
+- Items 17 to 21 are done in the working tree ([CHANGELOG](CHANGELOG.md),
+  2026-11-17): `tests/run.sh` passes all 20 suites, and `scripts/check.sh`
+  passes but for the pins, constricter, reuse and audit rows, which need the
+  pinned tools and the virtual environment this machine lacks. Importing items
+  19 and 20's rulesets into each target is left for the owner.
+- No CI run was read for the notice.
+- Open question: items 15 and 22 bind outside contributors' agents, which is
+  the owner's call.
+
 ## Order of work
 
 Ranked by value for size. Items are numbered through the file; a letter marks
 one step of an item. S, M and L are sizes.
 
-- 10a, harden-runner v2.22.4 to `main` (in the working tree here and in every
-  target), then a passing `Sync` or `CodeQL (actions)` run that carries the
+- 10a, a passing `Sync` or `CodeQL (actions)` run that carries the
   `dns experiment` notice; then 10b, the `dns-experiment` step's removal and
   its five `audit` jobs back to `block` (M).
-- Item 5, from 2026-11-19, when markdownlint-cli2 0.24.1 clears the cooldown
-  (S).
+- Item 5, from 2026-11-19 (S).
+- Item 16, the ports and gate rules (S).
+- Item 14, `plan-scan` over committed plans (M).
 - Item 11's check, which needs a real sync pull request (S).
-- Item 3, `rerun-timeouts.yml`, after 10b (S); 3a, on the next automatic rerun
-  on `main`, lapses with it.
+- Item 3, `rerun-timeouts.yml`, after 10b (S); 3a lapses with it.
 - Item 2, `block` for the remaining Linux `audit` jobs, after 10b (M).
 
-Waiting on upstream: items 4 and 6 (an actionlint release), 7 (jactionlint's
-release history) and 12 (shfmt's `ignore` on a single file). Not worth doing as
-things stand: item 8.
+On hold: items 4 and 6 (an actionlint release), 7 (jactionlint's release
+history), 12 (shfmt's `ignore` on a single file), and 15 and 22 (the owner's
+decision). Later: items 8 and 13.
 
-## Fixes in this repository
+## Now
 
-### 2. `block` for the remaining Linux `audit` jobs (_batch_, M)
+### Fixes in this repository
+
+#### 2. `block` for the remaining Linux `audit` jobs (_batch_, M)
 
 - **What:** the macOS and Windows jobs moved to `block` on 2026-11-16
   ([CHANGELOG](CHANGELOG.md)). Most `audit` jobs left are Linux jobs that
@@ -52,7 +71,7 @@ things stand: item 8.
   `docker-image.yml` (a self-hosted runner label has no agent), say-hi's WSL job
   (hangs under `block`) and `release.yml`'s `brew` (runs only on a tag).
 
-### 3. Drop `rerun-timeouts.yml` (_batch_, S)
+#### 3. Drop `rerun-timeouts.yml` (_batch_, S)
 
 - **What:** a shared workflow that works around runner behaviour rather than
   fixing anything in a target: it retries a run whose job hit a time limit,
@@ -74,26 +93,7 @@ things stand: item 8.
   since a rerun started by `GITHUB_TOKEN` may not emit `workflow_run`. It
   lapses if this item lands first.
 
-### 4. The `$/` rewrite and zizmor `self-repository` (_batch_, M)
-
-- **What:** Scorecard v5.6.0, which `ossf/scorecard-action` v2.5.0 ships,
-  reads `uses: $/...` as a local action, so the rewrite of every
-  `uses: ./.github/...` to `$/.github/...` and `self-repository` back on in
-  `.github/zizmor.yml` could follow. Blocked: actionlint 1.7.12, the newest,
-  rejects `$/` ("ref is missing"). Every repository's lint gate runs actionlint.
-  [rhysd/actionlint#711](https://github.com/rhysd/actionlint/issues/711) and pull
-  request 732 are open, but its last release is 2026-03-30 and its last commit
-  2026-04-19, so a fix may not come; 1.7.12 was still the newest and #711 open
-  on 2026-11-16. jactionlint accepts it but is not taken for now (item 7). Not
-  evaluated: the fork `kjanat/actionlint`, which says it is a drop-in CLI with
-  `$/` and `ubuntu-26.04`, and a `paths` ignore in `.github/actionlint.yaml`
-  for the two `$/` messages, as #711 suggests.
-- **How, once actionlint accepts it:** rewrite the shared workflows and each
-  target's own, extend `lint_workflows.sh` rule 7 to `$/` (it checks the
-  sparse-checkout list for `./` refs only), re-enable the rule, and update
-  each target's disabled-rules note.
-
-### 5. Drop the `re2js` override (S)
+#### 5. Drop the `re2js` override (S)
 
 - **What:** markdownlint 0.42.0, which markdownlint-cli2 0.24.0 pulls in, pins
   `re2js` 2.8.6 under GHSA-gg6h-894w-4m9c, fixed in 2.8.7. `overrides` in
@@ -103,81 +103,9 @@ things stand: item 8.
 - **How:** bump `markdownlint-cli2` to 0.24.1, drop the `re2js` override,
   regenerate the lockfile, and check `npm ls re2js` resolves to 2.8.7 or later.
 
-### 6. Drop the `ubuntu-26.04` label from `.github/actionlint.yaml` (S)
+### Known issues
 
-- **What:** every workflow names `ubuntu-26.04` ([CHANGELOG](CHANGELOG.md),
-  2026-10-21), and `.github/actionlint.yaml`, shared with every target, tells
-  actionlint 1.7.12 the label. It goes once an actionlint release knows 26.04.
-
-## Integrations and replacements
-
-### 7. jactionlint in place of actionlint (_batch_, decided against for now)
-
-- **What:** [jdx/jactionlint](https://github.com/jdx/jactionlint), an
-  MIT-licensed fork of actionlint that accepts `uses: $/...`, which would
-  unblock item 4. Not taken: the first release was 2026-10-05, it reached v2.3.0
-  within three weeks with a major bump four days in, has shipped a minor a week
-  since (v2.6.0 on 2026-11-12), and has one maintainer. Revisit once it has a
-  settled release history, or drop it if actionlint accepts `$/` first.
-- **Tried (v2.3.0, on a copy of the tree with every local `uses:` rewritten
-  to `$/`):** `--profile=correctness` is clean where actionlint 1.7.12 fails
-  every `$/` line; it reads a `$/` action's `action.yml`, so an unknown or
-  missing input fails as it does for `./`. Its `self-repository` rule, with a
-  `--fix=unsafe` rewrite, matches zizmor's. The default profile finds nothing
-  new on this repository's workflows; `pedantic` adds 34 (`require-shell`
-  17, `require-expression-wrapping` 10).
-- **What the swap would take:**
-  - Long options only: `-config-file` and `-oneline` are refused, so
-    `scripts/check.sh` and `tests/check_test.sh` change. It runs only inside
-    a git repository.
-  - It reads `.github/actionlint.yaml` but applies its larger `default`
-    profile unless the file sets `profile: correctness`; pin that to keep
-    today's checks across its fast releases.
-  - Linting `files/` here: a `$/` action and a `workflow_run` workflow name
-    resolve against this repository's root, so `advisory-note`,
-    `fetch-latest-artifact` and pages.yml's `Coverage` trigger are reported
-    missing. Lint the renderings in a scratch git tree shaped like a target,
-    or ignore `invalid-local-action` and `workflow-run-names` there.
-  - A `tools.txt` row: its archives follow actionlint's naming
-    (`jactionlint_%v_linux_amd64.tar.gz`) with a checksums file and a
-    Sigstore bundle.
-  - sharerr-rs's required check `workflow lint (zizmor + actionlint)` is
-    renamed in its ruleset by hand if the job name changes.
-- **Not evaluated:** it claims a rule for every zizmor 1.30.1 audit (zizmor is
-  pinned at 1.31.1 since), which could later replace zizmor as well.
-
-### 8. A shared push ruleset
-
-Rulesets of type `push` apply to every branch and can refuse paths
-(`*.key`, `*.pem`, `.env`, `secrets/`) and files over a size. One
-`rulesets/push.json` rendered and diffed like the other three would make the
-`.gitignore` secret patterns a server-side rule. Low value for one
-maintainer whose `gitleaks` check runs on every push; worth it only if a
-target gains contributors.
-
-## More files into `files/`
-
-From `scripts/near_census.py --normalize` over the sibling checkouts. The
-template engine's `shared:if repo=<name>` blocks already carry per-target
-rows in `dependabot.yml` and `tools.txt`, so a file that is mostly common
-with a per-repository tail is a template, not a per-repository file.
-
-| Path                    | Held by                     | Alike                         | Call                                   |
-| ----------------------- | --------------------------- | ----------------------------- | -------------------------------------- |
-| `.prettierignore`       | 4 repos, 6 to 8 lines       | differ by build dirs          | leave                                  |
-| `.typos.toml`           | 4 repos, 14 to 50 lines     | a common head, per-repo words | leave                                  |
-| `.hadolint.yaml`        | say-hi, sharerr-rs (34, 29) | instadroid's is 3 lines       | leave                                  |
-| `.tool-versions`        | 3 repos, 2 to 4 lines       | different tools               | leave                                  |
-| `docs/GOVERNANCE.md`    | 3 repos, 51 to 82 lines     | ratio 0.24 to 0.27            | leave, or template its policy sections |
-| `.claude/settings.json` | 3 repos                     | differ                        | leave: project settings                |
-
-`bug_report.yml` and `feature_request.yml` stay per-repository by decision. So do
-`.prettierignore`, `.typos.toml` and `.hadolint.yaml`: they share a line or two,
-and a template would be mostly per-repository blocks.
-
-## Known issues
-
-### 10. harden-runner `block` drops allowed hosts on some westus2 runners (M)
+#### 10. harden-runner `block` drops allowed hosts on some westus2 runners (M)
 
 - **What:** GitHub runs an experiment on some westus2 hosted runners that adds
   its own DNS resolver (`egress-dns-resolver.service`, on `127.0.0.100:53`).
@@ -216,15 +144,14 @@ and a template would be mostly per-repository blocks.
   `audit` jobs on westus2, and 77 `block` jobs elsewhere. In one stuck job's post step, the runner's own
   connection (`Runner.Worker`) is dropped too, which is why a job stays open after
   its last step.
-- **Upstream:** harden-runner v2.22.3 (2026-10-27), pinned everywhere since
-  2026-11-06, fixes "unexpected blocking of allowed connections caused by
-  GitHub's DNS resolver and outbound proxy experiment on GitHub-hosted Linux
-  runners". v2.22.4 (2026-11-06) enables that workaround by default when its
-  feature flags cannot be fetched, which suggests v2.22.3 gates it on a flag
-  fetched at start; it cleared the cooldown on 2026-11-13 and was still the
-  newest release on 2026-11-16, when it went into `files/`, this repository's
-  own workflows and every target's own (`scripts/bump_pins.sh`), not yet
-  merged.
+- **Upstream:** harden-runner v2.22.3 (2026-10-27) fixes "unexpected blocking
+  of allowed connections caused by GitHub's DNS resolver and outbound proxy
+  experiment on GitHub-hosted Linux runners". v2.22.4 (2026-11-06) enables that
+  workaround by default when its feature flags cannot be fetched, which
+  suggests v2.22.3 gates it on a flag fetched at start; it cleared the cooldown
+  on 2026-11-13 and was still the newest release on 2026-11-16, when it went
+  into `files/`, this repository's own workflows and every target's own
+  (`scripts/bump_pins.sh`). It is on `main` here and in all five targets.
   [actions/runner-images#14925](https://github.com/actions/runner-images/issues/14925)
   was closed as completed on 2026-11-06, with no comment from GitHub on the
   DNS-observation part.
@@ -249,8 +176,8 @@ and a template would be mostly per-repository blocks.
   before harden-runner engages, so no run can show harden-runner's fix while it
   is there. Two jobs report such a runner with a `dns experiment` notice instead
   of refusing it, and keep `block`: `sync.yml`'s `sync`, this repository's
-  alone, and, from 2026-11-16 in the working tree, the shared `codeql.yml`'s
-  `CodeQL (actions)`, which puts the question to every target's runs. A run of
+  alone, and the shared `codeql.yml`'s `CodeQL (actions)`, on `main` here and in
+  every target, which puts the question to every target's runs. A run of
   either that carries the notice and passes under v2.22.4 is the proof. One
   that carries it and stays open to its limit says the fix is not on; a
   `CodeQL` run is then retried by `rerun-timeouts.yml`, a `Sync` run takes a
@@ -260,7 +187,7 @@ and a template would be mostly per-repository blocks.
   with its exemption in `lint_workflows.sh` rule 6, and move the five `audit`
   jobs named above back to `block`. Item 2 follows.
 
-### 11. Sync pull requests still run sharerr-rs's `CodeQL (rust)` (S)
+#### 11. Sync pull requests still run sharerr-rs's `CodeQL (rust)` (S)
 
 - **What:** 135 of its 682 runner minutes in the week measured, and 34% of its
   minutes were `ci-sync`'s. Its other Rust jobs and both Docker builds now skip
@@ -273,7 +200,120 @@ and a template would be mostly per-repository blocks.
   merge. Needs a real pull request; nothing local shows it. None has opened since
   2026-11-08 (pull request 160).
 
-### 12. shfmt and `brew style` disagree on homebrew-tap's shell layout (S)
+### Safeguards to share
+
+Files and ruleset changes that keep an agent's or a contributor's work safe,
+written for these repositories rather than found by the census. Each is a kind
+of file any repository may carry, so it may start with a single target
+([README](../README.md), "Layout"). Every target is public, so none of these
+files names a person, a machine, a path outside the repository or another
+repository. Items 15 and 22 are on hold below; 17 to 21 are in the
+[CHANGELOG](CHANGELOG.md).
+
+#### 14. `plan-scan` over committed plans (_batch_, M)
+
+- **What:** say-hi (two plans in `docs/plans/`) and sharerr-rs (one) commit
+  their plans publicly. `plan-scan` is a bash scanner for data about a
+  developer, their machines and file systems, and for secrets: home and mount
+  paths, emails, IP and MAC addresses, `.local` and `.lan` hostnames, UUIDs,
+  cloud account IDs in ARNs, the scanning user's own login, name and hostname,
+  and gitleaks' default rules. With `--hook` it runs as a Claude Code
+  PostToolUse hook on each edit of a plan. Its private lists (names to deny,
+  words to allow) stay on the developer's machine and never enter `files/`.
+- **How:** `files/.claude/plan-scan` with its default `plan-scan.paths`
+  (`CLAUDE.md`, `README.md`, `docs/*.md`), and a step in each target's lint job
+  that runs it.
+- **Verify first:** `tools.txt` has no `ripgrep` row, and the scan needs `rg`
+  built with PCRE2. On a hosted runner the identity check reads the runner's
+  login (`runner`) and hostname, so check that it does not then flag the word
+  "runner" in a plan.
+
+#### 16. Shared agent rules under `.claude/rules/` (_batch_, S)
+
+- **What:** two rules, each with `paths:` frontmatter so it loads only beside
+  matching files:
+  - **A run owns its ports.** A script that starts a server or a database
+    probes its ports first, exits non-zero when the server fails to start,
+    checks that what answers is its own process, and stops everything it
+    started on exit (`trap ... EXIT INT TERM HUP`). For sharerr-rs's and
+    instadroid's compose stacks and test scripts.
+  - **A gate covers one commit.** A run a release decision rests on (a full
+    suite, a corpus run, a benchmark) covers the commit and settings it ran
+    on, and any later change un-gates the tree. For python-constricter's corpus
+    runs and sharerr-rs's integration suites.
+- **How:** `files/.claude/rules/<name>.md`, listed in `repos/_base.toml` or
+  per target. A Claude Code session cannot write `.claude/`, but the sync
+  App's pull request can.
+
+## On hold
+
+### Fixes in this repository, on hold
+
+#### 4. The `$/` rewrite and zizmor `self-repository` (_batch_, M)
+
+- **What:** Scorecard v5.6.0, which `ossf/scorecard-action` v2.5.0 ships,
+  reads `uses: $/...` as a local action, so the rewrite of every
+  `uses: ./.github/...` to `$/.github/...` and `self-repository` back on in
+  `.github/zizmor.yml` could follow. Blocked: actionlint 1.7.12, the newest,
+  rejects `$/` ("ref is missing"). Every repository's lint gate runs actionlint.
+  [rhysd/actionlint#711](https://github.com/rhysd/actionlint/issues/711) and pull
+  request 732 are open, but its last release is 2026-03-30 and its last commit
+  2026-04-19, so a fix may not come; 1.7.12 was still the newest and #711 open
+  on 2026-11-16. jactionlint accepts it but is not taken for now (item 7). Not
+  evaluated: the fork `kjanat/actionlint`, which says it is a drop-in CLI with
+  `$/` and `ubuntu-26.04`, and a `paths` ignore in `.github/actionlint.yaml`
+  for the two `$/` messages, as #711 suggests.
+- **How, once actionlint accepts it:** rewrite the shared workflows and each
+  target's own, extend `lint_workflows.sh` rule 7 to `$/` (it checks the
+  sparse-checkout list for `./` refs only), re-enable the rule, and update
+  each target's disabled-rules note.
+
+#### 6. Drop the `ubuntu-26.04` label from `.github/actionlint.yaml` (S)
+
+- **What:** every workflow names `ubuntu-26.04` ([CHANGELOG](CHANGELOG.md),
+  2026-10-21), and `.github/actionlint.yaml`, shared with every target, tells
+  actionlint 1.7.12 the label. It goes once an actionlint release knows 26.04.
+
+### Integrations and replacements
+
+#### 7. jactionlint in place of actionlint (_batch_, decided against for now)
+
+- **What:** [jdx/jactionlint](https://github.com/jdx/jactionlint), an
+  MIT-licensed fork of actionlint that accepts `uses: $/...`, which would
+  unblock item 4. Not taken: the first release was 2026-10-05, it reached v2.3.0
+  within three weeks with a major bump four days in, has shipped a minor a week
+  since (v2.6.0 on 2026-11-12), and has one maintainer. Revisit once it has a
+  settled release history, or drop it if actionlint accepts `$/` first.
+- **Tried (v2.3.0, on a copy of the tree with every local `uses:` rewritten
+  to `$/`):** `--profile=correctness` is clean where actionlint 1.7.12 fails
+  every `$/` line; it reads a `$/` action's `action.yml`, so an unknown or
+  missing input fails as it does for `./`. Its `self-repository` rule, with a
+  `--fix=unsafe` rewrite, matches zizmor's. The default profile finds nothing
+  new on this repository's workflows; `pedantic` adds 34 (`require-shell`
+  17, `require-expression-wrapping` 10).
+- **What the swap would take:**
+  - Long options only: `-config-file` and `-oneline` are refused, so
+    `scripts/check.sh` and `tests/check_test.sh` change. It runs only inside
+    a git repository.
+  - It reads `.github/actionlint.yaml` but applies its larger `default`
+    profile unless the file sets `profile: correctness`; pin that to keep
+    today's checks across its fast releases.
+  - Linting `files/` here: a `$/` action and a `workflow_run` workflow name
+    resolve against this repository's root, so `advisory-note`,
+    `fetch-latest-artifact` and pages.yml's `Coverage` trigger are reported
+    missing. Lint the renderings in a scratch git tree shaped like a target,
+    or ignore `invalid-local-action` and `workflow-run-names` there.
+  - A `tools.txt` row: its archives follow actionlint's naming
+    (`jactionlint_%v_linux_amd64.tar.gz`) with a checksums file and a
+    Sigstore bundle.
+  - sharerr-rs's required check `workflow lint (zizmor + actionlint)` is
+    renamed in its ruleset by hand if the job name changes.
+- **Not evaluated:** it claims a rule for every zizmor 1.30.1 audit (zizmor is
+  pinned at 1.31.1 since), which could later replace zizmor as well.
+
+### Known issues, on hold
+
+#### 12. shfmt and `brew style` disagree on homebrew-tap's shell layout (S)
 
 - **What:** homebrew-tap's `brew style` runs Homebrew's shfmt wrapper over
   every `*.sh` in the tap, which wants `then` and `do` on their own line and
@@ -291,11 +331,74 @@ and a template would be mostly per-repository blocks.
   Until it does, apply `brew style --fix`'s diff by hand and do not reformat
   afterwards.
 
-## To consider
+### Safeguards to share, on hold
+
+Both wait on the owner's decision: committed agent settings and conduct bind
+every contributor's agent, not only the owner's.
+
+#### 15. A shared `.claude/settings.json` (_batch_, M)
+
+- **What:** say-hi, sharerr-rs, instadroid and python-constricter track one,
+  with no `attribution`, `plansDirectory`, deny list or hooks; homebrew-tap has
+  none. A shared baseline would set `plansDirectory` to `docs/plans`, turn
+  `attribution` off (no co-author trailer or session link in commits and pull
+  requests), add item 14's hook, and deny the publishing commands: `git push`,
+  `git commit`, `gh pr`, `gh issue` and `gh release` writes, `gh secret`,
+  `gh variable` and `gh workflow run`.
+- **Decide first:** committed settings bind every contributor's agent, not
+  only the owner's. Attribution off and the publishing denies would apply to
+  an outside contributor's Claude Code session in these repositories.
+- **How:** a template, with each target's own allows in its
+  `shared:if repo=<name>` block. The "leave: project settings" row in the
+  table under Later changes with it.
+
+#### 22. `AGENTS.md`, a conduct file for coding agents (_batch_, M)
+
+- **What:** Codex, Copilot and Cursor read a root `AGENTS.md` natively, and
+  Claude Code reads it through `@AGENTS.md` as the first line of `CLAUDE.md`. A
+  short shared one would hold the conduct every target shares: no AI
+  attribution; no secret, identifier or personal data in a file or reply; a
+  step not run is reported as not run; push, tag, release or comment only on
+  the developer's word; stop the services a step started. Each target's
+  `CLAUDE.md` then drops what the file repeats.
+- **Decide first:** this is the most visible file here. It states the owner's
+  agent policy to every visitor and binds outside contributors' agents, as
+  item 15 does.
+
+## Later
+
+### Integrations and replacements, later
+
+#### 8. A shared push ruleset
+
+Rulesets of type `push` apply to every branch and can refuse paths
+(`*.key`, `*.pem`, `.env`, `secrets/`) and files over a size. One
+`rulesets/push.json` rendered and diffed like the other three would make the
+`.gitignore` secret patterns a server-side rule. Low value for one
+maintainer whose `gitleaks` check runs on every push; worth it only if a
+target gains contributors.
+
+### More files into `files/`
+
+From `scripts/near_census.py --normalize` over the sibling checkouts. The
+template engine's `shared:if repo=<name>` blocks already carry per-target
+rows in `dependabot.yml` and `tools.txt`, so a file that is mostly common
+with a per-repository tail is a template, not a per-repository file.
+
+| Path                    | Held by                     | Alike                         | Call                                   |
+| ----------------------- | --------------------------- | ----------------------------- | -------------------------------------- |
+| `.prettierignore`       | 4 repos, 6 to 8 lines       | differ by build dirs          | leave                                  |
+| `.typos.toml`           | 4 repos, 14 to 50 lines     | a common head, per-repo words | leave                                  |
+| `.hadolint.yaml`        | say-hi, sharerr-rs (34, 29) | instadroid's is 3 lines       | leave                                  |
+| `.tool-versions`        | 3 repos, 2 to 4 lines       | different tools               | leave                                  |
+| `docs/GOVERNANCE.md`    | 3 repos, 51 to 82 lines     | ratio 0.24 to 0.27            | leave, or template its policy sections |
+| `.claude/settings.json` | 3 repos                     | differ                        | leave: project settings                |
+
+### To consider
 
 Evaluated, not decided: nothing here is on the order of work until it is taken up.
 
-### 13. `mise.toml` in place of `tools.txt` (_batch_, L)
+#### 13. `mise.toml` in place of `tools.txt` (_batch_, L)
 
 - **What:** make `mise.toml` and `mise.lock` the one list of pinned CI tools, in
   place of `.github/actions/setup-tool/tools.txt`, its installer, and the
@@ -322,3 +425,24 @@ Evaluated, not decided: nothing here is on the order of work until it is taken u
 - **How, if taken up:** try say-hi's `quick lint` job first, the cheapest way to
   measure what mise adds to a job's time and find the hosts it needs, then move
   every target as one batch.
+
+## Decisions
+
+- 2026-11-17: a file joins `files/` with a single target when it is a kind of
+  file any repository may carry, such as a common config or an agent rule, and
+  holds nothing that could only ever apply to one repository.
+- Item 2: the jobs listed under its "Stay `audit` by decision" stay `audit`.
+- Item 7: jactionlint is not taken for now; revisit once it has a settled
+  release history.
+- Item 8: a shared push ruleset is not worth it while one maintainer works the
+  targets and `gitleaks` runs on every push.
+- `bug_report.yml` and `feature_request.yml` stay per-repository, and so do
+  `.prettierignore`, `.typos.toml` and `.hadolint.yaml`: they share a line or
+  two, and a template would be mostly per-repository blocks.
+- The shared rulesets require no approving review, so the owner merges their
+  own pull requests; Scorecard's Branch-Protection scores that 3/10
+  ([README](../README.md), "The rulesets").
+
+## Done
+
+Finished items, newest first, are in [CHANGELOG.md](CHANGELOG.md).

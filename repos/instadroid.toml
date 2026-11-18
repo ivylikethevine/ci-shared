@@ -11,6 +11,7 @@ base = ["_base", "_images"]
 
 # paths from files/ beyond those, each at the path it has in this repository
 files = [
+  ".claude/rules/git-fixtures.md",
   ".github/scripts/trivy_scan.sh",
   ".github/workflows/advisories.yml",
   ".github/workflows/pages.yml",

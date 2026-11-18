@@ -4,6 +4,80 @@ What changed in this repository and the files it ships, newest first. A
 [roadmap](ROADMAP.md) item moves here when it is done, with what it left in
 force; nothing checks this file.
 
+## 2026-11-17
+
+### picomatch's ReDoS accepted until 2027-02-17 (_batch_)
+
+- `files/.github/osv-scanner.toml` takes GHSA-fc5q-39xc-vjpf. OSV lists every
+  picomatch release up to 4.0.7 as affected, and micromatch 4.0.8, which
+  markdownlint-cli2 pulls in, requires `^2.3.1`, so no patched version fits.
+  The lint feeds it only the repository's own glob patterns.
+- sharerr-rs took the same file by hand ahead of the sync, so its release is
+  not held by `scripts/check.sh`'s osv step.
+
+### Fewer per-repository blocks in the shared files (_batch_)
+
+- **`.gitignore`:** say-hi's block loses its blanket patterns (`**key**`,
+  `**local**`, `*.toml`, `*.txt` and the like) and the thirteen `!` lines that
+  undid them, plus a `dist/` the shared `/dist/` covers; what is left names
+  say-hi's own outputs. `*.env`, nix's `/result` links and OpenTofu and
+  Terraform state (`.terraform/`, `*.tfstate`, `*.tfvars`) move into the shared
+  part, out of say-hi's, instadroid's and sharerr-rs's blocks. instadroid's
+  `target/`, `output/`, `tmp/` and `temp/` go: nothing writes them.
+- **Verified:** rendered before and after for each target, its checkout ignores
+  the same untracked paths and no tracked file, except that say-hi's tracked
+  `mise.toml` no longer matches a rule.
+- **`.gitattributes`:** `.git_archival.txt export-subst` is unconditional; it
+  does nothing where the file is absent.
+- **`pull_request_template.md`:** one shared checklist in place of four. Each
+  repository's own items live in its `docs/CONTRIBUTING.md`, which say-hi
+  (coverage target, dash) and sharerr-rs (no secret in `sharerr.toml`) gained
+  where they lacked them.
+- **`.scorecard.yml`:** say-hi's and sharerr-rs's comment-only notes move to
+  their `docs/TESTING.md` and `docs/OPENSSF-IMPROVEMENTS.md`; say-hi's
+  annotations stay.
+
+### Shared agent rules: the tag is the release, and git fixtures (_batch_)
+
+- `files/.claude/rules/release-is-the-tag.md` loads with `.github/**` and
+  `CHANGELOG.md`: merging and pushing a signed tag is the whole release, and a
+  tag gate checks only the tag. Every target receives it but homebrew-tap,
+  which releases nothing by tag.
+- `files/.claude/rules/git-fixtures.md` loads with test paths: fixtures turn
+  off a developer's commit and tag signing, and `git log` parsers pass
+  `--no-show-signature`. say-hi, instadroid and python-constricter receive it,
+  the targets whose suites build git fixtures.
+- A file now joins `files/` with a single target when it is a kind of file any
+  repository may carry and holds nothing specific to one (README, "Layout").
+
+### Release tags immutable and review threads resolved (_batch_)
+
+- `rulesets/stable.json` takes the `update` rule, so a `v*` or `*-rc` tag can
+  no longer be moved; no workflow or script in `files/` or a target moves one.
+- `rulesets/main.json` sets `required_review_thread_resolution`, so a pull
+  request cannot merge past an open review thread.
+- **Left:** each target's import with an admin token, from
+  `scripts/rulesets.sh render <name> main` and `... stable`. Until then the
+  weekly `scripts/rulesets.sh diff` fails for every target.
+
+### gitleaks: passwords in connection strings (_batch_)
+
+- `files/.gitleaks.toml` extends gitleaks' default rules with a password in a
+  database or broker URL and in a `Server=...;Password=...` string, each with
+  an allow list for placeholders. Every target that runs gitleaks receives it,
+  so all but homebrew-tap; sharerr-rs's own allow lists move into its
+  `shared:if repo=sharerr-rs` block, and this repository keeps a rendered copy
+  through `scripts/own_files.sh`.
+- **Verified:** each target's local history, and this repository's, scans clean
+  under its rendering. A probe repository holding the file at its root, scanned
+  with no `--config`, reports both rules and passes a `${...}` placeholder. The
+  local gitleaks was a source build, not the pinned 8.30.1, and instadroid's
+  gitleaks-action v3.0.0 was not run.
+- say-hi's `.gitignore` block re-includes `!.gitleaks.toml`, which its `*.toml`
+  would hide. `pyproject.toml` has typos skip base64 keys: typos 1.52.2 reads
+  two letters of sharerr-rs's WireGuard key as a misspelling, in sharerr-rs's
+  own copy too.
+
 ## 2026-11-16
 
 ### A target's tests run against `files/` before a sync

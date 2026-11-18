@@ -5,6 +5,8 @@ Which repositories receive each shared file, written by
 
 | File                                               | homebrew-tap | instadroid | python-constricter | say-hi | sharerr-rs | Repos |
 | -------------------------------------------------- | ------------ | ---------- | ------------------ | ------ | ---------- | ----- |
+| `.claude/rules/git-fixtures.md`                    |              | x          | x                  | x      |            | 3     |
+| `.claude/rules/release-is-the-tag.md`              |              | x          | x                  | x      | x          | 4     |
 | `.config/mise/conf.d/ci-tools.toml`                |              |            |                    | x      |            | 1     |
 | `.editorconfig`                                    | x            | x          | x                  | x      | x          | 5     |
 | `.gitattributes`                                   |              | x          | x                  | x      | x          | 4     |
@@ -46,6 +48,7 @@ Which repositories receive each shared file, written by
 | `.github/workflows/tool-versions.yml`              | x            | x          | x                  | x      | x          | 5     |
 | `.github/zizmor.yml`                               | x            | x          | x                  | x      | x          | 5     |
 | `.gitignore`                                       | x            | x          | x                  | x      | x          | 5     |
+| `.gitleaks.toml`                                   |              | x          | x                  | x      | x          | 4     |
 | `.markdownlint.yaml`                               |              | x          | x                  | x      | x          | 4     |
 | `.moxide.toml`                                     |              | x          | x                  | x      | x          | 4     |
 | `.prettierrc.yaml`                                 |              | x          | x                  | x      | x          | 4     |
@@ -61,7 +64,7 @@ Which repositories receive each shared file, written by
 | `docs/CODE_OF_CONDUCT.md`                          | x            | x          | x                  | x      | x          | 5     |
 | `lychee.toml`                                      |              | x          | x                  | x      | x          | 4     |
 | `scripts/scratch/README.md`                        |              | x          |                    |        | x          | 2     |
-| **Files per repository**                           | 25           | 55         | 43                 | 52     | 55         | 56    |
+| **Files per repository**                           | 25           | 58         | 46                 | 55     | 57         | 59    |
 
 ## Template values
 

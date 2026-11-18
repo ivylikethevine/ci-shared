@@ -25,6 +25,7 @@ skip = [
 # its mise.toml takes the tools.txt pins from here, which scripts/mise_pins.sh
 # holds to tools.txt
 files = [
+  ".claude/rules/git-fixtures.md",
   ".config/mise/conf.d/ci-tools.toml",
 ]
 

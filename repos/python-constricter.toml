@@ -12,6 +12,11 @@ skip = [
   "scripts/scratch/README.md",
 ]
 
+# paths from files/ beyond those, each at the path it has in this repository
+files = [
+  ".claude/rules/git-fixtures.md",
+]
+
 # the values every template takes
 [values]
 language = "python"

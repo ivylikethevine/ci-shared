@@ -1,6 +1,7 @@
 # The paths from files/ most targets receive: each repos/<name>.toml with
 # `base = true` gets them, less those its `skip` names.
 files = [
+  ".claude/rules/release-is-the-tag.md",
   ".editorconfig",
   ".gitattributes",
   ".github/CODEOWNERS",
@@ -31,6 +32,7 @@ files = [
   ".github/workflows/tool-versions.yml",
   ".github/zizmor.yml",
   ".gitignore",
+  ".gitleaks.toml",
   ".markdownlint.yaml",
   ".moxide.toml",
   ".prettierrc.yaml",

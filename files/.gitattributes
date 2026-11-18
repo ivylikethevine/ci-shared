@@ -11,8 +11,7 @@
 *.jpeg binary
 *.webp binary
 *.apk binary
-# shared:if repo=python-constricter
-# GitHub fills in the tag for a tarball of a commit, as when a workflow uses the action: its
-# version without git history.
+# A package that reads its version from git keeps .git_archival.txt, which git
+# archive (and GitHub's tarball of a commit) fills in, so an archive without
+# history still carries its version. It does nothing where the file is absent.
 .git_archival.txt export-subst
-# shared:endif
