@@ -35,6 +35,8 @@ scripts=()
 while IFS= read -r f; do scripts+=("$f"); done < <(
   find scripts tests .github/scripts files -name '*.sh' -type f | LC_ALL=C sort
 )
+# shipped bash with no .sh name
+if [ -f files/.claude/plan-scan ]; then scripts+=(files/.claude/plan-scan); fi
 workflows=(.github/workflows/*.yml files/.github/workflows/*.yml)
 bin=.github/node_modules/.bin
 

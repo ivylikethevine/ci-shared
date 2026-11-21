@@ -1,6 +1,7 @@
 # The paths from files/ most targets receive: each repos/<name>.toml with
 # `base = true` gets them, less those its `skip` names.
 files = [
+  ".claude/plan-scan",
   ".claude/rules/release-is-the-tag.md",
   ".editorconfig",
   ".gitattributes",

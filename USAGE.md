@@ -5,8 +5,11 @@ Which repositories receive each shared file, written by
 
 | File                                               | homebrew-tap | instadroid | python-constricter | say-hi | sharerr-rs | Repos |
 | -------------------------------------------------- | ------------ | ---------- | ------------------ | ------ | ---------- | ----- |
+| `.claude/plan-scan`                                | x            | x          | x                  | x      | x          | 5     |
+| `.claude/rules/gates-cover-one-commit.md`          |              |            | x                  |        | x          | 2     |
 | `.claude/rules/git-fixtures.md`                    |              | x          | x                  | x      |            | 3     |
 | `.claude/rules/release-is-the-tag.md`              |              | x          | x                  | x      | x          | 4     |
+| `.claude/rules/runs-own-their-ports.md`            |              | x          |                    |        | x          | 2     |
 | `.config/mise/conf.d/ci-tools.toml`                |              |            |                    | x      |            | 1     |
 | `.editorconfig`                                    | x            | x          | x                  | x      | x          | 5     |
 | `.gitattributes`                                   |              | x          | x                  | x      | x          | 4     |
@@ -64,7 +67,7 @@ Which repositories receive each shared file, written by
 | `docs/CODE_OF_CONDUCT.md`                          | x            | x          | x                  | x      | x          | 5     |
 | `lychee.toml`                                      |              | x          | x                  | x      | x          | 4     |
 | `scripts/scratch/README.md`                        |              | x          |                    |        | x          | 2     |
-| **Files per repository**                           | 25           | 58         | 46                 | 55     | 57         | 59    |
+| **Files per repository**                           | 26           | 60         | 48                 | 56     | 60         | 62    |
 
 ## Template values
 
