@@ -123,6 +123,16 @@ EOF
   )"
 }
 
+test_lints_the_shipped_plan_scan() {
+  echo 'true' | t_shared .claude/plan-scan x
+  "$SCRIPTS/usage.sh"
+  t_run "$SCRIPTS/check.sh"
+  t_rc 0
+  t_in -x "$T/tools.log" \
+    'shellcheck -x files/.github/scripts/shared.sh scripts/s.sh tests/t_test.sh files/.claude/plan-scan' \
+    'shfmt -d files/.github/scripts/shared.sh scripts/s.sh tests/t_test.sh files/.claude/plan-scan'
+}
+
 test_lints_a_markdown_template_rendered_not_raw() {
   printf '# __repo__\n\n<!-- shared:if repo=a -->\n- only a\n<!-- shared:endif -->\n' | t_shared docs/t.md
   printf '# shared:if repo=a\n*.apk binary\n# shared:endif\n' | t_shared .gitattributes

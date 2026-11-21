@@ -10,19 +10,25 @@ finished item moves to [CHANGELOG.md](CHANGELOG.md).
 
 ## Where it stands
 
-As of 2026-11-17, branch `dev`.
+As of 2026-11-20, branch `dev`, level with `main`.
 
-- harden-runner v2.22.4 is on `main` here and in all five targets, with the
-  `dns experiment` notice in `sync.yml` and the shared `codeql.yml` (read from
-  each checkout's `origin/main` as of its last fetch). 10a now needs only a
-  passing run that carries the notice.
-- Item 5 waits on markdownlint-cli2 0.24.1's cooldown, which ends 2026-11-19.
-- Items 17 to 21 are done in the working tree ([CHANGELOG](CHANGELOG.md),
-  2026-11-17): `tests/run.sh` passes all 20 suites, and `scripts/check.sh`
-  passes but for the pins, constricter, reuse and audit rows, which need the
-  pinned tools and the virtual environment this machine lacks. Importing items
-  19 and 20's rulesets into each target is left for the owner.
-- No CI run was read for the notice.
+- Items 17 to 21 are on `main` (pull request 44) and reached the targets
+  through the sync; sharerr-rs merged its sync pull request 173 on 2026-11-18.
+  Importing items 19 and 20's rulesets into each target is left for the owner.
+- harden-runner v2.22.4 is on `main` here and in all five targets. None of the
+  five `Sync` runs from 2026-11-16 to 11-18 carried the `dns experiment`
+  notice, so 10a still waits on one that does. The targets' `CodeQL (actions)`
+  runs were not read.
+- Items 5 and 16, and item 14's scanner, are done in the working tree
+  ([CHANGELOG](CHANGELOG.md), 2026-11-20): `tests/run.sh` passes all 20
+  suites, and `scripts/check.sh` passes but for the pins, constricter, reuse
+  and audit rows, which need the pinned tools and the virtual environment this
+  machine lacks. `files/.claude/plan-scan` is now the scan's one source, with
+  its suite in `tests/plan_scan_test.sh`; the bash 3.2 check there was skipped
+  (no container engine in this session). Item 14's lint step in each target is
+  left.
+- Item 11 is still unanswered: sync pull request 173 ran every Rust job, so
+  nothing was skipped.
 - Open question: items 15 and 22 bind outside contributors' agents, which is
   the owner's call.
 
@@ -31,12 +37,11 @@ As of 2026-11-17, branch `dev`.
 Ranked by value for size. Items are numbered through the file; a letter marks
 one step of an item. S, M and L are sizes.
 
+- Item 14, the `plan-scan` step in each target's lint job (S), in a session
+  that works in the targets.
 - 10a, a passing `Sync` or `CodeQL (actions)` run that carries the
   `dns experiment` notice; then 10b, the `dns-experiment` step's removal and
   its five `audit` jobs back to `block` (M).
-- Item 5, from 2026-11-19 (S).
-- Item 16, the ports and gate rules (S).
-- Item 14, `plan-scan` over committed plans (M).
 - Item 11's check, which needs a real sync pull request (S).
 - Item 3, `rerun-timeouts.yml`, after 10b (S); 3a lapses with it.
 - Item 2, `block` for the remaining Linux `audit` jobs, after 10b (M).
@@ -92,16 +97,6 @@ decision). Later: items 8 and 13.
   `CI` run on `main`, that the workflows chained off `CI` fired from attempt 2,
   since a rerun started by `GITHUB_TOKEN` may not emit `workflow_run`. It
   lapses if this item lands first.
-
-#### 5. Drop the `re2js` override (S)
-
-- **What:** markdownlint 0.42.0, which markdownlint-cli2 0.24.0 pulls in, pins
-  `re2js` 2.8.6 under GHSA-gg6h-894w-4m9c, fixed in 2.8.7. `overrides` in
-  `files/.github/package.json` holds `re2js` at 2.9.1. markdownlint-cli2
-  0.24.1 (2026-11-12) takes markdownlint 0.42.1, which pins 2.9.1 itself, and
-  clears the 7-day cooldown on 2026-11-19.
-- **How:** bump `markdownlint-cli2` to 0.24.1, drop the `re2js` override,
-  regenerate the lockfile, and check `npm ls re2js` resolves to 2.8.7 or later.
 
 ### Known issues
 
@@ -181,8 +176,8 @@ decision). Later: items 8 and 13.
   either that carries the notice and passes under v2.22.4 is the proof. One
   that carries it and stays open to its limit says the fix is not on; a
   `CodeQL` run is then retried by `rerun-timeouts.yml`, a `Sync` run takes a
-  rerun by hand. The one `Sync` run since its notice landed (43281842399,
-  2026-11-12) carried none.
+  rerun by hand. None of the six `Sync` runs since its notice landed
+  (43281842399 on 2026-11-12, five from 2026-11-16 to 11-18) carried it.
 - **10b, remove the workaround:** once one passes, drop the step everywhere,
   with its exemption in `lint_workflows.sh` rule 6, and move the five `audit`
   jobs named above back to `block`. Item 2 follows.
@@ -197,8 +192,11 @@ decision). Later: items 8 and 13.
 - **Still runs:** 7m40s on sync pull request 153 (2026-11-02), where every other
   Rust and Docker job skipped.
 - **Verify first:** whether a skipped `CodeQL (rust)` holds a sync pull request's
-  merge. Needs a real pull request; nothing local shows it. None has opened since
-  2026-11-08 (pull request 160).
+  merge. Needs a real sync pull request that touches only shared CI files;
+  nothing local shows it. Pull requests 168, 169 and 173 (2026-11-16 to 11-18)
+  came since; 173 (`.gitignore`, `.gitattributes`, `.claude/rules/` and three
+  more) ran every Rust job, `CodeQL (rust)` 7m51s, so it does not answer. 168
+  and 169 not read.
 
 ### Safeguards to share
 
@@ -207,43 +205,23 @@ written for these repositories rather than found by the census. Each is a kind
 of file any repository may carry, so it may start with a single target
 ([README](../README.md), "Layout"). Every target is public, so none of these
 files names a person, a machine, a path outside the repository or another
-repository. Items 15 and 22 are on hold below; 17 to 21 are in the
-[CHANGELOG](CHANGELOG.md).
+repository. Items 15 and 22 are on hold below; 16 to 21 and item 14's scanner
+are in the [CHANGELOG](CHANGELOG.md).
 
-#### 14. `plan-scan` over committed plans (_batch_, M)
+#### 14. `plan-scan` in each target's lint job (_batch_, S)
 
-- **What:** say-hi (two plans in `docs/plans/`) and sharerr-rs (one) commit
-  their plans publicly. `plan-scan` is a bash scanner for data about a
-  developer, their machines and file systems, and for secrets: home and mount
-  paths, emails, IP and MAC addresses, `.local` and `.lan` hostnames, UUIDs,
-  cloud account IDs in ARNs, the scanning user's own login, name and hostname,
-  and gitleaks' default rules. With `--hook` it runs as a Claude Code
-  PostToolUse hook on each edit of a plan. Its private lists (names to deny,
-  words to allow) stay on the developer's machine and never enter `files/`.
-- **How:** `files/.claude/plan-scan` with its default `plan-scan.paths`
-  (`CLAUDE.md`, `README.md`, `docs/*.md`), and a step in each target's lint job
-  that runs it.
-- **Verify first:** `tools.txt` has no `ripgrep` row, and the scan needs `rg`
-  built with PCRE2. On a hosted runner the identity check reads the runner's
-  login (`runner`) and hostname, so check that it does not then flag the word
-  "runner" in a plan.
-
-#### 16. Shared agent rules under `.claude/rules/` (_batch_, S)
-
-- **What:** two rules, each with `paths:` frontmatter so it loads only beside
-  matching files:
-  - **A run owns its ports.** A script that starts a server or a database
-    probes its ports first, exits non-zero when the server fails to start,
-    checks that what answers is its own process, and stops everything it
-    started on exit (`trap ... EXIT INT TERM HUP`). For sharerr-rs's and
-    instadroid's compose stacks and test scripts.
-  - **A gate covers one commit.** A run a release decision rests on (a full
-    suite, a corpus run, a benchmark) covers the commit and settings it ran
-    on, and any later change un-gates the tree. For python-constricter's corpus
-    runs and sharerr-rs's integration suites.
-- **How:** `files/.claude/rules/<name>.md`, listed in `repos/_base.toml` or
-  per target. A Claude Code session cannot write `.claude/`, but the sync
-  App's pull request can.
+- **What:** `files/.claude/plan-scan` and an `rg` row in `tools.txt` reach every
+  target with the next sync ([CHANGELOG](CHANGELOG.md), 2026-11-20); nothing
+  runs the scanner yet. say-hi commits two plans in `docs/plans/`, and every
+  target receives agent rules under `.claude/rules/`, its default scope.
+- **How:** in each target's own lint job, `rg` (and `gitleaks` where the target
+  pins it) through `setup-tools`, then `.claude/plan-scan` with no arguments.
+  Set `PLAN_SCAN_DIR` to a directory whose `allow` file holds `runner`: on a
+  hosted runner the identity check reads the login `runner`, and a plan about
+  CI says the word.
+- **Not taken:** a default `plan-scan.paths` over `CLAUDE.md`, `README.md` and
+  `docs/*.md`, which fails every target on deliberate content (the CHANGELOG
+  has the counts). A target may list its own globs once those are clean.
 
 ## On hold
 

@@ -4,6 +4,57 @@ What changed in this repository and the files it ships, newest first. A
 [roadmap](ROADMAP.md) item moves here when it is done, with what it left in
 force; nothing checks this file.
 
+## 2026-11-20
+
+### `re2js` override dropped (_batch_)
+
+- markdownlint-cli2 0.24.0 → 0.24.1, which takes markdownlint 0.42.1; that
+  pins `re2js` 2.9.1 itself, so the override in `files/.github/package.json`
+  goes. `npm ls re2js` resolves 2.9.1 with no override.
+
+### Two more shared agent rules (_batch_)
+
+- `files/.claude/rules/runs-own-their-ports.md` loads with scripts, tests and
+  compose files: a script that starts a server probes its ports first, fails
+  when the server does not start, checks that what answers is its own process,
+  and stops everything it started. sharerr-rs and instadroid receive it.
+- `files/.claude/rules/gates-cover-one-commit.md` loads with scripts, tests,
+  `docs/RUNS.md` and `CHANGELOG.md`: a run a release decision rests on covers
+  the commit and settings it ran on, and a later change un-gates the tree.
+  python-constricter and sharerr-rs receive it.
+
+### `plan-scan` shipped (_batch_)
+
+- `files/.claude/plan-scan` goes to every target: a bash scanner of plans
+  (`docs/plans/`) and agent rules (`.claude/rules/`) for paths, addresses,
+  identifiers and names that describe a developer or their machines, and for
+  secrets through gitleaks. Its private lists stay on the developer's machine.
+  This copy is the scan's one source: `tests/plan_scan_test.sh` is its suite
+  (the bash 3.2 check runs where podman or docker does, outside CI), and
+  `scripts/check.sh` lints it with the `*.sh` files. `checks.yml`'s coverage
+  job installs `rg` and `gitleaks` for the suite. `files/.editorconfig`
+  indents its `case` branches (`[plan-scan]`), since copies kept byte for byte
+  elsewhere are formatted that way.
+- As a hook, an installed copy now defers to the project's own copy only when
+  the project's `.claude/settings.json` or `settings.local.json` runs
+  `.claude/plan-scan --hook`. A target carries the scan without running it as a
+  hook and needs no `plan-scan.sha256`, so an installed hook keeps scanning its
+  plans.
+- The scan turns errexit off itself: bashcov exports `SHELLOPTS`, which
+  carried the suite's `set -e` into it and ended it silently at the first
+  false test. ci-shared's `.gitleaks.toml` allows the suite's invented
+  `GH_TOKEN` value, by path and value, since `gitleaks git` scans the commit
+  that added it.
+- `tools.txt` gains `rg` 15.2.0 for every target, and the shared mise file the
+  same pin: the scanner needs PCRE2, which the musl release carries
+  (`rg --pcre2-version` is the row's verify).
+- **No default `plan-scan.paths`:** over every target's `CLAUDE.md`,
+  `README.md` and `docs/*.md`, the scan found 216 matches (say-hi 192), nearly all
+  deliberate (say-hi's documented `~/` paths, example addresses, and the shared
+  `CODE_OF_CONDUCT.md`'s contact email), so every target would fail. Plans and
+  rules held none.
+- **Left:** a step in each target's lint job that runs it (roadmap item 14).
+
 ## 2026-11-17
 
 ### picomatch's ReDoS accepted until 2027-02-17 (_batch_)

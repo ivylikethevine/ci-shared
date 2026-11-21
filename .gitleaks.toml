@@ -29,3 +29,10 @@ keywords = ["password", "pwd"]
 
 [[rules.allowlists]]
 regexes = ['''^(?:[$<{%*]|\.{3}|(?i:password|passwd|changeme|example|secret|test)$)''']
+
+# plan-scan's suite: a made-up token its secret-named value pattern must report
+[[allowlists]]
+description = "invented token in the plan-scan suite's fixture plan"
+condition = "AND"
+paths = ['''^tests/plan_scan_test\.sh$''']
+regexes = ['''abcdef123456''']

@@ -14,6 +14,7 @@ skip = [
 
 # paths from files/ beyond those, each at the path it has in this repository
 files = [
+  ".claude/rules/gates-cover-one-commit.md",
   ".claude/rules/git-fixtures.md",
 ]
 

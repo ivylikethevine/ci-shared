@@ -113,7 +113,8 @@ jobs:
 
       - uses: ./.github/actions/setup-tools
         with:
-          tools: shfmt yq
+          # rg for tests/plan_scan_test.sh, which needs its PCRE2
+          tools: shfmt yq rg gitleaks
 
       # bashcov is a rubygem, which no tools.txt kind fetches, so its pin is
       # this env, in CI_WORKFLOW_ROSTER (check_tool_versions.local.sh). ruby is
