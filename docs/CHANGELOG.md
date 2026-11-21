@@ -40,6 +40,11 @@ force; nothing checks this file.
   `.claude/plan-scan --hook`. A target carries the scan without running it as a
   hook and needs no `plan-scan.sha256`, so an installed hook keeps scanning its
   plans.
+- The scan turns errexit off itself: bashcov exports `SHELLOPTS`, which
+  carried the suite's `set -e` into it and ended it silently at the first
+  false test. ci-shared's `.gitleaks.toml` allows the suite's invented
+  `GH_TOKEN` value, by path and value, since `gitleaks git` scans the commit
+  that added it.
 - `tools.txt` gains `rg` 15.2.0 for every target, and the shared mise file the
   same pin: the scanner needs PCRE2, which the musl release carries
   (`rg --pcre2-version` is the row's verify).

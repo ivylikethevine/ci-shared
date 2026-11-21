@@ -46,6 +46,9 @@
 # folder holding it never match. Needs rg (with PCRE2) and jq; gitleaks is
 # skipped with a note where it is missing. Runs on bash 3.2.
 set -uo pipefail
+# a caller's errexit, inherited through an exported SHELLOPTS (bashcov exports
+# it), would end the scan silently at the first test that is false
+set +e
 unset RIPGREP_CONFIG_PATH
 
 data=${PLAN_SCAN_DIR:-$HOME/.local/share/plan-scan}
