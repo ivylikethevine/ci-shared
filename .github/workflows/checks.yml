@@ -122,7 +122,7 @@ jobs:
       # a Gemfile and lock for one gem would add nothing.
       - name: Install bashcov
         env:
-          BASHCOV_VERSION: "4.0.2"
+          BASHCOV_VERSION: "4.0.3"
         run: | # zizmor: ignore[adhoc-packages]
           set -euo pipefail
           gem install --user-install --no-document bashcov -v "$BASHCOV_VERSION"
