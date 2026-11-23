@@ -4,6 +4,17 @@ What changed in this repository and the files it ships, newest first. A
 [roadmap](ROADMAP.md) item moves here when it is done, with what it left in
 force; nothing checks this file.
 
+## 2026-11-23
+
+### `plan-scan` leaves a repository's own folders unnamed (_batch_)
+
+- The folder walk under each of `roots` blocked the name of every folder two
+  levels down, which is right under a folder of repositories and wrong for a
+  repository at the first level, whose `docs`, `src` and the like then counted
+  as names to block. It now skips the folders of one that holds a `.git`, at
+  the first level as it did at the second; the repository's own name is still
+  blocked. `tests/plan_scan_test.sh` has the case.
+
 ## 2026-11-20
 
 ### `re2js` override dropped (_batch_)

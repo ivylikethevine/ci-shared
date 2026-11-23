@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # files/.claude/plan-scan on a fixture repo: each category is found, allowed
-# values and a plan-allow line are not, the repo's own allow list excuses names
+# values and a plan-allow line are not, a repo directly under a root is named
+# and its own folders are not, the repo's own allow list excuses names
 # and no pattern, the hook blocks a plan, a rule, a rule draft and a file the
 # repo's .claude/plan-scan.paths lists and passes everything else, a full scan
 # covers the same set, --promote moves only a clean draft, a project copy the
@@ -90,6 +91,16 @@ test_passes_what_is_allowed() {
     App.tsx y.jsonl.
   t_run bash "$SCAN" "$clean"
   t_rc 0
+}
+
+test_a_repo_under_a_root_keeps_its_folders_out() {
+  fixture
+  mkdir -p "$T/roots/top-repo/.git" "$T/roots/top-repo/internals"
+  printf '%s\n' 'See top-repo and its internals folder.' >"$repo/docs/plans/top.md"
+  t_run bash "$SCAN" "$repo/docs/plans/top.md"
+  t_rc 1
+  t_out "top.md:1: folder name: top-repo"
+  t_no_out ": internals"
 }
 
 test_the_repo_allow_list_excuses_names_only() {
