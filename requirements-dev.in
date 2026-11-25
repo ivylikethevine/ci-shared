@@ -10,4 +10,4 @@ pip-audit==2.10.1
 # scripts/check.sh's REUSE check: every file licensed, every license's text present.
 reuse==6.3.0
 # scripts/apply_bumps.sh's locks, these two among them.
-pip-tools==7.6.2
+pip-tools==7.7.0
